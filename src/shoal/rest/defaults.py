@@ -1,0 +1,52 @@
+"""Shoal's own REST defaults: tunables and choices that are not Discord facts.
+
+Discord-documented rate limit constants live in `shoal.payloads.rate_limits`. Nothing here is defined
+anywhere else.
+"""
+
+from http import HTTPStatus
+from typing import Final
+
+from shoal._version import __version__
+from shoal.payloads.api import USER_AGENT_FORMAT
+
+BUCKET_PRUNE_THRESHOLD: Final = 1024
+"""Rate limit buckets kept before idle ones are pruned."""
+
+DEFAULT_USER_AGENT: Final = USER_AGENT_FORMAT.format(
+    url="https://github.com/shoal-py/shoal", version=__version__
+)
+"""The `User-Agent` Shoal sends, in the shape Discord requires.
+
+Discord: https://docs.discord.com/developers/reference#user-agent
+"""
+
+INVALID_REQUEST_SAFETY_MARGIN: Final = 500
+"""How far below Discord's invalid request limit the guard starts holding requests back."""
+
+MAX_RATE_LIMIT_WAIT: Final = 60.0
+"""The longest 429 wait, in seconds, a request sits through before `RateLimitedError` is raised."""
+
+MAX_RETRIES: Final = 3
+"""Retries for rate limits, idempotent requests that hit a 5xx, and network errors."""
+
+REQUEST_TIMEOUT: Final = 30.0
+"""Seconds allowed per HTTP request, including reading the body."""
+
+RETRYABLE_STATUSES: Final = frozenset(
+    {
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+        HTTPStatus.BAD_GATEWAY,
+        HTTPStatus.SERVICE_UNAVAILABLE,
+        HTTPStatus.GATEWAY_TIMEOUT,
+        524,
+    }
+)
+"""5xx statuses worth retrying for idempotent requests. 524 is Cloudflare's origin timeout."""
+
+RETRY_BACKOFF_CAP: Final = 30.0
+"""The longest backoff, in seconds, between retries of a failed request."""
+
+SEARCH_INDEX_RETRY_DELAY: Final = 1.0
+"""Seconds to wait before retrying a search when Discord says the index is not ready and gives
+no `retry_after`. Discord asks for "a short delay" in that case."""

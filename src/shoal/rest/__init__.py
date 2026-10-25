@@ -1,0 +1,61 @@
+"""Discord's HTTP API: a standalone client, typed routes and rate limiting.
+
+Usable without a gateway or cache, so bots, workers and dashboard backends share the same client.
+Discord-documented rate limit constants are exported from `shoal.payloads`; Shoal's own defaults live
+in `shoal.rest.defaults`.
+
+Discord: https://docs.discord.com/developers/reference#http-api
+"""
+
+from shoal.rest import defaults, endpoints
+from shoal.rest.client import QueryScalar, QueryValue, RestClient, Token, TokenType
+from shoal.rest.errors import (
+    BadRequestError,
+    ClientClosedError,
+    FieldError,
+    ForbiddenError,
+    HTTPError,
+    NotFoundError,
+    RateLimitedError,
+    SearchIndexNotReadyError,
+    ServerError,
+    TokenInvalidatedError,
+    UnauthorizedError,
+    flatten_errors,
+)
+from shoal.rest.ratelimit import InvalidRequestGuard, LocalRateLimiter, RateLimiter, RateLimitHeaders
+from shoal.rest.route import CompiledRoute, HTTPMethod, Route
+from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
+
+__all__ = [
+    "AiohttpTransport",
+    "BadRequestError",
+    "ClientClosedError",
+    "CompiledRoute",
+    "FieldError",
+    "ForbiddenError",
+    "HTTPError",
+    "HTTPMethod",
+    "HTTPResponse",
+    "HTTPTransport",
+    "InvalidRequestGuard",
+    "LocalRateLimiter",
+    "NotFoundError",
+    "QueryScalar",
+    "QueryValue",
+    "RateLimitHeaders",
+    "RateLimitedError",
+    "RateLimiter",
+    "RestClient",
+    "Route",
+    "SearchIndexNotReadyError",
+    "ServerError",
+    "Token",
+    "TokenInvalidatedError",
+    "TokenType",
+    "TransportError",
+    "UnauthorizedError",
+    "defaults",
+    "endpoints",
+    "flatten_errors",
+]

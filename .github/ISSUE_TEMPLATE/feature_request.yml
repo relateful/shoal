@@ -1,0 +1,22 @@
+name: Feature request
+description: Something Shoal should support
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do and what gets in the way.
+    validations:
+      required: true
+  - type: input
+    id: discord-docs
+    attributes:
+      label: Discord docs link
+      description: If this is a Discord API feature, the docs.discord.com/developers section that documents it.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: How you would like to use it.
+      render: python

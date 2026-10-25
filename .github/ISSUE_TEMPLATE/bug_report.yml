@@ -1,0 +1,34 @@
+name: Bug report
+description: Shoal does something wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including the full traceback or log lines.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: Link the Discord docs section that describes the expected behaviour, if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code that shows the problem. Remove your token.
+      render: python
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Shoal version, Python version and operating system.
+      placeholder: shoal 0.1.0, Python 3.12.7, Ubuntu 24.04
+    validations:
+      required: true

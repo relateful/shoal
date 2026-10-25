@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Format, lint and conventions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uv sync --locked
+      - name: Formatting
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check .
+      - name: Constant blocks are sorted
+        run: uv run python scripts/sort_constants.py --check
+      - name: Payload exports are generated
+        run: uv run python scripts/generate_exports.py --check
+      - name: Layer contracts
+        run: uv run lint-imports
+
+  types:
+    name: Type checking (pyright and mypy, strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uv sync --locked
+      - name: pyright
+        run: uv run pyright
+      - name: mypy
+        run: uv run mypy
+
+  test:
+    name: Tests (Python ${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - name: pytest with coverage
+        run: uv run pytest --cov --cov-report=term-missing:skip-covered --cov-report=xml
+      - uses: actions/upload-artifact@v7
+        if: matrix.python == '3.12' && matrix.os == 'ubuntu-latest'
+        with:
+          name: coverage
+          path: coverage.xml
+
+  discord-docs:
+    name: Links and routes match the Discord docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uv sync --locked
+      - name: Fetch the Discord docs source
+        run: git clone --depth 1 https://github.com/discord/discord-api-docs ../discord-api-docs
+      - name: Check every docs link and route
+        run: uv run python scripts/check_docs.py --docs-repo ../discord-api-docs
+
+  docs-site:
+    name: Documentation site builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uv sync --locked --group docs
+      - name: mkdocs build --strict
+        run: uv run mkdocs build --strict

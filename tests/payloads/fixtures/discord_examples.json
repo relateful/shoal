@@ -1,0 +1,256 @@
+{
+  "user": {
+    "id": "80351110224678912",
+    "username": "Nelly",
+    "global_name": null,
+    "discriminator": "1337",
+    "avatar": "8342729096ea3675442027381ff50dfe",
+    "verified": true,
+    "email": "nelly@discord.com",
+    "flags": 64,
+    "banner": "06c16474723fe537c283b8efa61a30c8",
+    "accent_color": 16711680,
+    "premium_type": 0,
+    "public_flags": 64,
+    "avatar_decoration_data": {
+      "sku_id": "1144058844004233369",
+      "asset": "a_fed43ab12698df65902ba06727e20c0e"
+    },
+    "collectibles": {
+      "nameplate": {
+        "sku_id": "2247558840304243311",
+        "asset": "nameplates/nameplates/twilight/",
+        "label": "",
+        "palette": "cobalt"
+      }
+    },
+    "primary_guild": {
+      "identity_guild_id": "1234647491267808778",
+      "identity_enabled": true,
+      "tag": "DISC",
+      "badge": "7d1734ae5a615e82bc7a4033b98fade8"
+    }
+  },
+  "guild": {
+    "id": "197038439483310086",
+    "name": "Discord Testers",
+    "icon": "f64c482b807da4f539cff778d174971c",
+    "description": "The official place to report Discord Bugs!",
+    "splash": null,
+    "discovery_splash": null,
+    "features": [
+      "ANIMATED_ICON",
+      "VERIFIED",
+      "NEWS",
+      "VANITY_URL",
+      "DISCOVERABLE",
+      "MORE_EMOJI",
+      "INVITE_SPLASH",
+      "BANNER",
+      "COMMUNITY"
+    ],
+    "emojis": [],
+    "banner": "9b6439a7de04f1d26af92f84ac9e1e4a",
+    "owner_id": "73193882359173120",
+    "application_id": null,
+    "region": null,
+    "afk_channel_id": null,
+    "afk_timeout": 300,
+    "system_channel_id": null,
+    "widget_enabled": true,
+    "widget_channel_id": null,
+    "verification_level": 3,
+    "roles": [],
+    "default_message_notifications": 1,
+    "mfa_level": 1,
+    "explicit_content_filter": 2,
+    "max_presences": 40000,
+    "max_members": 250000,
+    "vanity_url_code": "discord-testers",
+    "premium_tier": 3,
+    "premium_subscription_count": 33,
+    "system_channel_flags": 0,
+    "preferred_locale": "en-US",
+    "rules_channel_id": "441688182833020939",
+    "public_updates_channel_id": "281283303326089216",
+    "safety_alerts_channel_id": "281283303326089216"
+  },
+  "guild_member": {
+    "user": {},
+    "nick": "NOT API SUPPORT",
+    "avatar": null,
+    "banner": null,
+    "roles": [],
+    "joined_at": "2015-04-26T06:26:56.936000+00:00",
+    "deaf": false,
+    "mute": false
+  },
+  "unavailable_guild": {
+    "id": "41771983423143937",
+    "unavailable": true
+  },
+  "text_channel": {
+    "id": "41771983423143937",
+    "guild_id": "41771983423143937",
+    "name": "general",
+    "type": 0,
+    "position": 6,
+    "permission_overwrites": [],
+    "rate_limit_per_user": 2,
+    "nsfw": true,
+    "topic": "24/7 chat about how to gank Mike #2",
+    "last_message_id": "155117677105512449",
+    "parent_id": "399942396007890945",
+    "default_auto_archive_duration": 60
+  },
+  "thread_channel": {
+    "id": "41771983423143937",
+    "guild_id": "41771983423143937",
+    "parent_id": "41771983423143937",
+    "owner_id": "41771983423143937",
+    "name": "don't buy dota-2",
+    "type": 11,
+    "last_message_id": "155117677105512449",
+    "message_count": 1,
+    "member_count": 5,
+    "rate_limit_per_user": 2,
+    "thread_metadata": {
+      "archived": false,
+      "auto_archive_duration": 1440,
+      "archive_timestamp": "2021-04-12T23:40:39.855793+00:00",
+      "locked": false
+    },
+    "total_message_sent": 1
+  },
+  "message": {
+    "reactions": [
+      {
+        "count": 1,
+        "count_details": {
+          "burst": 0,
+          "normal": 1
+        },
+        "me": false,
+        "me_burst": false,
+        "emoji": {
+          "id": null,
+          "name": "🔥"
+        },
+        "burst_colors": []
+      }
+    ],
+    "attachments": [],
+    "tts": false,
+    "embeds": [],
+    "timestamp": "2017-07-11T17:27:07.299000+00:00",
+    "mention_everyone": false,
+    "id": "334385199974967042",
+    "pinned": false,
+    "edited_timestamp": null,
+    "author": {
+      "username": "Mason",
+      "discriminator": "9999",
+      "id": "53908099506183680",
+      "avatar": "a_bab14f271d565501444b2ca3be944b25"
+    },
+    "mention_roles": [],
+    "content": "Supa Hot",
+    "channel_id": "290926798999357250",
+    "mentions": [],
+    "type": 0
+  },
+  "crossposted_message": {
+    "reactions": [
+      {
+        "count": 1,
+        "count_details": {
+          "burst": 0,
+          "normal": 1
+        },
+        "me": false,
+        "me_burst": false,
+        "emoji": {
+          "id": null,
+          "name": "🔥"
+        },
+        "burst_colors": []
+      }
+    ],
+    "attachments": [],
+    "tts": false,
+    "embeds": [],
+    "timestamp": "2017-07-11T17:27:07.299000+00:00",
+    "mention_everyone": false,
+    "id": "334385199974967042",
+    "pinned": false,
+    "edited_timestamp": null,
+    "author": {
+      "username": "Mason",
+      "discriminator": "9999",
+      "id": "53908099506183680",
+      "avatar": "a_bab14f271d565501444b2ca3be944b25"
+    },
+    "mention_roles": [],
+    "mention_channels": [
+      {
+        "id": "278325129692446722",
+        "guild_id": "278325129692446720",
+        "name": "big-news",
+        "type": 5
+      }
+    ],
+    "content": "Big news! In this <#278325129692446722> channel!",
+    "channel_id": "290926798999357250",
+    "mentions": [],
+    "type": 0,
+    "flags": 2,
+    "message_reference": {
+      "type": 0,
+      "channel_id": "278325129692446722",
+      "guild_id": "278325129692446720",
+      "message_id": "306588351130107906"
+    }
+  },
+  "emoji": {
+    "id": "41771983429993937",
+    "name": "LUL",
+    "roles": [
+      "41771983429993000",
+      "41771983429993111"
+    ],
+    "user": {
+      "username": "Luigi",
+      "discriminator": "0002",
+      "id": "96008815106887111",
+      "avatar": "5500909a3274e1812beb4e8de6631111",
+      "public_flags": 131328
+    },
+    "require_colons": true,
+    "managed": false,
+    "animated": false
+  },
+  "role": {
+    "id": "41771983423143936",
+    "name": "WE DEM BOYZZ!!!!!!",
+    "color": 3447003,
+    "colors": {
+      "primary_color": 3447003,
+      "secondary_color": null,
+      "tertiary_color": null
+    },
+    "hoist": true,
+    "icon": "cf3ced8600b777c9486c6d8d84fb4327",
+    "unicode_emoji": null,
+    "position": 1,
+    "permissions": "66321471",
+    "managed": false,
+    "mentionable": false,
+    "flags": 0
+  },
+  "hello": {
+    "op": 10,
+    "d": {
+      "heartbeat_interval": 45000
+    }
+  }
+}

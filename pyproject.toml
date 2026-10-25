@@ -1,0 +1,190 @@
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shoal"
+dynamic = ["version"]
+description = "A fully typed Discord API library for Python, built to scale from one guild to millions."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+authors = [{ name = "Shoal contributors" }]
+keywords = ["discord", "discord-api", "bot", "asyncio", "gateway", "sharding"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Communications :: Chat",
+    "Topic :: Internet",
+    "Typing :: Typed",
+]
+dependencies = [
+    "aiohttp>=3.13",
+    "msgspec>=0.20",
+]
+
+[project.optional-dependencies]
+prometheus = ["prometheus-client>=0.21"]
+zstd = ["zstandard>=0.23; python_version < '3.14'"]
+
+[project.urls]
+Repository = "https://github.com/shoal-py/shoal"
+Issues = "https://github.com/shoal-py/shoal/issues"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.170",
+    "import-linter>=2.15",
+    "mypy>=2.4",
+    "prometheus-client>=0.26",
+    "pyright>=1.1.414",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4",
+    "pytest-cov>=7.1",
+    "pytest-timeout>=2.4",
+    "ruff>=0.17",
+    "zstandard>=0.25; python_version < '3.14'",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-gen-files>=0.6",
+    "mkdocs-literate-nav>=0.6.3",
+    "mkdocs-material>=9.8",
+    "mkdocs-section-index>=0.3.12",
+    "mkdocstrings-python>=2.0.10",
+    "mkdocstrings>=1.0.8",
+]
+
+[tool.hatch.version]
+path = "src/shoal/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shoal"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/shoal", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "A", "ANN", "ARG", "ASYNC", "B", "BLE", "C4", "D", "DTZ", "E", "EM", "ERA", "F", "FBT", "FLY",
+    "FURB", "G", "I", "ICN", "ISC", "LOG", "N", "PERF", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "Q",
+    "RET", "RSE", "RUF", "S", "SIM", "SLF", "T10", "T20", "TC", "TID", "TRY", "UP", "W",
+]
+ignore = [
+    "D105",
+    "D107",
+    "ISC001",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "TRY003",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.Any".msg = "Any is banned. Use object, a Protocol or a precise type; see CONTRIBUTING.md (Typing)."
+"json".msg = "Use shoal.core.codec (msgspec) instead of the json module."
+
+[tool.ruff.lint.isort]
+known-first-party = ["shoal"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101", "PLR2004", "SLF001", "FBT", "S105", "S106", "S311"]
+"scripts/**" = ["T201", "S310"]
+
+[tool.pyright]
+include = ["src", "tests", "scripts"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = "error"
+reportImplicitOverride = "error"
+reportImportCycles = "error"
+reportPropertyTypeMismatch = "error"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportUnusedCallResult = "none"
+reportUnreachable = "error"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests", "scripts"]
+mypy_path = "src"
+warn_unreachable = true
+enable_error_code = [
+    "explicit-override",
+    "ignore-without-code",
+    "possibly-undefined",
+    "redundant-expr",
+    "truthy-bool",
+    "unused-awaitable",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["*.py"]
+pythonpath = ["."]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 60
+filterwarnings = ["error"]
+markers = ["network: talks to the real Discord API; never run in CI"]
+
+[tool.coverage.run]
+source = ["shoal"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "@overload",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.importlinter]
+root_package = "shoal"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics)"
+type = "layers"
+layers = [
+    "shoal.rest | shoal.gateway | shoal.cache | shoal.ipc | shoal.metrics | shoal.diagnostics",
+    "shoal.payloads",
+    "shoal.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "Core has no I/O dependencies"
+type = "forbidden"
+source_modules = ["shoal.core"]
+forbidden_modules = ["aiohttp"]
+allow_indirect_imports = false
