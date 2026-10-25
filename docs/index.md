@@ -14,42 +14,123 @@ secondary_label: Browse the API
 secondary_link: reference/shoal/index.md
 ---
 
-<section class="home-section home-status" markdown>
+<div class="home-status" markdown>
 
-Shoal is **pre-alpha**. The foundation is complete and tested: typed payloads, the REST client, the
-gateway, the cache, IPC, metrics and diagnostics. Models with methods, commands and components come
-next; the [roadmap](roadmap.md) has the order.
+<p class="status-tag">Pre-alpha</p>
 
-</section>
-
-<section class="home-section" markdown>
-
-## What changes when you switch from discord.py
-
-<div class="compare" markdown>
-
-| When | discord.py | Shoal |
-| --- | --- | --- |
-| 512 shards start | One every 5 seconds, about 43 minutes | By `max_concurrency` bucket, about 3 minutes with 16 |
-| You deploy | Every guild is sent again, the cache starts empty | Sessions resume, the cache comes back from a snapshot |
-| The bot outgrows one process | Bring your own IPC | Gateway processes stream events to worker processes |
-| Your code blocks the loop | A stack trace after 10 seconds of missed heartbeats | The blocking line, within a quarter second |
-| Events arrive late | Nothing tells you | The delay is measured and the cause suggested |
-| A token is revoked | Requests keep failing and count towards an IP ban | Requests stop after the first 401 |
-| Discord adds an enum value | An `unknown_` stand-in object | A real member of the enum |
-| You want a dashboard | The undocumented `Client.http` | A public `RestClient` with OAuth2 bearer tokens |
+<p markdown="span">The foundation is complete and tested: typed payloads, the REST client, the gateway, the cache, IPC, metrics and diagnostics. Models with methods, commands and components come next; the [roadmap](roadmap.md) has the order.</p>
 
 </div>
 
+<section class="home-section" markdown>
+
+<div class="section-intro" markdown>
+
+## What changes when you switch from discord.py
+
+The same Python and the same asyncio. The difference shows when the bot gets big, when something
+goes wrong, and in the types you write against.
+
 The [migration guide](guide/migrating-from-discord-py.md) maps the names you already know.
+
+</div>
+
+<div class="section-body switch" markdown>
+
+<div class="switch-head" aria-hidden="true"><span></span><span>discord.py</span><span>Shoal</span></div>
+
+<div class="switch-group" markdown>
+
+<h3 class="switch-title">As the bot grows</h3>
+
+<div class="switch-row" markdown>
+<p class="switch-when">512 shards start up</p>
+<p class="switch-old" markdown="span">One shard every 5 seconds, whatever Discord allows: about 43 minutes.</p>
+<p class="switch-new" markdown="span">Every `max_concurrency` bucket at once. With 16 buckets, under 3 minutes.</p>
+<div class="switch-race" role="img" aria-label="Start-up time for 512 shards: 42 minutes 40 seconds with discord.py, 2 minutes 40 seconds with Shoal and 16 buckets.">
+<span class="race race-old" style="--share: 100%"><span>42 min 40 s</span></span>
+<span class="race race-new" style="--share: 6.25%"><span>2 min 40 s</span></span>
+</div>
+</div>
+
+<div class="switch-row" markdown>
+<p class="switch-when">You deploy a new version</p>
+<p class="switch-old" markdown="span">Every shard identifies again, every guild is sent again, and the cache starts empty.</p>
+<p class="switch-new" markdown="span">Shards resume where they stopped, and the cache comes back from a snapshot.</p>
+</div>
+
+<div class="switch-row" markdown>
+<p class="switch-when">One process is not enough</p>
+<p class="switch-old" markdown="span">No built-in way to split the gateway from your code.</p>
+<p class="switch-new" markdown="span">Gateway processes stream events to worker processes over authenticated TCP.</p>
+</div>
+
+</div>
+
+<div class="switch-group" markdown>
+
+<h3 class="switch-title">When something goes wrong</h3>
+
+<div class="switch-row" markdown>
+<p class="switch-when">Your code blocks the event loop</p>
+<p class="switch-old" markdown="span">A stack trace, once the heartbeat has been stuck for 10 seconds.</p>
+<p class="switch-new" markdown="span">The blocking line of your code, within a quarter of a second.</p>
+</div>
+
+<div class="switch-row" markdown>
+<p class="switch-when">Messages arrive 15 s late on a 50 ms ping</p>
+<p class="switch-old" markdown="span">Nothing tells you.</p>
+<p class="switch-new" markdown="span">The delay is measured on every message, and the likely cause is logged.</p>
+</div>
+
+<div class="switch-row" markdown>
+<p class="switch-when">The bot token is revoked</p>
+<p class="switch-old" markdown="span">Every request keeps failing, and each failure counts towards a Cloudflare IP ban.</p>
+<p class="switch-new" markdown="span">Requests stop after the first 401.</p>
+</div>
+
+</div>
+
+<div class="switch-group" markdown>
+
+<h3 class="switch-title">While you write code</h3>
+
+<div class="switch-row" markdown>
+<p class="switch-when">Discord adds a new enum value</p>
+<p class="switch-old" markdown="span">You get an `unknown_` stand-in that is not a member of the enum.</p>
+<p class="switch-new" markdown="span">You get a real member of the enum, with its value kept.</p>
+</div>
+
+<div class="switch-row" markdown>
+<p class="switch-when" markdown="span">A field is missing, or `null`</p>
+<p class="switch-old" markdown="span">Both become `None`.</p>
+<p class="switch-new" markdown="span">`UNSET` and `None` stay apart, so an update can tell "leave it" from "clear it".</p>
+</div>
+
+<div class="switch-row" markdown>
+<p class="switch-when">You build a dashboard</p>
+<p class="switch-old" markdown="span">You reach for the undocumented `Client.http`.</p>
+<p class="switch-new" markdown="span">You use `RestClient`: public, standalone, with OAuth2 bearer tokens.</p>
+</div>
+
+</div>
+
+</div>
 
 </section>
 
 <section class="home-section home-code" markdown>
 
+<div class="section-intro" markdown>
+
 ## The same library at both ends
 
-<div class="split" markdown>
+A script that sends one message and a bot in thousands of guilds use the same client, the same
+payloads and the same errors.
+
+</div>
+
+<div class="section-body split" markdown>
 
 <div markdown>
 
@@ -107,12 +188,18 @@ await manager.run()
 
 <section class="home-section home-layers" markdown>
 
+<div class="section-intro" markdown>
+
 ## Layers you can run apart
 
-Everything depends on the two layers below it and nothing beside it, so each upper layer can live in
-its own process.
+Each layer depends only on the layers below it, never on one beside it, so every upper layer can
+live in its own process.
 
-<div class="layers" markdown>
+The [architecture guide](guide/architecture.md) explains what each layer owns.
+
+</div>
+
+<div class="section-body layers" markdown>
 
 <div class="layer-row layer-top" markdown>
 
@@ -133,7 +220,5 @@ its own process.
 </div>
 
 </div>
-
-The [architecture guide](guide/architecture.md) explains what each layer owns.
 
 </section>

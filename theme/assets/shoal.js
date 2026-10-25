@@ -21,6 +21,10 @@
   document.querySelectorAll("[data-theme-toggle]").forEach(function (button) {
     button.addEventListener("click", function () {
       var next = isDark() ? "light" : "dark";
+      if (!reducedMotion.matches) {
+        root.classList.add("theme-switching");
+        setTimeout(function () { root.classList.remove("theme-switching"); }, 350);
+      }
       root.dataset.theme = next;
       store("shoal-theme", next);
       document.dispatchEvent(new CustomEvent("shoal:theme"));
@@ -61,6 +65,31 @@
     button.addEventListener("click", function () { copy(code.innerText.replace(/\n$/, ""), button, "Copy"); });
     block.appendChild(button);
   });
+
+  // ---------- Tables ----------
+
+  document.querySelectorAll(".prose table").forEach(function (table) {
+    if (table.parentElement.classList.contains("table-scroll")) return;
+    var wrapper = document.createElement("div");
+    wrapper.className = "table-scroll";
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  });
+
+  // ---------- Start-up race ----------
+  // The bars grow once, when they first come into view.
+
+  var races = document.querySelectorAll(".switch-race");
+  if (races.length && "IntersectionObserver" in window) {
+    var raceObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        raceObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.6 });
+    races.forEach(function (race) { raceObserver.observe(race); });
+  }
 
   // ---------- Discord links ----------
   // Every documented Discord type ends its docstring with "Discord: <link>"; show it as a link to
@@ -264,7 +293,9 @@
     var colour = "";
     var running = false;
     var onScreen = true;
-    var frame = 0;
+    var clock = 0;
+    var last = null;
+    var faint = false;
 
     function readColour() {
       colour = getComputedStyle(root).getPropertyValue("--fish").trim();
@@ -278,7 +309,9 @@
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      var wanted = Math.round(Math.min(120, Math.max(40, (width * height) / 9000)));
+      // Fewer, fainter fish on narrow screens, where they share the space with the text.
+      faint = width < 900;
+      var wanted = Math.round(Math.min(120, Math.max(faint ? 28 : 40, (width * height) / (faint ? 14000 : 9000))));
       while (fish.length < wanted) fish.push(spawn());
       fish.length = wanted;
     }
@@ -295,7 +328,9 @@
       };
     }
 
-    function step() {
+    function step(scale) {
+      // `scale` is elapsed time in 60 Hz frames: forces and movement are applied in proportion.
+      scale = scale || 1;
       // Beside the headline on wide screens; below the text on narrow ones, so it stays readable.
       var wide = width > 900;
       var homeX = wide ? width * 0.72 : width * 0.6;
@@ -314,22 +349,25 @@
           }
         }
         if (near) {
-          a.vx += ((cx / near - a.x) * 0.0022) + ((ax / near - a.vx) * 0.06);
-          a.vy += ((cy / near - a.y) * 0.0022) + ((ay / near - a.vy) * 0.06);
+          a.vx += (((cx / near - a.x) * 0.0022) + ((ax / near - a.vx) * 0.06)) * scale;
+          a.vy += (((cy / near - a.y) * 0.0022) + ((ay / near - a.vy) * 0.06)) * scale;
         }
-        a.vx += sx * 1.4 + (homeX - a.x) * 0.00008;
-        a.vy += sy * 1.4 + (homeY - a.y) * 0.00012;
+        a.vx += (sx * 1.4 + (homeX - a.x) * 0.00008) * scale;
+        a.vy += (sy * 1.4 + (homeY - a.y) * 0.00012) * scale;
 
         var px = a.x - pointer.x, py = a.y - pointer.y;
         var p2 = px * px + py * py;
-        if (p2 < 14400) { a.vx += (px / Math.sqrt(p2 + 1)) * 0.35; a.vy += (py / Math.sqrt(p2 + 1)) * 0.35; }
+        if (p2 < 14400) {
+          a.vx += (px / Math.sqrt(p2 + 1)) * 0.35 * scale;
+          a.vy += (py / Math.sqrt(p2 + 1)) * 0.35 * scale;
+        }
 
         var speed = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
         var max = 2.1 * a.depth + 0.5, min = 0.7;
         if (speed > max) { a.vx *= max / speed; a.vy *= max / speed; }
         else if (speed < min) { a.vx *= min / (speed || 1); a.vy *= min / (speed || 1); }
 
-        a.x += a.vx; a.y += a.vy;
+        a.x += a.vx * scale; a.y += a.vy * scale;
         if (a.x < -20) a.x = width + 20; else if (a.x > width + 20) a.x = -20;
         if (a.y < -20) a.y = height + 20; else if (a.y > height + 20) a.y = -20;
       }
@@ -340,11 +378,12 @@
       for (var i = 0; i < fish.length; i++) {
         var f = fish[i];
         var angle = Math.atan2(f.vy, f.vx);
-        var tail = Math.sin(frame * 0.25 + i) * 0.35;
+        var tail = Math.sin(clock * 0.015 + i) * 0.35;
         context.save();
         context.translate(f.x, f.y);
         context.rotate(angle);
-        context.fillStyle = "rgba(" + colour + "," + (0.14 + f.depth * 0.3).toFixed(3) + ")";
+        var alpha = (0.14 + f.depth * 0.3) * (faint ? 0.55 : 1);
+        context.fillStyle = "rgba(" + colour + "," + alpha.toFixed(3) + ")";
         var s = f.size * (0.55 + f.depth * 0.45);
         context.beginPath();
         context.moveTo(s, 0);
@@ -359,10 +398,13 @@
       }
     }
 
-    function loop() {
+    function loop(now) {
       if (!running) return;
-      frame++;
-      step();
+      // Clamp long gaps (a background tab, a slow frame) so the school never jumps.
+      var elapsed = last === null ? 16.667 : Math.min(now - last, 50);
+      last = now;
+      clock += elapsed;
+      step(elapsed / 16.667);
       draw();
       requestAnimationFrame(loop);
     }
@@ -370,6 +412,7 @@
     function play() {
       if (running || reducedMotion.matches || !onScreen || document.hidden) return;
       running = true;
+      last = null;
       requestAnimationFrame(loop);
     }
 

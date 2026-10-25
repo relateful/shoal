@@ -30,12 +30,14 @@
       {{ ns.section.title if ns.section else page.title }}
     </button>
     <div class="doc-nav-body" data-nav-body>
-      {%- if ns.section %}
-      <p class="doc-nav-title">{{ ns.section.title }}</p>
-      {{ nav_tree(ns.section.children, 0) }}
-      {%- else %}
-      {{ nav_tree(nav, 0) }}
-      {%- endif %}
+      <div class="doc-nav-inner">
+        {%- if ns.section %}
+        <p class="doc-nav-title">{{ ns.section.title }}</p>
+        {{ nav_tree(ns.section.children, 0) }}
+        {%- else %}
+        {{ nav_tree(nav, 0) }}
+        {%- endif %}
+      </div>
     </div>
   </aside>
 
