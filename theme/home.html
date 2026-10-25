@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block body_class %}page-home{% endblock %}
+
+{% block main %}
+{%- set meta = page.meta %}
+<main id="content">
+  <section class="hero" aria-labelledby="hero-title">
+    <canvas class="hero-school" data-school aria-hidden="true"></canvas>
+    <div class="hero-text">
+      <h1 id="hero-title">{{ meta.hero_title }}</h1>
+      <p class="hero-lead">{{ meta.hero_lead }}</p>
+      <div class="hero-install">
+        <code data-copy-source>pip install shoal</code>
+        <button type="button" data-copy aria-label="Copy the install command">Copy</button>
+      </div>
+      <p class="hero-actions">
+        <a class="button" href="{{ meta.primary_link | url }}">{{ meta.primary_label }}</a>
+        <a class="button button-quiet" href="{{ meta.secondary_link | url }}">{{ meta.secondary_label }}</a>
+      </p>
+    </div>
+    <p class="hero-caption">{{ meta.hero_caption }}</p>
+  </section>
+
+  <div class="home prose">
+    {{ page.content }}
+  </div>
+</main>
+{% endblock %}

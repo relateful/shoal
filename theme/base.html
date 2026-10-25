@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page and page.is_homepage %}{{ config.site_name }}: {{ config.site_description }}{% elif page and page.title %}{{ page.title | striptags }} · {{ config.site_name }}{% else %}{{ config.site_name }}{% endif %}</title>
+  <meta name="description" content="{{ (page.meta.description if page and page.meta and page.meta.description else config.site_description) }}">
+  {% if page and page.canonical_url %}<link rel="canonical" href="{{ page.canonical_url }}">{% endif %}
+  <link rel="icon" href="{{ 'assets/favicon.svg' | url }}" type="image/svg+xml">
+  <script>
+    // Applied before first paint, so a saved theme never flashes the other one.
+    (function () {
+      try {
+        var saved = localStorage.getItem("shoal-theme");
+        if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+      } catch (error) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&display=swap">
+  <link rel="stylesheet" href="{{ 'assets/shoal.css' | url }}?v={{ build_date_utc.strftime('%Y%m%d%H%M%S') }}">
+  {%- for path in config.extra_css %}
+  <link rel="stylesheet" href="{{ path | url }}">
+  {%- endfor %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="bar">
+    <a class="wordmark" href="{{ nav.homepage.url | url }}" aria-label="Shoal home">
+      <svg class="wordmark-fish" viewBox="0 0 32 16" aria-hidden="true"><path d="M2 8c5-6 13-7 20-2l8-5-2 7 2 7-8-5C15 15 7 14 2 8z"/></svg>
+      <span>shoal</span>
+    </a>
+    <nav class="bar-links" aria-label="Sections">
+      {%- for item in nav %}{% if not item.is_homepage %}
+      {%- set target = item if item.is_page else (item.children | first) %}
+      {%- if item.is_section and item.children[0].is_section %}{% set target = item.children[0].children | first %}{% endif %}
+      <a href="{{ target.url | url }}"{% if item.active %} aria-current="true"{% endif %}>{{ item.title }}</a>
+      {%- endif %}{% endfor %}
+    </nav>
+    <div class="bar-tools">
+      <button class="search-open" type="button" data-search-open aria-label="Search the docs">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l5 5"/></svg>
+        <span>Search</span><kbd>/</kbd>
+      </button>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch between light and dark">
+        <svg class="icon-sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4"/><path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.6 3.6l1.4 1.4M15 15l1.4 1.4M3.6 16.4L5 15M15 5l1.4-1.4"/></svg>
+        <svg class="icon-moon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 12.5A7 7 0 017.5 4a7 7 0 108.5 8.5z"/></svg>
+      </button>
+      {%- if config.repo_url %}
+      <a class="repo" href="{{ config.repo_url }}" aria-label="Source on GitHub">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 00-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 014 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 008 0z"/></svg>
+      </a>
+      {%- endif %}
+    </div>
+  </header>
+
+  {% block main %}{% endblock %}
+
+  <footer class="foot">
+    <p>Shoal is MIT licensed. Discord is a trademark of Discord Inc.; Shoal is not affiliated with it.</p>
+    {%- if config.repo_url %}<p><a href="{{ config.repo_url }}">Source</a><a href="{{ config.repo_url }}/blob/main/CHANGELOG.md">Changelog</a></p>{% endif %}
+  </footer>
+
+  <div class="search" data-search hidden>
+    <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search the docs">
+      <label class="search-field">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l5 5"/></svg>
+        <span class="visually-hidden">Search</span>
+        <input type="search" placeholder="Search guides and the API reference" autocomplete="off" spellcheck="false" data-search-input>
+      </label>
+      <ol class="search-results" data-search-results></ol>
+      <p class="search-empty" data-search-empty hidden>Nothing matches. Try a class name such as <code>RestClient</code>, or a topic such as <code>resume</code>.</p>
+    </div>
+  </div>
+
+  <script>window.SHOAL_BASE = "{{ base_url }}";</script>
+  <script src="{{ 'assets/shoal.js' | url }}?v={{ build_date_utc.strftime('%Y%m%d%H%M%S') }}" defer></script>
+  {%- for script in config.extra_javascript %}
+  {#- The search plugin's own UI targets MkDocs' built-in themes; Shoal only uses its index. #}
+  {%- if not (script | string).startswith("search/") %}
+  {{ script | script_tag }}
+  {%- endif %}
+  {%- endfor %}
+</body>
+</html>

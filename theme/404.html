@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block body_class %}page-missing{% endblock %}
+
+{% block main %}
+<main id="content" class="missing">
+  <h1>This page swam off</h1>
+  <p>Nothing lives at this address. It may have moved when the docs were reorganised.</p>
+  <p><a class="button" href="{{ nav.homepage.url | url }}">Go to the home page</a> <button class="button button-quiet" type="button" data-search-open>Search the docs</button></p>
+</main>
+{% endblock %}

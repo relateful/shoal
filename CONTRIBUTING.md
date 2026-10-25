@@ -41,7 +41,8 @@ src/shoal/
   diagnostics/   event loop health
 tests/           mirrors src/shoal/: tests/rest/route.py tests src/shoal/rest/route.py
 scripts/         maintenance scripts (docs checker, export generator, constant sorter)
-docs/            guides; the API reference is generated from docstrings
+docs/            guides and the home page; the API reference is generated from docstrings
+theme/           the docs site's own theme: templates, styles and scripts, no third-party theme
 ```
 
 `core` depends on nothing but the standard library and msgspec. `payloads` depends on `core`. The
