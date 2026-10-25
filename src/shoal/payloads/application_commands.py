@@ -8,10 +8,9 @@ from msgspec import UNSET, UnsetType
 from shoal.core.enums import DiscordIntEnum
 from shoal.core.snowflake import Snowflake
 from shoal.payloads.api import Localizations
-from shoal.payloads.application import ApplicationIntegrationType
+from shoal.payloads.application import ApplicationIntegrationType, InteractionContextType
 from shoal.payloads.base import Payload
 from shoal.payloads.channel import ChannelType
-from shoal.payloads.interactions import InteractionContextType
 from shoal.payloads.permissions import Permissions
 
 

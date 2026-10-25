@@ -85,7 +85,7 @@ class HTTPError(ShoalError):
     ) -> None:
         """Create the error from the parts of a failed response."""
         detail = f" (code {int(code)})" if code is not None else ""
-        super().__init__(f"{route.method} {route.path} -> {status}{detail}: {message}")
+        super().__init__(f"{route.method} {route.display} -> {status}{detail}: {message}")
         self.route: CompiledRoute = route
         self.status: int = status
         self.code: JSONErrorCode | None = code

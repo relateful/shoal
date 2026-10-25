@@ -247,3 +247,25 @@ class GuildMember(Payload):
     communication_disabled_until: datetime | UnsetType | None = UNSET
     avatar_decoration_data: AvatarDecorationData | UnsetType | None = UNSET
     collectibles: Collectibles | UnsetType | None = UNSET
+
+
+class PartialMember(Payload):
+    """A guild member without `user`, `deaf` and `mute`, as interactions resolve them.
+
+    The member's user is in the same resolved data, under the same ID.
+
+    Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-resolved-data-structure
+    """
+
+    nick: str | UnsetType | None = UNSET
+    avatar: str | UnsetType | None = UNSET
+    banner: str | UnsetType | None = UNSET
+    roles: list[Snowflake]
+    joined_at: datetime | None
+    premium_since: datetime | UnsetType | None = UNSET
+    flags: GuildMemberFlags
+    pending: bool | UnsetType = UNSET
+    permissions: Permissions | UnsetType = UNSET
+    communication_disabled_until: datetime | UnsetType | None = UNSET
+    avatar_decoration_data: AvatarDecorationData | UnsetType | None = UNSET
+    collectibles: Collectibles | UnsetType | None = UNSET

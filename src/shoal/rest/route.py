@@ -16,6 +16,10 @@ from urllib.parse import quote
 from shoal.payloads.api import DOCS_BASE_URL
 from shoal.payloads.rate_limits import MAJOR_PARAMETERS
 
+SECRET_PARAMETERS: Final = frozenset({"interaction_token", "webhook_token"})
+"""Path parameters that are credentials: anyone holding one can post as the app. They never appear
+in logs, error messages or metric labels; `CompiledRoute.display` keeps them as placeholders."""
+
 _PARAMETER_NAME: Final = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
@@ -92,8 +96,16 @@ class Route:
             msg = f"route {self.key} parameters mismatch: missing {missing}, unexpected {extra}"
             raise ValueError(msg)
         encoded = {name: quote(str(value), safe="") for name, value in values.items()}
+        shown = {
+            name: f"{{{name}}}" if name in SECRET_PARAMETERS else value for name, value in encoded.items()
+        }
         major = tuple(f"{name}={values[name]}" for name in sorted(self.parameters & MAJOR_PARAMETERS))
-        return CompiledRoute(route=self, path=self.path.format_map(encoded), major=":".join(major))
+        return CompiledRoute(
+            route=self,
+            path=self.path.format_map(encoded),
+            display=self.path.format_map(shown),
+            major=":".join(major),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +114,8 @@ class CompiledRoute:
 
     route: Route
     path: str
+    display: str
+    """The path for logs and error messages: secret parameters (tokens) stay as placeholders."""
     major: str
     """The major parameter values joined into one string, e.g. `channel_id=123`."""
 

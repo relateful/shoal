@@ -22,6 +22,14 @@ BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands",
 )
 
+CREATE_FOLLOWUP_MESSAGE: Final = Route(
+    HTTPMethod.POST,
+    "/webhooks/{application_id}/{interaction_token}",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#create-followup-message",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
+
 CREATE_GLOBAL_APPLICATION_COMMAND: Final = Route(
     HTTPMethod.POST,
     "/applications/{application_id}/commands",
@@ -34,11 +42,27 @@ CREATE_GUILD_APPLICATION_COMMAND: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#create-guild-application-command",
 )
 
+CREATE_INTERACTION_RESPONSE: Final = Route(
+    HTTPMethod.POST,
+    "/interactions/{interaction_id}/{interaction_token}/callback",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#create-interaction-response",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
+
 CREATE_MESSAGE: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/messages",
     docs="https://docs.discord.com/developers/resources/message#create-message",
 )
+
+DELETE_FOLLOWUP_MESSAGE: Final = Route(
+    HTTPMethod.DELETE,
+    "/webhooks/{application_id}/{interaction_token}/messages/{message_id}",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#delete-followup-message",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
 
 DELETE_GLOBAL_APPLICATION_COMMAND: Final = Route(
     HTTPMethod.DELETE,
@@ -58,11 +82,27 @@ DELETE_MESSAGE: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#delete-message",
 )
 
+DELETE_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
+    HTTPMethod.DELETE,
+    "/webhooks/{application_id}/{interaction_token}/messages/@original",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#delete-original-interaction-response",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
+
 EDIT_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     HTTPMethod.PUT,
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions",
     docs="https://docs.discord.com/developers/interactions/application-commands#edit-application-command-permissions",
 )
+
+EDIT_FOLLOWUP_MESSAGE: Final = Route(
+    HTTPMethod.PATCH,
+    "/webhooks/{application_id}/{interaction_token}/messages/{message_id}",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#edit-followup-message",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
 
 EDIT_GLOBAL_APPLICATION_COMMAND: Final = Route(
     HTTPMethod.PATCH,
@@ -75,6 +115,14 @@ EDIT_GUILD_APPLICATION_COMMAND: Final = Route(
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}",
     docs="https://docs.discord.com/developers/interactions/application-commands#edit-guild-application-command",
 )
+
+EDIT_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
+    HTTPMethod.PATCH,
+    "/webhooks/{application_id}/{interaction_token}/messages/@original",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
 
 GET_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     HTTPMethod.GET,
@@ -99,6 +147,14 @@ GET_CURRENT_USER: Final = Route(
     "/users/@me",
     docs="https://docs.discord.com/developers/resources/user#get-current-user",
 )
+
+GET_FOLLOWUP_MESSAGE: Final = Route(
+    HTTPMethod.GET,
+    "/webhooks/{application_id}/{interaction_token}/messages/{message_id}",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#get-followup-message",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
 
 GET_GATEWAY: Final = Route(
     HTTPMethod.GET,
@@ -154,6 +210,14 @@ GET_GUILD_MEMBER: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#get-guild-member",
 )
 
+GET_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
+    HTTPMethod.GET,
+    "/webhooks/{application_id}/{interaction_token}/messages/@original",
+    docs="https://docs.discord.com/developers/interactions/receiving-and-responding#get-original-interaction-response",
+    global_limit=False,
+)
+"""Not counted towards the global rate limit, like every interaction endpoint."""
+
 GET_USER: Final = Route(
     HTTPMethod.GET,
     "/users/{user_id}",
@@ -169,19 +233,26 @@ SEARCH_GUILD_MESSAGES: Final = Route(
 ALL_ROUTES: Final = (
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
+    CREATE_FOLLOWUP_MESSAGE,
     CREATE_GLOBAL_APPLICATION_COMMAND,
     CREATE_GUILD_APPLICATION_COMMAND,
+    CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
+    DELETE_FOLLOWUP_MESSAGE,
     DELETE_GLOBAL_APPLICATION_COMMAND,
     DELETE_GUILD_APPLICATION_COMMAND,
     DELETE_MESSAGE,
+    DELETE_ORIGINAL_INTERACTION_RESPONSE,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
+    EDIT_FOLLOWUP_MESSAGE,
     EDIT_GLOBAL_APPLICATION_COMMAND,
     EDIT_GUILD_APPLICATION_COMMAND,
+    EDIT_ORIGINAL_INTERACTION_RESPONSE,
     GET_APPLICATION_COMMAND_PERMISSIONS,
     GET_CHANNEL,
     GET_CHANNEL_MESSAGE,
     GET_CURRENT_USER,
+    GET_FOLLOWUP_MESSAGE,
     GET_GATEWAY,
     GET_GATEWAY_BOT,
     GET_GLOBAL_APPLICATION_COMMAND,
@@ -191,6 +262,7 @@ ALL_ROUTES: Final = (
     GET_GUILD_APPLICATION_COMMANDS,
     GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
     GET_GUILD_MEMBER,
+    GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_USER,
     SEARCH_GUILD_MESSAGES,
 )

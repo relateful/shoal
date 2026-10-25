@@ -31,11 +31,16 @@ async def test_connection_failures_become_transport_errors() -> None:
     transport = AiohttpTransport(timeout=2)
     with pytest.raises(TransportError) as raised:
         await transport.request(
-            "GET", f"http://127.0.0.1:{free_port()}/search?content=secret", headers={}, body=None
+            "GET",
+            f"http://127.0.0.1:{free_port()}/webhooks/1/TOKEN/messages?content=secret",
+            headers={},
+            body=None,
         )
     await transport.close()
-    assert "GET /search failed" in str(raised.value)
-    assert "secret" not in str(raised.value)
+    message = str(raised.value)
+    assert message.startswith("GET request failed")
+    assert "secret" not in message
+    assert "TOKEN" not in message
 
 
 def test_transport_errors_are_os_errors_so_the_client_retries_them() -> None:

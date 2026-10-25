@@ -18,6 +18,7 @@ import pytest
 from shoal.core import UNSET
 from shoal.core.codec import PayloadDecodeError, decode_json, encode_json
 from shoal.payloads import (
+    ApplicationCommandInteraction,
     BulkApplicationCommandParams,
     Channel,
     ChannelType,
@@ -148,3 +149,20 @@ def test_thread_example() -> None:
     assert channel.type.is_thread
     assert channel.thread_metadata is not UNSET
     assert not ChannelType.GUILD_TEXT.is_thread
+
+
+INTERACTION_GAPS: dict[str, str] = {
+    "slash_command_interaction": "missing required field `global_name` - at `$.member.user`",
+    "user_command_interaction": "missing required field `flags` - at `$.data.resolved.members[...]`",
+    "message_command_interaction": (
+        "missing required field `global_name` - at `$.data.resolved.messages[...].author`"
+    ),
+}
+"""Discord's sample interactions predate fields their tables require; each fails only for its gap."""
+
+
+@pytest.mark.parametrize(("name", "gap"), sorted(INTERACTION_GAPS.items()))
+def test_interaction_examples_fail_only_for_their_known_gap(name: str, gap: str) -> None:
+    with pytest.raises(PayloadDecodeError) as caught:
+        decode_json(raw(name), ApplicationCommandInteraction)
+    assert gap in str(caught.value)

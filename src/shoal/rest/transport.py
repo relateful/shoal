@@ -7,7 +7,6 @@ transport, and deployments can swap in one that routes through a proxy or a serv
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol, final, override
-from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -86,13 +85,16 @@ class AiohttpTransport(HTTPTransport):
                 lowered = {key.lower(): value for key, value in response.headers.items()}
                 return HTTPResponse(status=response.status, headers=lowered, body=payload)
         except (aiohttp.ClientError, TimeoutError) as error:
-            # Neither the query string (search terms) nor the error's repr (a response error's
-            # repr carries the request headers, token included) belongs in a message that gets logged.
+            # The URL can hold credentials (an interaction token in the path) and private search
+            # terms (the query), and a response error's repr carries the request headers: none of it
+            # belongs in a message that gets logged. The client adds the redacted route.
             if isinstance(error, aiohttp.ClientResponseError):
                 detail = f"{type(error).__name__} (HTTP {error.status})"
+            elif isinstance(error, aiohttp.InvalidURL):
+                detail = type(error).__name__  # its text is the whole URL
             else:
                 detail = str(error) or type(error).__name__
-            msg = f"{method} {urlsplit(url).path} failed: {detail}"
+            msg = f"{method} request failed: {detail}"
             raise TransportError(msg) from error
 
     @override

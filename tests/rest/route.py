@@ -48,3 +48,15 @@ def test_idempotent_methods() -> None:
     assert HTTPMethod.DELETE.is_idempotent
     assert not HTTPMethod.POST.is_idempotent
     assert not HTTPMethod.PATCH.is_idempotent
+
+
+def test_secret_parameters_never_reach_the_display_path() -> None:
+    route = Route(
+        HTTPMethod.PATCH,
+        "/webhooks/{application_id}/{interaction_token}/messages/@original",
+        docs="https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response",
+    )
+    compiled = route.compile(application_id=1, interaction_token="aW50ZXJhY3Rpb24")
+    assert compiled.path == "/webhooks/1/aW50ZXJhY3Rpb24/messages/@original"
+    assert compiled.display == "/webhooks/1/{interaction_token}/messages/@original"
+    assert "aW50ZXJhY3Rpb24" not in compiled.display

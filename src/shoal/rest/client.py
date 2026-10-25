@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from http import HTTPStatus
 from types import TracebackType
-from typing import Self, final, override
+from typing import Literal, Self, final, overload, override
 from urllib.parse import quote, urlencode
 
 import msgspec
@@ -44,6 +44,11 @@ from shoal.payloads.application_commands import (
 from shoal.payloads.channel import Channel
 from shoal.payloads.gateway import GatewayBot, GatewayInfo
 from shoal.payloads.guild import Guild, GuildMember
+from shoal.payloads.interactions import (
+    CreateFollowupMessageParams,
+    InteractionCallbackResponse,
+    InteractionResponse,
+)
 from shoal.payloads.message import (
     CreateMessageParams,
     Message,
@@ -53,6 +58,7 @@ from shoal.payloads.message import (
 )
 from shoal.payloads.rate_limits import RateLimitResponse
 from shoal.payloads.user import User
+from shoal.payloads.webhook import EditWebhookMessageParams
 from shoal.rest.defaults import (
     DEFAULT_USER_AGENT,
     MAX_RATE_LIMIT_WAIT,
@@ -64,19 +70,26 @@ from shoal.rest.defaults import (
 from shoal.rest.endpoints import (
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
+    CREATE_FOLLOWUP_MESSAGE,
     CREATE_GLOBAL_APPLICATION_COMMAND,
     CREATE_GUILD_APPLICATION_COMMAND,
+    CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
+    DELETE_FOLLOWUP_MESSAGE,
     DELETE_GLOBAL_APPLICATION_COMMAND,
     DELETE_GUILD_APPLICATION_COMMAND,
     DELETE_MESSAGE,
+    DELETE_ORIGINAL_INTERACTION_RESPONSE,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
+    EDIT_FOLLOWUP_MESSAGE,
     EDIT_GLOBAL_APPLICATION_COMMAND,
     EDIT_GUILD_APPLICATION_COMMAND,
+    EDIT_ORIGINAL_INTERACTION_RESPONSE,
     GET_APPLICATION_COMMAND_PERMISSIONS,
     GET_CHANNEL,
     GET_CHANNEL_MESSAGE,
     GET_CURRENT_USER,
+    GET_FOLLOWUP_MESSAGE,
     GET_GATEWAY,
     GET_GATEWAY_BOT,
     GET_GLOBAL_APPLICATION_COMMAND,
@@ -86,6 +99,7 @@ from shoal.rest.endpoints import (
     GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
     GET_GUILD_APPLICATION_COMMANDS,
     GET_GUILD_MEMBER,
+    GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_USER,
     SEARCH_GUILD_MESSAGES,
 )
@@ -362,14 +376,15 @@ class RestClient:
         started = self._clock.monotonic()
         try:
             response = await self._transport.request(route.method, url, headers=headers, body=payload)
-        except OSError:
+        except OSError as error:
             self._limiter.release(route, None, None, None)
             if attempt >= self._max_retries:
+                error.add_note(f"route: {route.method} {route.display}")
                 raise
             delay = backoff_delay(attempt + 1, cap=RETRY_BACKOFF_CAP, random_source=self._random_source)
             self._metrics.increment(REST_RETRIES, {"route": template, "reason": "network"})
             _log.warning(
-                "%s %s failed at the network level; retrying in %.2fs", route.method, route.path, delay
+                "%s %s failed at the network level; retrying in %.2fs", route.method, route.display, delay
             )
             return delay
         except BaseException:
@@ -401,7 +416,7 @@ class RestClient:
             if attempt >= self._max_retries or retry_after > self._max_rate_limit_wait:
                 raise RateLimitedError(route, response.status, f"rate limited for {retry_after:.2f}s")
             self._metrics.increment(REST_RETRIES, {"route": template, "reason": "rate_limited"})
-            _log.info("%s %s rate limited for %.2fs; retrying", route.method, route.path, retry_after)
+            _log.info("%s %s rate limited for %.2fs; retrying", route.method, route.display, retry_after)
             return 0.0
         if (
             response.status in RETRYABLE_STATUSES
@@ -411,7 +426,7 @@ class RestClient:
             delay = backoff_delay(attempt + 1, cap=RETRY_BACKOFF_CAP, random_source=self._random_source)
             self._metrics.increment(REST_RETRIES, {"route": template, "reason": "server_error"})
             _log.warning(
-                "%s %s returned %d; retrying in %.2fs", route.method, route.path, response.status, delay
+                "%s %s returned %d; retrying in %.2fs", route.method, route.display, response.status, delay
             )
             return delay
         raise HTTPError.from_response(route, response.status, response.body)
@@ -750,4 +765,144 @@ class RestClient:
             ),
             GuildApplicationCommandPermissions,
             body=params,
+        )
+
+    @overload
+    async def create_interaction_response(
+        self,
+        interaction_id: int,
+        interaction_token: str,
+        response: InteractionResponse,
+        *,
+        with_response: Literal[False] = False,
+    ) -> None: ...
+
+    @overload
+    async def create_interaction_response(
+        self,
+        interaction_id: int,
+        interaction_token: str,
+        response: InteractionResponse,
+        *,
+        with_response: Literal[True],
+    ) -> InteractionCallbackResponse: ...
+
+    async def create_interaction_response(
+        self,
+        interaction_id: int,
+        interaction_token: str,
+        response: InteractionResponse,
+        *,
+        with_response: bool = False,
+    ) -> InteractionCallbackResponse | None:
+        """Answer an interaction. Must happen within 3 seconds of receiving it, and only once.
+
+        With `with_response`, Discord returns what the response created (the message, or the
+        launched Activity).
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#create-interaction-response
+        """
+        route = CREATE_INTERACTION_RESPONSE.compile(
+            interaction_id=interaction_id, interaction_token=interaction_token
+        )
+        if with_response:
+            return await self.request(
+                route, InteractionCallbackResponse, body=response, query={"with_response": True}
+            )
+        await self.request_empty(route, body=response)
+        return None
+
+    async def get_original_interaction_response(self, application_id: int, interaction_token: str) -> Message:
+        """Get the message an interaction response created.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#get-original-interaction-response
+        """
+        return await self.request(
+            GET_ORIGINAL_INTERACTION_RESPONSE.compile(
+                application_id=application_id, interaction_token=interaction_token
+            ),
+            Message,
+        )
+
+    async def edit_original_interaction_response(
+        self, application_id: int, interaction_token: str, params: EditWebhookMessageParams
+    ) -> Message:
+        """Edit the message an interaction response created, or fill in a deferred one.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response
+        """
+        return await self.request(
+            EDIT_ORIGINAL_INTERACTION_RESPONSE.compile(
+                application_id=application_id, interaction_token=interaction_token
+            ),
+            Message,
+            body=params,
+        )
+
+    async def delete_original_interaction_response(self, application_id: int, interaction_token: str) -> None:
+        """Delete the message an interaction response created.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#delete-original-interaction-response
+        """
+        await self.request_empty(
+            DELETE_ORIGINAL_INTERACTION_RESPONSE.compile(
+                application_id=application_id, interaction_token=interaction_token
+            )
+        )
+
+    async def create_followup_message(
+        self, application_id: int, interaction_token: str, params: CreateFollowupMessageParams
+    ) -> Message:
+        """Send another message for an interaction, for up to 15 minutes after it.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#create-followup-message
+        """
+        return await self.request(
+            CREATE_FOLLOWUP_MESSAGE.compile(
+                application_id=application_id, interaction_token=interaction_token
+            ),
+            Message,
+            body=params,
+        )
+
+    async def get_followup_message(
+        self, application_id: int, interaction_token: str, message_id: int
+    ) -> Message:
+        """Get a follow-up message.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#get-followup-message
+        """
+        return await self.request(
+            GET_FOLLOWUP_MESSAGE.compile(
+                application_id=application_id, interaction_token=interaction_token, message_id=message_id
+            ),
+            Message,
+        )
+
+    async def edit_followup_message(
+        self, application_id: int, interaction_token: str, message_id: int, params: EditWebhookMessageParams
+    ) -> Message:
+        """Edit a follow-up message.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-followup-message
+        """
+        return await self.request(
+            EDIT_FOLLOWUP_MESSAGE.compile(
+                application_id=application_id, interaction_token=interaction_token, message_id=message_id
+            ),
+            Message,
+            body=params,
+        )
+
+    async def delete_followup_message(
+        self, application_id: int, interaction_token: str, message_id: int
+    ) -> None:
+        """Delete a follow-up message.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#delete-followup-message
+        """
+        await self.request_empty(
+            DELETE_FOLLOWUP_MESSAGE.compile(
+                application_id=application_id, interaction_token=interaction_token, message_id=message_id
+            )
         )

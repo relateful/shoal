@@ -1,4 +1,4 @@
-"""Applications: where an app can be installed.
+"""Applications: where an app can be installed, and where its interactions can be used.
 
 Discord: https://docs.discord.com/developers/resources/application
 
@@ -17,3 +17,14 @@ class ApplicationIntegrationType(DiscordIntEnum):
 
     GUILD_INSTALL = 0
     USER_INSTALL = 1
+
+
+class InteractionContextType(DiscordIntEnum):
+    """Where an interaction can be used, or where it happened.
+
+    Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-interaction-context-types
+    """
+
+    GUILD = 0
+    BOT_DM = 1
+    PRIVATE_CHANNEL = 2

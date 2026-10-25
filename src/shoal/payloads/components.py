@@ -15,6 +15,7 @@ Discord: https://docs.discord.com/developers/components/reference
 """
 
 from collections.abc import Sequence
+from typing import Protocol
 
 import msgspec
 from msgspec import UNSET, UnsetType
@@ -566,6 +567,170 @@ Discord: https://docs.discord.com/developers/components/reference#component-obje
 """
 
 
+class SubmittedTextInput(Payload, tag=4, tag_field="type"):
+    """What the user typed into a text input.
+
+    Discord: https://docs.discord.com/developers/components/reference#text-input-text-input-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    value: str
+
+
+class SubmittedStringSelect(Payload, tag=3, tag_field="type"):
+    """The options picked in a string select, by value.
+
+    Discord: https://docs.discord.com/developers/components/reference#string-select-string-select-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    values: list[str]
+
+
+class SubmittedUserSelect(Payload, tag=5, tag_field="type"):
+    """The users picked; their objects are in the interaction's resolved data.
+
+    Discord: https://docs.discord.com/developers/components/reference#user-select-user-select-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    values: list[Snowflake]
+
+
+class SubmittedRoleSelect(Payload, tag=6, tag_field="type"):
+    """The roles picked; their objects are in the interaction's resolved data.
+
+    Discord: https://docs.discord.com/developers/components/reference#role-select-role-select-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    values: list[Snowflake]
+
+
+class SubmittedMentionableSelect(Payload, tag=7, tag_field="type"):
+    """The users and roles picked; their objects are in the interaction's resolved data.
+
+    Discord: https://docs.discord.com/developers/components/reference#mentionable-select-mentionable-select-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    values: list[Snowflake]
+
+
+class SubmittedChannelSelect(Payload, tag=8, tag_field="type"):
+    """The channels picked; their objects are in the interaction's resolved data.
+
+    Discord: https://docs.discord.com/developers/components/reference#channel-select-channel-select-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    values: list[Snowflake]
+
+
+class SubmittedTextDisplay(Payload, tag=10, tag_field="type"):
+    """A text display that was part of the modal; it carries no value.
+
+    Discord: https://docs.discord.com/developers/components/reference#text-display-text-display-interaction-response-structure
+    """
+
+    id: int
+
+
+class SubmittedFileUpload(Payload, tag=19, tag_field="type"):
+    """The files uploaded; their attachments are in the interaction's resolved data.
+
+    Discord: https://docs.discord.com/developers/components/reference#file-upload-file-upload-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    values: list[Snowflake]
+
+
+class SubmittedRadioGroup(Payload, tag=21, tag_field="type"):
+    """The option picked in a radio group, or `None` if none was.
+
+    Discord: https://docs.discord.com/developers/components/reference#radio-group-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    value: str | None
+
+
+class SubmittedCheckboxGroup(Payload, tag=22, tag_field="type"):
+    """The options checked in a checkbox group, by value; empty if none were.
+
+    Discord: https://docs.discord.com/developers/components/reference#checkbox-group-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    values: list[str]
+
+
+class SubmittedCheckbox(Payload, tag=23, tag_field="type"):
+    """Whether a checkbox was checked.
+
+    Discord: https://docs.discord.com/developers/components/reference#checkbox-interaction-response-structure
+    """
+
+    id: int
+    custom_id: str
+    value: bool
+
+
+type SubmittedLabelChild = (
+    SubmittedTextInput
+    | SubmittedStringSelect
+    | SubmittedUserSelect
+    | SubmittedRoleSelect
+    | SubmittedMentionableSelect
+    | SubmittedChannelSelect
+    | SubmittedFileUpload
+    | SubmittedRadioGroup
+    | SubmittedCheckboxGroup
+    | SubmittedCheckbox
+)
+"""The input inside a submitted label.
+
+Discord: https://docs.discord.com/developers/components/reference#label-label-interaction-response-child-components
+"""
+
+
+class SubmittedLabel(Payload, tag=18, tag_field="type"):
+    """A label from a submitted modal, holding the value of its input.
+
+    Discord: https://docs.discord.com/developers/components/reference#label-label-interaction-response-structure
+    """
+
+    id: int
+    component: SubmittedLabelChild
+
+
+class SubmittedActionRow(Payload, tag=1, tag_field="type"):
+    """An action row from a modal that used the deprecated text inputs in action rows.
+
+    Discord: https://docs.discord.com/developers/components/reference#legacy-message-component-behavior
+    """
+
+    id: int | UnsetType = UNSET
+    components: list[SubmittedTextInput]
+
+
+type SubmittedComponent = SubmittedLabel | SubmittedTextDisplay | SubmittedActionRow
+"""A top-level component of a submitted modal.
+
+Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-modal-submit-data-structure
+"""
+
+
 type RawComponent = JSONObject
 """A component as received: its JSON object, not yet checked against a component type."""
 
@@ -598,22 +763,36 @@ def parse_components(raw: Sequence[RawComponent]) -> list[Component | UnknownCom
     Raises:
         PayloadDecodeError: An entry is not a component at all (no integer `type`).
     """
-    parsed: list[Component | UnknownComponent] = []
-    for item in raw:
-        try:
-            parsed.append(convert({"component": item}, _OneComponent).component)
-        except PayloadDecodeError:
-            kind = item.get("type")
-            if not isinstance(kind, int) or isinstance(kind, bool):
-                raise
-            identifier = item.get("id")
-            parsed.append(
-                UnknownComponent(
-                    type=kind,
-                    id=identifier
-                    if isinstance(identifier, int) and not isinstance(identifier, bool)
-                    else UNSET,
-                    data=item,
-                )
-            )
-    return parsed
+    return [_parse_one(item, _OneComponent) for item in raw]
+
+
+class _Wrapped[T](Protocol):
+    @property
+    def component(self) -> T: ...
+
+
+def _parse_one[T](item: RawComponent, wrapper: type[_Wrapped[T]]) -> T | UnknownComponent:
+    try:
+        return convert({"component": item}, wrapper).component
+    except PayloadDecodeError:
+        kind = item.get("type")
+        if not isinstance(kind, int) or isinstance(kind, bool):
+            raise
+        identifier = item.get("id")
+        known_id = identifier if isinstance(identifier, int) and not isinstance(identifier, bool) else UNSET
+        return UnknownComponent(type=kind, id=known_id, data=item)
+
+
+class _OneSubmittedComponent(msgspec.Struct, gc=False):
+    """Lets `convert` check one submitted component against the `SubmittedComponent` union."""
+
+    component: SubmittedComponent
+
+
+def parse_submitted_components(raw: Sequence[RawComponent]) -> list[SubmittedComponent | UnknownComponent]:
+    """Decode a modal submission's components, keeping any that cannot be decoded as `UnknownComponent`.
+
+    Raises:
+        PayloadDecodeError: An entry is not a component at all (no integer `type`).
+    """
+    return [_parse_one(item, _OneSubmittedComponent) for item in raw]

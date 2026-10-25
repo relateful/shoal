@@ -12,13 +12,18 @@ from shoal.payloads import (
     ApplicationCommandPermission,
     ApplicationCommandPermissionType,
     BulkApplicationCommandParams,
+    CreateFollowupMessageParams,
     CreateGlobalApplicationCommandParams,
     CreateGuildApplicationCommandParams,
     CreateMessageParams,
+    DeferredMessageResponse,
     EditApplicationCommandPermissionsParams,
     EditGlobalApplicationCommandParams,
     EditGuildApplicationCommandParams,
+    EditWebhookMessageParams,
     Guild,
+    InteractionMessage,
+    MessageResponse,
     SearchGuildMessagesParams,
     SearchHasType,
     User,
@@ -30,6 +35,7 @@ from shoal.rest.defaults import DEFAULT_USER_AGENT
 from shoal.rest.errors import (
     ClientClosedError,
     ForbiddenError,
+    NotFoundError,
     RateLimitedError,
     SearchIndexNotReadyError,
     ServerError,
@@ -505,4 +511,115 @@ async def test_application_command_endpoints(
         assert result is None
     else:
         # Re-encoding what the client returned gives back what Discord sent: nothing lost or mistyped.
-        assert msgspec.json.decode(encode_json(result)) == response
+        # The one allowed difference: UTC times come back as `Z` rather than Discord's `+00:00`.
+        sent = msgspec.json.encode(response).replace(b"+00:00", b"Z")
+        assert msgspec.json.decode(encode_json(result)) == msgspec.json.decode(sent)
+
+
+INTERACTION_WEBHOOK = "https://discord.com/api/v10/webhooks/7/aW50ZXJhY3Rpb24"
+
+INTERACTION_CALLS: list[tuple[str, CommandCall, str, str, object, object]] = [
+    (
+        "respond",
+        lambda client: client.create_interaction_response(
+            9, "aW50ZXJhY3Rpb24", MessageResponse(data=InteractionMessage(content="hi"))
+        ),
+        "POST",
+        "https://discord.com/api/v10/interactions/9/aW50ZXJhY3Rpb24/callback",
+        {"type": 4, "data": {"content": "hi"}},
+        None,
+    ),
+    (
+        "respond with response",
+        lambda client: client.create_interaction_response(
+            9, "aW50ZXJhY3Rpb24", DeferredMessageResponse(), with_response=True
+        ),
+        "POST",
+        "https://discord.com/api/v10/interactions/9/aW50ZXJhY3Rpb24/callback?with_response=true",
+        {"type": 5},
+        {"interaction": {"id": "9", "type": 2}},
+    ),
+    (
+        "get original",
+        lambda client: client.get_original_interaction_response(7, "aW50ZXJhY3Rpb24"),
+        "GET",
+        f"{INTERACTION_WEBHOOK}/messages/@original",
+        None,
+        MESSAGE,
+    ),
+    (
+        "edit original",
+        lambda client: client.edit_original_interaction_response(
+            7, "aW50ZXJhY3Rpb24", EditWebhookMessageParams(content=None)
+        ),
+        "PATCH",
+        f"{INTERACTION_WEBHOOK}/messages/@original",
+        {"content": None},
+        MESSAGE,
+    ),
+    (
+        "delete original",
+        lambda client: client.delete_original_interaction_response(7, "aW50ZXJhY3Rpb24"),
+        "DELETE",
+        f"{INTERACTION_WEBHOOK}/messages/@original",
+        None,
+        None,
+    ),
+    (
+        "follow up",
+        lambda client: client.create_followup_message(
+            7, "aW50ZXJhY3Rpb24", CreateFollowupMessageParams(content="later")
+        ),
+        "POST",
+        INTERACTION_WEBHOOK,
+        {"content": "later"},
+        MESSAGE,
+    ),
+    (
+        "get follow-up",
+        lambda client: client.get_followup_message(7, "aW50ZXJhY3Rpb24", 9),
+        "GET",
+        f"{INTERACTION_WEBHOOK}/messages/9",
+        None,
+        MESSAGE,
+    ),
+    (
+        "edit follow-up",
+        lambda client: client.edit_followup_message(
+            7, "aW50ZXJhY3Rpb24", 9, EditWebhookMessageParams(content="edited")
+        ),
+        "PATCH",
+        f"{INTERACTION_WEBHOOK}/messages/9",
+        {"content": "edited"},
+        MESSAGE,
+    ),
+    (
+        "delete follow-up",
+        lambda client: client.delete_followup_message(7, "aW50ZXJhY3Rpb24", 9),
+        "DELETE",
+        f"{INTERACTION_WEBHOOK}/messages/9",
+        None,
+        None,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("call", "method", "url", "body", "response"),
+    [case[1:] for case in INTERACTION_CALLS],
+    ids=[case[0] for case in INTERACTION_CALLS],
+)
+async def test_interaction_endpoints(
+    call: CommandCall, method: str, url: str, body: object, response: object
+) -> None:
+    await test_application_command_endpoints(call, method, url, body, response)
+
+
+async def test_interaction_tokens_stay_out_of_errors() -> None:
+    transport = FakeTransport()
+    transport.queue(404, {"message": "Unknown Webhook", "code": 10015})
+    client = make_client(transport)
+    with pytest.raises(NotFoundError) as caught:
+        await client.get_original_interaction_response(7, "aW50ZXJhY3Rpb24")
+    assert "aW50ZXJhY3Rpb24" not in str(caught.value)
+    assert "{interaction_token}" in str(caught.value)
