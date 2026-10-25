@@ -9,7 +9,7 @@ Everything goes through msgspec with Shoal's hooks, which teach it two Discord c
 Decoders are cached per type, because building one is far more expensive than using it.
 """
 
-from typing import Final, cast
+from typing import Any, Final, cast  # noqa: TID251 - JSONObject only
 
 import msgspec
 
@@ -115,6 +115,27 @@ def decode_msgpack[T](data: bytes | bytearray | memoryview, target: type[T]) -> 
     try:
         return msgpack_decoder(target).decode(data)
     except msgspec.DecodeError as error:
+        raise PayloadDecodeError(target, str(error)) from error
+
+
+type JSONObject = dict[str, Any]
+"""A JSON object kept as received, for data Discord extends faster than Shoal models it.
+
+This is the only use of `Any` in Shoal (CONTRIBUTING.md, Typing): msgspec cannot describe arbitrary
+JSON any other way that survives both JSON and msgpack. Values of this type are always converted to
+typed payloads (with `convert`) before code relies on them.
+"""
+
+
+def convert[T](value: object, target: type[T]) -> T:
+    """Convert already-decoded JSON values (dicts, lists, strings) into `target`, as `decode_json` would.
+
+    Raises:
+        PayloadDecodeError: `value` does not match `target`.
+    """
+    try:
+        return msgspec.convert(value, target, dec_hook=_dec_hook)
+    except msgspec.ValidationError as error:
         raise PayloadDecodeError(target, str(error)) from error
 
 

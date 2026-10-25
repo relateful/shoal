@@ -1,0 +1,667 @@
+{
+  "Action Row: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 1,
+        "components": [
+          {
+            "type": 2,
+            "custom_id": "click_yes",
+            "label": "Accept",
+            "style": 1
+          },
+          {
+            "type": 2,
+            "label": "Learn More",
+            "style": 5,
+            "url": "http://watchanimeattheoffice.com/"
+          },
+          {
+            "type": 2,
+            "custom_id": "click_no",
+            "label": "Decline",
+            "style": 4
+          }
+        ]
+      }
+    ]
+  },
+  "Button: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 1,
+        "components": [
+          {
+            "type": 2,
+            "custom_id": "click_me",
+            "label": "Click me!",
+            "style": 1
+          }
+        ]
+      }
+    ]
+  },
+  "String Select: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 1,
+        "id": 1,
+        "components": [
+          {
+            "type": 3,
+            "id": 2,
+            "custom_id": "favorite_bug",
+            "placeholder": "Favorite bug?",
+            "options": [
+              {
+                "label": "Ant",
+                "value": "ant",
+                "description": "(best option)",
+                "emoji": {
+                  "name": "🐜"
+                }
+              },
+              {
+                "label": "Butterfly",
+                "value": "butterfly",
+                "emoji": {
+                  "name": "🦋"
+                }
+              },
+              {
+                "label": "Caterpillar",
+                "value": "caterpillar",
+                "emoji": {
+                  "name": "🐛"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "String Select: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "bug_modal",
+      "title": "Bug Survey",
+      "components": [
+        {
+          "type": 18,
+          "id": 1,
+          "label": "Favorite bug?",
+          "component": {
+            "type": 3,
+            "id": 2,
+            "custom_id": "favorite_bug",
+            "placeholder": "Ants are the best",
+            "options": [
+              {
+                "label": "Ant",
+                "value": "ant",
+                "description": "(best option)",
+                "emoji": {
+                  "name": "🐜"
+                }
+              },
+              {
+                "label": "Butterfly",
+                "value": "butterfly",
+                "emoji": {
+                  "name": "🦋"
+                }
+              },
+              {
+                "label": "Caterpillar",
+                "value": "caterpillar",
+                "emoji": {
+                  "name": "🐛"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "Text Input: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "game_feedback_modal",
+      "title": "Game Feedback",
+      "components": [
+        {
+          "type": 18,
+          "label": "What did you find interesting about the game?",
+          "description": "Please give us as much detail as possible so we can improve the game!",
+          "component": {
+            "type": 4,
+            "custom_id": "game_feedback",
+            "style": 2,
+            "min_length": 100,
+            "max_length": 4000,
+            "placeholder": "Write your feedback here...",
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "User Select: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 1,
+        "components": [
+          {
+            "type": 5,
+            "custom_id": "user_select",
+            "placeholder": "Select a user"
+          }
+        ]
+      }
+    ]
+  },
+  "User Select: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "user_modal",
+      "title": "User Chooser",
+      "components": [
+        {
+          "type": 18,
+          "label": "Choose your users",
+          "component": {
+            "type": 5,
+            "custom_id": "user_selected",
+            "max_values": 5,
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "Role Select: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 1,
+        "components": [
+          {
+            "type": 6,
+            "custom_id": "role_ids",
+            "placeholder": "Which roles?",
+            "min_values": 1,
+            "max_values": 3
+          }
+        ]
+      }
+    ]
+  },
+  "Role Select: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "role_modal",
+      "title": "Role Select",
+      "components": [
+        {
+          "type": 18,
+          "label": "Select which roles to assign",
+          "component": {
+            "type": 6,
+            "custom_id": "roles_selected",
+            "max_values": 10,
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "Mentionable Select: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 1,
+        "components": [
+          {
+            "type": 7,
+            "custom_id": "who_to_ping",
+            "placeholder": "Who?"
+          }
+        ]
+      }
+    ]
+  },
+  "Mentionable Select: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "mentionable_modal",
+      "title": "Unmentionables",
+      "components": [
+        {
+          "type": 18,
+          "label": "Who gets mentioned?",
+          "component": {
+            "type": 7,
+            "custom_id": "mentionables_selected",
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "Channel Select: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 1,
+        "components": [
+          {
+            "type": 8,
+            "custom_id": "notification_channel",
+            "channel_types": [
+              0
+            ],
+            "placeholder": "Which text channel?"
+          }
+        ]
+      }
+    ]
+  },
+  "Channel Select: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "channel_modal",
+      "title": "Lockdown",
+      "components": [
+        {
+          "type": 18,
+          "label": "Which channel should be locked?",
+          "component": {
+            "type": 8,
+            "custom_id": "channel_selected",
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "Section: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 9,
+        "components": [
+          {
+            "type": 10,
+            "content": "# Real Game v7.3"
+          },
+          {
+            "type": 10,
+            "content": "Hope you're excited, the update is finally here! Here are some of the changes:\n- Fixed a bug where certain treasure chests wouldn't open properly\n- Improved server stability during peak hours\n- Added a new type of gravity that will randomly apply when the moon is visible in-game\n- Every third thursday the furniture will scream your darkest secrets to nearby npcs"
+          },
+          {
+            "type": 10,
+            "content": "-# That last one wasn't real, but don't use voice chat near furniture just in case..."
+          }
+        ],
+        "accessory": {
+          "type": 11,
+          "media": {
+            "url": "https://websitewithopensourceimages/gamepreview.webp"
+          }
+        }
+      }
+    ]
+  },
+  "Text Display: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 10,
+        "content": "# This is a Text Display\nAll the regular markdown rules apply\n- You can make lists\n- You can use `code blocks`\n- You can use [links](http://watchanimeattheoffice.com/)\n- Even :blush: :star_struck: :exploding_head:\n- Spoiler alert: ||these too!||"
+      }
+    ]
+  },
+  "Text Display: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "jail_modal",
+      "title": "Jail",
+      "components": [
+        {
+          "type": 10,
+          "content": "This action will move the selected user to the selected voice channel and take away all their permissions **for 1 hour**."
+        },
+        {
+          "type": 18,
+          "label": "Choose a user",
+          "component": {
+            "type": 5,
+            "custom_id": "user_selected",
+            "required": true
+          }
+        },
+        {
+          "type": 18,
+          "label": "Where should they be sent?",
+          "component": {
+            "type": 8,
+            "custom_id": "channel_selected",
+            "channel_types": [
+              2
+            ],
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "Thumbnail: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 9,
+        "components": [
+          {
+            "type": 10,
+            "content": "# Real Game v7.3"
+          },
+          {
+            "type": 10,
+            "content": "Hope you're excited, the update is finally here! Here are some of the changes:\n- Fixed a bug where certain treasure chests wouldn't open properly\n- Improved server stability during peak hours\n- Added a new type of gravity that will randomly apply when the moon is visible in-game\n- Every third thursday the furniture will scream your darkest secrets to nearby npcs"
+          },
+          {
+            "type": 10,
+            "content": "-# That last one wasn't real, but don't use voice chat near furniture just in case..."
+          }
+        ],
+        "accessory": {
+          "type": 11,
+          "media": {
+            "url": "https://websitewithopensourceimages/gamepreview.webp"
+          }
+        }
+      }
+    ]
+  },
+  "Media Gallery: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 10,
+        "content": "Live webcam shots as of 18-04-2025 at 12:00 UTC"
+      },
+      {
+        "type": 12,
+        "items": [
+          {
+            "media": {
+              "url": "https://livevideofeedconvertedtoimage/webcam1.webp"
+            },
+            "description": "An aerial view looking down on older industrial complex buildings. The main building is white with many windows and pipes running up the walls."
+          },
+          {
+            "media": {
+              "url": "https://livevideofeedconvertedtoimage/webcam2.webp"
+            },
+            "description": "An aerial view of old broken buildings. Nature has begun to take root in the rooftops. A portion of the middle building's roof has collapsed inward. In the distant haze you can make out a far away city."
+          },
+          {
+            "media": {
+              "url": "https://livevideofeedconvertedtoimage/webcam3.webp"
+            },
+            "description": "A street view of a downtown city. Prominently in photo are skyscrapers and a domed building"
+          }
+        ]
+      }
+    ]
+  },
+  "File: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 10,
+        "content": "# New game version released for testing!\nGrab the game here:"
+      },
+      {
+        "type": 13,
+        "file": {
+          "url": "attachment://game.zip"
+        }
+      },
+      {
+        "type": 10,
+        "content": "Latest manual artwork here:"
+      },
+      {
+        "type": 13,
+        "file": {
+          "url": "attachment://manual.pdf"
+        }
+      }
+    ]
+  },
+  "Separator: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 10,
+        "content": "It's dangerous to go alone!"
+      },
+      {
+        "type": 14,
+        "divider": true,
+        "spacing": 1
+      },
+      {
+        "type": 10,
+        "content": "Take this."
+      }
+    ]
+  },
+  "Container: Message Example": {
+    "flags": 32768,
+    "components": [
+      {
+        "type": 17,
+        "accent_color": 703487,
+        "components": [
+          {
+            "type": 10,
+            "content": "# You have encountered a wild coyote!"
+          },
+          {
+            "type": 12,
+            "items": [
+              {
+                "media": {
+                  "url": "https://websitewithopensourceimages/coyote.webp"
+                }
+              }
+            ]
+          },
+          {
+            "type": 10,
+            "content": "What would you like to do?"
+          },
+          {
+            "type": 1,
+            "components": [
+              {
+                "type": 2,
+                "custom_id": "pet_coyote",
+                "label": "Pet it!",
+                "style": 1
+              },
+              {
+                "type": 2,
+                "custom_id": "feed_coyote",
+                "label": "Attempt to feed it",
+                "style": 2
+              },
+              {
+                "type": 2,
+                "custom_id": "run_away",
+                "label": "Run away!",
+                "style": 4
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Label: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "game_feedback_modal",
+      "title": "Game Feedback",
+      "components": [
+        {
+          "type": 18,
+          "label": "What did you find interesting about the game?",
+          "description": "Please give us as much detail as possible so we can improve the game!",
+          "component": {
+            "type": 4,
+            "custom_id": "game_feedback",
+            "style": 2,
+            "min_length": 100,
+            "max_length": 4000,
+            "placeholder": "Write your feedback here...",
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "File Upload: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "bug_submit_modal",
+      "title": "Bug Submission",
+      "components": [
+        {
+          "type": 18,
+          "label": "File Upload",
+          "description": "Please upload a screenshot or other image that shows the bug you encountered.",
+          "component": {
+            "type": 19,
+            "custom_id": "file_upload",
+            "min_values": 1,
+            "max_values": 10,
+            "required": true
+          }
+        }
+      ]
+    }
+  },
+  "Radio Group: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "class_selection_modal",
+      "title": "Class Selection",
+      "components": [
+        {
+          "type": 18,
+          "label": "Choose your class",
+          "description": "Your class detertmines the style of play for your character.",
+          "component": {
+            "type": 21,
+            "custom_id": "class_radio",
+            "options": [
+              {
+                "value": "warrior",
+                "label": "Warrior",
+                "description": "Strong and brave"
+              },
+              {
+                "value": "rogue",
+                "label": "Rogue",
+                "description": "Weak and squishy"
+              },
+              {
+                "value": "wizard",
+                "label": "Wizard",
+                "description": "Nerd"
+              },
+              {
+                "value": "bard",
+                "label": "Bard",
+                "description": "Annoys everyone"
+              },
+              {
+                "value": "witch_doctor",
+                "label": "Witch Doctor",
+                "description": "Actually a pretty cool option"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "Checkbox Group: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "day_selection_modal",
+      "title": "Study Days",
+      "components": [
+        {
+          "type": 18,
+          "label": "Which days are you free?",
+          "description": "Choose all of the days you're able to meet up.",
+          "component": {
+            "type": 22,
+            "custom_id": "event_checkbox",
+            "options": [
+              {
+                "value": "march-4",
+                "label": "March 4th"
+              },
+              {
+                "value": "march-5",
+                "label": "March 5th"
+              },
+              {
+                "value": "march-7",
+                "label": "March 7th",
+                "description": "I know this is a Saturday and is tough"
+              },
+              {
+                "value": "march-9",
+                "label": "March 9th"
+              },
+              {
+                "value": "march-10",
+                "label": "March 10th"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "Checkbox: Modal Example": {
+    "type": 9,
+    "data": {
+      "custom_id": "secret_note_modal",
+      "title": "Secret Note",
+      "components": [
+        {
+          "type": 18,
+          "label": "Do you like me?",
+          "description": "😳😳😳",
+          "component": {
+            "type": 23,
+            "custom_id": "like_checkbox"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -27,3 +27,16 @@ class Emoji(Payload):
     managed: bool | UnsetType = UNSET
     animated: bool | UnsetType = UNSET
     available: bool | UnsetType = UNSET
+
+
+class PartialEmoji(Payload):
+    """An emoji shown on a button or select option: a custom emoji's `id`, or a unicode emoji's `name`.
+
+    Discord: https://docs.discord.com/developers/components/reference#button-button-structure
+    """
+
+    id: Snowflake | UnsetType | None = UNSET
+    """Set for custom emoji."""
+    name: str | UnsetType | None = UNSET
+    """The emoji itself for unicode emoji; the name for custom emoji."""
+    animated: bool | UnsetType = UNSET

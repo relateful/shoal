@@ -3,9 +3,9 @@
 Discord: https://docs.discord.com/developers/resources/message
 
 Not yet modeled: `Message.activity`, `application`, `message_snapshots`, `interaction_metadata`,
-`interaction`, `components`, `sticker_items`, `stickers`, `role_subscription_data`, `resolved`,
-`poll`, `call` and `shared_client_theme`, and the matching create-message parameters (components,
-stickers, polls, file uploads). Decoding ignores those keys until they are added.
+`interaction`, `sticker_items`, `stickers`, `role_subscription_data`, `resolved`,
+`poll`, `call` and `shared_client_theme`, and the matching create-message parameters (stickers,
+polls, file uploads). Decoding ignores those keys until they are added.
 """
 
 from datetime import datetime
@@ -17,6 +17,7 @@ from shoal.core.flags import BaseFlags, flag
 from shoal.core.snowflake import Snowflake
 from shoal.payloads.base import Payload
 from shoal.payloads.channel import Channel, ChannelType, ThreadMember
+from shoal.payloads.components import MessageComponent, RawComponent
 from shoal.payloads.emoji import Emoji
 from shoal.payloads.errors import JSONErrorCode
 from shoal.payloads.user import User
@@ -357,6 +358,9 @@ class Message(Payload):
     message_reference: MessageReference | UnsetType = UNSET
     referenced_message: "Message | UnsetType | None" = UNSET
     thread: Channel | UnsetType = UNSET
+    components: list[RawComponent] | UnsetType = UNSET
+    """The message's components as Discord sent them; `parse_components` decodes them. Kept as JSON
+    so a component type newer than Shoal never stops the message from decoding."""
     position: int | UnsetType = UNSET
 
 
@@ -408,6 +412,9 @@ class CreateMessageParams(Payload):
     embeds: list[Embed] | UnsetType = UNSET
     allowed_mentions: AllowedMentions | UnsetType = UNSET
     message_reference: MessageReference | UnsetType = UNSET
+    components: list[MessageComponent] | UnsetType = UNSET
+    """Anything but action rows needs `flags=MessageFlags(is_components_v2=True)`, and then
+    `content` and `embeds` cannot be used."""
     sticker_ids: list[Snowflake] | UnsetType = UNSET
     flags: MessageFlags | UnsetType = UNSET
     enforce_nonce: bool | UnsetType = UNSET

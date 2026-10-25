@@ -23,12 +23,14 @@ Every type links to the Discord docs section it mirrors. Everything is re-export
 
 
 def public_names(path: Path) -> list[str]:
-    """Public classes, functions and `Final` constants defined at the top level of a module."""
+    """Public classes, functions, `type` aliases and `Final` constants at the top level of a module."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     names: list[str] = []
     for node in tree.body:
         if isinstance(node, ast.ClassDef | ast.FunctionDef) and not node.name.startswith("_"):
             names.append(node.name)
+        elif isinstance(node, ast.TypeAlias) and not node.name.id.startswith("_"):
+            names.append(node.name.id)
         elif (
             isinstance(node, ast.AnnAssign)
             and isinstance(node.target, ast.Name)
