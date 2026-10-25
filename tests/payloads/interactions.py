@@ -27,6 +27,7 @@ from shoal.payloads import (
     ComponentType,
     CreateFollowupMessageParams,
     DeferredMessageResponse,
+    DeferredUpdateResponse,
     EditWebhookMessageParams,
     Interaction,
     InteractionCallbackResponse,
@@ -35,6 +36,7 @@ from shoal.payloads import (
     InteractionMessage,
     InteractionType,
     Label,
+    LaunchActivityResponse,
     Locale,
     MessageComponentData,
     MessageFlags,
@@ -51,6 +53,7 @@ from shoal.payloads import (
     TextInputStyle,
     UnknownComponent,
     UnknownInteraction,
+    UpdateMessageResponse,
     parse_interaction,
     parse_submitted_components,
 )
@@ -212,6 +215,34 @@ def test_a_malformed_known_interaction_is_an_error() -> None:
         interaction_from({**COMMON, "type": 2, "data": {"name": "missing id and type"}})
     with pytest.raises(PayloadDecodeError):
         interaction_from({"no": "interaction"})
+    with pytest.raises(PayloadDecodeError):
+        interaction_from({"application_id": "2", "type": 99, "data": {}})  # newer, but no id or token
+
+
+PING = b'{"id":"1","application_id":"2","type":1,"token":"t","version":1}'
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"",
+        b"[]",
+        b"null",
+        PING + b"x",
+        # Valid inside the one-field wrapper parse_interaction decodes through, but not one object.
+        PING[:-1] + b'},"value":{"id":"1","application_id":"2","type":1,"token":"u"}',
+        b"[" * 100_000 + b"]" * 100_000,
+    ],
+    ids=["empty", "array", "null", "trailing text", "second object", "deeply nested"],
+)
+def test_only_exactly_one_interaction_object_parses(body: bytes) -> None:
+    with pytest.raises(PayloadDecodeError):
+        parse_interaction(body)
+
+
+def test_dispatch_data_parses_as_it_is() -> None:
+    assert isinstance(parse_interaction(msgspec.Raw(PING)), PingInteraction)
+    assert isinstance(parse_interaction(PING.decode()), PingInteraction)
 
 
 def test_responses_carry_their_callback_type() -> None:
@@ -236,13 +267,19 @@ def test_responses_carry_their_callback_type() -> None:
         },
     }
     assert msgspec.json.decode(encode_json(DeferredMessageResponse())) == {"type": 5}
+    ephemeral = DeferredMessageResponse(data=InteractionMessage(flags=MessageFlags(ephemeral=True)))
+    assert msgspec.json.decode(encode_json(ephemeral)) == {"type": 5, "data": {"flags": 64}}
+    assert msgspec.json.decode(encode_json(DeferredUpdateResponse())) == {"type": 6}
+    update = UpdateMessageResponse(data=InteractionMessage(content="edited"))
+    assert msgspec.json.decode(encode_json(update)) == {"type": 7, "data": {"content": "edited"}}
+    assert msgspec.json.decode(encode_json(LaunchActivityResponse())) == {"type": 12}
     choices = AutocompleteResponse(
         data=AutocompleteChoices(choices=[ApplicationCommandOptionChoice(name="a", value="a")])
     )
-    assert (
-        msgspec.json.decode(encode_json(choices))["type"]
-        == InteractionCallbackType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT
-    )
+    assert msgspec.json.decode(encode_json(choices)) == {
+        "type": InteractionCallbackType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT,
+        "data": {"choices": [{"name": "a", "value": "a"}]},
+    }
     modal = ModalResponse(
         data=Modal(
             custom_id="form",
@@ -252,7 +289,16 @@ def test_responses_carry_their_callback_type() -> None:
             ],
         )
     )
-    assert msgspec.json.decode(encode_json(modal))["data"]["components"][0]["type"] == 18
+    assert msgspec.json.decode(encode_json(modal)) == {
+        "type": 9,
+        "data": {
+            "custom_id": "form",
+            "title": "Tell us",
+            "components": [
+                {"type": 18, "label": "Name", "component": {"type": 4, "custom_id": "name", "style": 1}}
+            ],
+        },
+    }
 
 
 def test_the_callback_response_reports_what_was_created() -> None:

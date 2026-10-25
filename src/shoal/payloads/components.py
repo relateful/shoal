@@ -742,7 +742,11 @@ class _OneComponent(msgspec.Struct, gc=False):
 
 
 class UnknownComponent(Payload):
-    """A component Shoal cannot decode: a newer type, or a known one containing a newer type.
+    """A received component Shoal cannot decode.
+
+    That is a newer type, a known one containing a newer type, or a known one in a shape Shoal does
+    not expect (such as a new required field). Received components never raise, so one odd component
+    cannot stop a message or modal submission from being read.
 
     `data` is the component exactly as Discord sent it.
 

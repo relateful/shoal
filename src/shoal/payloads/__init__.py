@@ -203,6 +203,8 @@ from shoal.payloads.guild import (
     VerificationLevel,
 )
 from shoal.payloads.interactions import (
+    INTERACTION_RESPONSE_DEADLINE,
+    INTERACTION_TOKEN_LIFETIME,
     ActivityInstanceResource,
     ApplicationCommandData,
     ApplicationCommandInteraction,
@@ -316,6 +318,8 @@ __all__ = [
     "GUILDS_PER_SHARD",
     "GUILD_CREATE_MEMBER_LIMIT",
     "IDENTIFY_WINDOW",
+    "INTERACTION_RESPONSE_DEADLINE",
+    "INTERACTION_TOKEN_LIFETIME",
     "INVALID_REQUEST_LIMIT",
     "INVALID_REQUEST_STATUSES",
     "INVALID_REQUEST_WINDOW",

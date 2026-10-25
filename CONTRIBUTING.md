@@ -39,6 +39,7 @@ src/shoal/
   ipc/           gateway-to-worker transport
   metrics/       exporters (Prometheus)
   diagnostics/   event loop health
+  interaction_server/  interactions over HTTP, for bots without a gateway
 tests/           mirrors src/shoal/: tests/rest/route.py tests src/shoal/rest/route.py
 scripts/         maintenance scripts (docs checker, export generator, constant sorter)
 docs/            guides and the home page; the API reference is generated from docstrings
@@ -89,7 +90,10 @@ Payloads mirror Discord's JSON exactly and hold data only.
 - Snowflakes are `Snowflake`; bitfields are `BaseFlags` subclasses; enums are `DiscordIntEnum` or
   `DiscordStrEnum`, which accept values Discord adds later.
 - A field whose type is not modeled yet is left out (msgspec ignores unknown keys) and listed in the
-  module docstring under "Not yet modeled". Never type it as `Any` or `dict`.
+  module docstring under "Not yet modeled". Never type it as `Any` or `dict`; the one exception is
+  JSON kept as received on purpose (see Typing).
+- Subclasses that share fields through a private base (`_InteractionCommon`) list the shared fields
+  first, so a field the subclass adds, such as `data`, comes last rather than in table order.
 - When a Discord example omits a field its table requires, follow the table.
 - After adding a payload, run `scripts/generate_exports.py`.
 
@@ -97,8 +101,10 @@ Payloads mirror Discord's JSON exactly and hold data only.
 
 - pyright and mypy run in strict mode over `src`, `tests` and `scripts`.
 - `Any` is banned (ruff rule). Use `object`, a `Protocol`, a `TypeGuard` or a precise type. The one
-  exception is `core.codec.JSONObject`, for JSON Discord extends faster than Shoal models it (received
-  components); it is converted to typed payloads before use, and no other alias may wrap `Any`.
+  exception is `core.codec.JSONObject`, for JSON Discord extends faster than Shoal models it: received
+  components (named `RawComponent` where they appear) and the body of an `UnknownInteraction` or
+  `UnknownComponent`. It is converted to typed payloads before use. Aliases may rename
+  `JSONObject`, but no other alias may wrap `Any`. Tests use it for JSON fixtures.
 - `cast` and `type: ignore` are a last resort: name the error code and say why on the same line.
 - Use Python 3.12 syntax: `type` aliases, `class Box[T]`, `def first[T]`.
 - Protocols describe every swappable dependency (transport, connector, clock, rate limiter, identify
@@ -142,5 +148,5 @@ So that anything can be found without searching:
 ## Commits
 
 Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes are the layers (`core`,
-`payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`) plus `docs`, `ci` and
+`payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `interaction_server`) plus `docs`, `ci` and
 `build`. Update `CHANGELOG.md` under "Unreleased".

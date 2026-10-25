@@ -16,6 +16,7 @@ nav:
   - Home: index.md
   - Guide:
       - Architecture: guide/architecture.md
+      - Commands and interactions: guide/interactions.md
       - Caching and restarts: guide/caching.md
       - Scaling, sharding and IPC: guide/scaling.md
       - Dashboards and REST: guide/dashboards.md

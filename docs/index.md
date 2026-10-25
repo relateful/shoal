@@ -18,7 +18,7 @@ secondary_link: reference/shoal/index.md
 
 <p class="status-tag">Pre-alpha</p>
 
-<p markdown="span">The foundation is complete and tested: typed payloads, the REST client, the gateway, the cache, IPC, metrics and diagnostics. Models with methods, commands and components come next; the [roadmap](roadmap.md) has the order.</p>
+<p markdown="span">The foundation is complete and tested: typed payloads, the REST client, the gateway, the cache, IPC, metrics and diagnostics, plus application commands, components and interactions over the gateway or HTTP. Models with methods and a command framework come next; the [roadmap](roadmap.md) has the order.</p>
 
 </div>
 
@@ -203,7 +203,7 @@ The [architecture guide](guide/architecture.md) explains what each layer owns.
 
 <div class="layer-row layer-top" markdown>
 
-[rest](reference/shoal/rest/index.md){ .layer } [gateway](reference/shoal/gateway/index.md){ .layer } [cache](reference/shoal/cache/index.md){ .layer } [ipc](reference/shoal/ipc/index.md){ .layer } [metrics](reference/shoal/metrics/index.md){ .layer } [diagnostics](reference/shoal/diagnostics/index.md){ .layer }
+[rest](reference/shoal/rest/index.md){ .layer } [gateway](reference/shoal/gateway/index.md){ .layer } [cache](reference/shoal/cache/index.md){ .layer } [ipc](reference/shoal/ipc/index.md){ .layer } [metrics](reference/shoal/metrics/index.md){ .layer } [diagnostics](reference/shoal/diagnostics/index.md){ .layer } [interaction_server](reference/shoal/interaction_server/index.md){ .layer }
 
 </div>
 

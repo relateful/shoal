@@ -5,7 +5,8 @@ and still the right tool at a million.
 
 > **Status: pre-alpha.** The foundation is complete and tested: typed payloads, the REST client, the
 > gateway with clusters and resumable sessions, a restart-aware cache, inter-process communication,
-> metrics and diagnostics. The high-level bot API (models with methods, commands, components) is next.
+> metrics and diagnostics, and application commands, components and interactions (over the gateway or
+> a signed HTTP endpoint). The high-level bot API (models with methods, a command framework) is next.
 > See the [roadmap](docs/roadmap.md).
 
 ## Why Shoal
@@ -33,6 +34,7 @@ and still the right tool at a million.
 pip install shoal
 pip install "shoal[prometheus]"   # Prometheus metrics
 pip install "shoal[zstd]"         # zstd gateway compression on Python 3.12 and 3.13
+pip install "shoal[interactions]" # receive interactions over HTTP, without a gateway
 ```
 
 Shoal needs Python 3.12 or newer.
@@ -105,6 +107,7 @@ async def main(token: str) -> None:
 - Guides: [architecture](docs/guide/architecture.md), [caching and restarts](docs/guide/caching.md),
   [scaling, sharding and IPC](docs/guide/scaling.md), [dashboards and REST](docs/guide/dashboards.md),
   [metrics and Grafana](docs/guide/metrics.md), [diagnosing a slow bot](docs/guide/diagnostics.md),
+  [commands and interactions](docs/guide/interactions.md),
   [migrating from discord.py](docs/guide/migrating-from-discord-py.md).
 - The API reference is generated from the docstrings: `uv run --group docs mkdocs serve`.
 - [Discord API coverage](docs/coverage.md) lists every endpoint Discord documents and whether Shoal

@@ -25,3 +25,19 @@ yet; this page covers what exists and is updated as the rest lands.
 | Cache lost on restart | snapshots plus resumable sessions | warm restarts |
 | `Client.http` (undocumented) | `RestClient` (public, standalone) | dashboards and workers |
 | One process | gateway and workers can be split with `shoal.ipc` | scaling and zero-downtime deploys |
+
+## Interactions
+
+Until the command framework lands, these are the building blocks underneath it. The
+[interactions guide](interactions.md) covers them in full.
+
+| discord.py | Shoal |
+| --- | --- |
+| `await tree.sync()` | `rest.bulk_overwrite_global_application_commands(application_id, commands)` |
+| `discord.Interaction` | `ApplicationCommandInteraction`, `ComponentInteraction`, `ModalSubmitInteraction`, `AutocompleteInteraction` |
+| `interaction.response.send_message(...)` | `rest.create_interaction_response(id, token, MessageResponse(...))` |
+| `interaction.response.defer()` | `DeferredMessageResponse()`, then `edit_original_interaction_response` |
+| `interaction.followup.send(...)` | `rest.create_followup_message(application_id, token, ...)` |
+| `interaction.response.send_modal(modal)` | `ModalResponse(data=Modal(...))` |
+| `discord.ui.Button`, `discord.ui.Select` | `Button`, `StringSelect` and the other select types |
+| `ephemeral=True` | `flags=MessageFlags(ephemeral=True)` |

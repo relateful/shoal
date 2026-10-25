@@ -21,6 +21,7 @@ import shoal.payloads
 from shoal.core.codec import json_decoder, msgpack_decoder
 from shoal.core.enums import DiscordIntEnum, DiscordStrEnum
 from shoal.core.flags import BaseFlags
+from shoal.core.metrics import ALL_METRICS
 from shoal.payloads.base import Payload
 from shoal.rest.client import RestClient
 
@@ -227,3 +228,9 @@ def test_dispatch_tables_are_alphabetical() -> None:
                     if isinstance(key, ast.Constant) and isinstance(key.value, str)
                 ]
                 assert keys == sorted(keys), f"{module_name(path)}: table keys out of order {keys}"
+
+
+@pytest.mark.parametrize("name", [spec.name for spec in ALL_METRICS])
+def test_every_metric_is_documented(name: str) -> None:
+    guide = (ROOT / "docs" / "guide" / "metrics.md").read_text(encoding="utf-8")
+    assert f"| `{name}` |" in guide, f"{name} is missing from the table in docs/guide/metrics.md"

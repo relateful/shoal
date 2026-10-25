@@ -27,6 +27,8 @@ localhost unless told otherwise.
 | `shoal_gateway_latency_seconds` | gauge | `shard` |
 | `shoal_gateway_reconnects_total` | counter | `shard`, `mode` (`resume`, `identify`) |
 | `shoal_gateway_shard_ready` | gauge | `shard` |
+| `shoal_http_interaction_seconds` | histogram | `type` |
+| `shoal_http_interactions_total` | counter | `type`, `result` (`inline`, `callback`, `invalid_signature`, `malformed`, `handler_error`, `timeout`) |
 | `shoal_ipc_disconnects_total` | counter | `reason` |
 | `shoal_ipc_events_sent_total` | counter | |
 | `shoal_ipc_subscribers` | gauge | |

@@ -11,8 +11,8 @@ data and a message response cannot forget it.
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding
 
 Not yet modeled: `Interaction.guild` (partial guild) and `entitlements`; `InteractionMessage.attachments`
-and `poll`, `CreateFollowupMessageParams` files, attachments and polls. Decoding ignores those keys
-until they are added.
+and `poll`, `CreateFollowupMessageParams` files, attachments, polls, `thread_name` and
+`applied_tags`. Decoding ignores those keys until they are added.
 """
 
 from typing import Final
@@ -251,9 +251,9 @@ class UnknownInteraction(Payload):
     Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-interaction-type
     """
 
-    type: int
     id: Snowflake
     application_id: Snowflake
+    type: int
     token: str
     data: JSONObject
 
@@ -279,19 +279,25 @@ class _InteractionHead(Payload):
     token: str
 
 
-def parse_interaction(data: bytes | bytearray | memoryview | str) -> Interaction | UnknownInteraction:
+def parse_interaction(
+    data: bytes | bytearray | memoryview | msgspec.Raw | str,
+) -> Interaction | UnknownInteraction:
     """Decode an interaction from the JSON of an `INTERACTION_CREATE` dispatch or an HTTP request body.
 
+    `DispatchEvent.data` (a `msgspec.Raw`) can be passed as it is.
+
     Raises:
-        PayloadDecodeError: The data is not an interaction, or a known type is malformed.
+        PayloadDecodeError: The data is not exactly one interaction object, or a known type is malformed.
     """
     raw = data.encode() if isinstance(data, str) else bytes(data)
+    # Decoding the head from the unwrapped bytes first rejects anything that is not exactly one
+    # JSON object, which the wrapper below could not: `{...},"value":{...}` would be valid inside it.
+    head = decode_json(raw, _InteractionHead)
     # Wrapped in a one-field object so the `Interaction` union decodes through a typed struct.
     boxed = b'{"value":' + raw + b"}"
     try:
         return decode_json(boxed, _OneInteraction).value
     except PayloadDecodeError:
-        head = decode_json(raw, _InteractionHead)
         if head.type in _KNOWN_TYPES:
             raise
         return UnknownInteraction(
@@ -301,6 +307,20 @@ def parse_interaction(data: bytes | bytearray | memoryview | str) -> Interaction
             token=head.token,
             data=decode_json(boxed, _AnyObject).value,
         )
+
+
+INTERACTION_RESPONSE_DEADLINE: Final = 3.0
+"""Seconds Discord waits for the first response before it fails the interaction.
+
+Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#responding-to-an-interaction
+"""
+
+INTERACTION_TOKEN_LIFETIME: Final = 15 * 60
+"""Seconds an interaction token stays valid for follow-ups and edits, from when the interaction is
+received.
+
+Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#followup-messages
+"""
 
 
 class InteractionMessage(Payload):

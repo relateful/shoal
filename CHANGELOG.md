@@ -27,6 +27,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
   messages, reactions, presences and voice states).
 - `shoal.ipc`: `EventServer` and `EventClient` to stream gateway events between processes over TCP, with
   token authentication, optional TLS, event filtering and reconnects.
+- Application commands: typed commands, options, choices and permissions, and the 15 live command
+  endpoints. Creating or editing one guild command takes its own type, without the global-only
+  fields.
+- Components: every message and modal component, including Components V2 and the newer modal inputs,
+  with layout unions that make invalid nesting a type error. Received components decode lazily
+  (`parse_components`), so a component type newer than Shoal never breaks a message.
+- Interactions: one class per interaction type and per response type, `parse_interaction` with an
+  `UnknownInteraction` fallback, modal submissions, resolved data, and the eight response and
+  follow-up endpoints. Interaction tokens never appear in logs, errors or metrics.
+- `shoal.interaction_server`: receive interactions over HTTP without a gateway, with Ed25519
+  signature checks, inline or callback answers, and handler timing against the 3-second deadline
+  (`pip install 'shoal[interactions]'`).
 - `shoal.metrics.prometheus`: `PrometheusMetrics`, exporting every metric in the catalog.
 - `shoal.diagnostics`: `LoopMonitor`, which names the code blocking the event loop while it blocks.
 - Documentation site with generated API reference, guides, and a Discord API coverage page checked

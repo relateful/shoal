@@ -78,6 +78,21 @@ GATEWAY_SHARD_READY: Final = MetricSpec(
     ("shard",),
 )
 
+HTTP_INTERACTIONS: Final = MetricSpec(
+    "shoal_http_interactions_total",
+    MetricKind.COUNTER,
+    "Interactions received over HTTP, by type and result (inline, callback, invalid_signature, "
+    "malformed, handler_error, timeout).",
+    ("type", "result"),
+)
+
+HTTP_INTERACTION_SECONDS: Final = MetricSpec(
+    "shoal_http_interaction_seconds",
+    MetricKind.HISTOGRAM,
+    "Time the handler took to answer an HTTP interaction; Discord fails it after 3 seconds.",
+    ("type",),
+)
+
 IPC_DISCONNECTS: Final = MetricSpec(
     "shoal_ipc_disconnects_total",
     MetricKind.COUNTER,
@@ -156,6 +171,8 @@ ALL_METRICS: Final = (
     GATEWAY_LATENCY_SECONDS,
     GATEWAY_RECONNECTS,
     GATEWAY_SHARD_READY,
+    HTTP_INTERACTIONS,
+    HTTP_INTERACTION_SECONDS,
     IPC_DISCONNECTS,
     IPC_EVENTS_SENT,
     IPC_SUBSCRIBERS,

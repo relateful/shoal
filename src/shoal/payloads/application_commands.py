@@ -248,6 +248,10 @@ class BulkApplicationCommandParams(Payload):
     Give `id` to update a known command in place instead of matching it by name. `contexts`,
     `integration_types` and `handler` only apply to global commands.
 
+    Discord's table lists `description`, `contexts` and `integration_types` as required. They are
+    optional here, as in Create Global Application Command: user and message commands have no
+    description, and the other two have defaults.
+
     Discord: https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands-json-params
     """
 
