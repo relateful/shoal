@@ -252,5 +252,58 @@
     "d": {
       "heartbeat_interval": 45000
     }
+  },
+  "slash_command": {
+    "name": "blep",
+    "type": 1,
+    "description": "Send a random adorable animal photo",
+    "options": [
+      {
+        "name": "animal",
+        "description": "The type of animal",
+        "type": 3,
+        "required": true,
+        "choices": [
+          {
+            "name": "Dog",
+            "value": "animal_dog"
+          },
+          {
+            "name": "Cat",
+            "value": "animal_cat"
+          },
+          {
+            "name": "Penguin",
+            "value": "animal_penguin"
+          }
+        ]
+      },
+      {
+        "name": "only_smol",
+        "description": "Whether to show only baby animals",
+        "type": 5,
+        "required": false
+      }
+    ]
+  },
+  "user_command": {
+    "name": "View Stats",
+    "type": 2
+  },
+  "message_command": {
+    "name": "Challenge",
+    "type": 3
+  },
+  "entry_point_command": {
+    "name": "launch",
+    "description": "Launch Racing with Friends",
+    "type": 4,
+    "handler": 2
+  },
+  "default_permissions_command": {
+    "name": "permissions_test",
+    "description": "A test of default permissions",
+    "type": 1,
+    "default_member_permissions": "0"
   }
 }

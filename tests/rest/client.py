@@ -1,12 +1,23 @@
 import asyncio
 import random
+from collections.abc import Awaitable, Callable
 
+import msgspec
 import pytest
 
+from shoal.core.codec import encode_json
 from shoal.core.metrics import REST_RATE_LIMITED, REST_REQUESTS, REST_RETRIES, InMemoryMetrics
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
+    ApplicationCommandPermission,
+    ApplicationCommandPermissionType,
+    BulkApplicationCommandParams,
+    CreateGlobalApplicationCommandParams,
+    CreateGuildApplicationCommandParams,
     CreateMessageParams,
+    EditApplicationCommandPermissionsParams,
+    EditGlobalApplicationCommandParams,
+    EditGuildApplicationCommandParams,
     Guild,
     SearchGuildMessagesParams,
     SearchHasType,
@@ -309,3 +320,189 @@ async def test_search_gives_up_with_a_typed_error() -> None:
     with pytest.raises(SearchIndexNotReadyError) as caught:
         await make_client(transport).search_guild_messages(5, SearchGuildMessagesParams())
     assert caught.value.documents_indexed == 40
+
+
+COMMAND: dict[str, object] = {
+    "id": "5",
+    "application_id": "7",
+    "name": "ping",
+    "description": "Check the bot",
+    "default_member_permissions": None,
+    "version": "1",
+}
+PERMISSIONS: dict[str, object] = {
+    "id": "5",
+    "application_id": "7",
+    "guild_id": "2",
+    "permissions": [{"id": "2", "type": 1, "permission": True}],
+}
+GLOBAL_COMMANDS = "https://discord.com/api/v10/applications/7/commands"
+GUILD_COMMANDS = "https://discord.com/api/v10/applications/7/guilds/2/commands"
+
+type CommandCall = Callable[[RestClient], Awaitable[object]]
+
+COMMAND_CALLS: list[tuple[str, CommandCall, str, str, object, object]] = [
+    (
+        "get global",
+        lambda client: client.get_global_application_commands(7),
+        "GET",
+        f"{GLOBAL_COMMANDS}?with_localizations=false",
+        None,
+        [COMMAND],
+    ),
+    (
+        "create global",
+        lambda client: client.create_global_application_command(
+            7, CreateGlobalApplicationCommandParams(name="ping", description="Check the bot")
+        ),
+        "POST",
+        GLOBAL_COMMANDS,
+        {"name": "ping", "description": "Check the bot"},
+        COMMAND,
+    ),
+    (
+        "get one global",
+        lambda client: client.get_global_application_command(7, 5),
+        "GET",
+        f"{GLOBAL_COMMANDS}/5",
+        None,
+        COMMAND,
+    ),
+    (
+        "edit global",
+        lambda client: client.edit_global_application_command(
+            7, 5, EditGlobalApplicationCommandParams(nsfw=True)
+        ),
+        "PATCH",
+        f"{GLOBAL_COMMANDS}/5",
+        {"nsfw": True},
+        COMMAND,
+    ),
+    (
+        "delete global",
+        lambda client: client.delete_global_application_command(7, 5),
+        "DELETE",
+        f"{GLOBAL_COMMANDS}/5",
+        None,
+        None,
+    ),
+    (
+        "bulk global",
+        lambda client: client.bulk_overwrite_global_application_commands(7, []),
+        "PUT",
+        GLOBAL_COMMANDS,
+        [],
+        [],
+    ),
+    (
+        "get guild",
+        lambda client: client.get_guild_application_commands(7, 2, with_localizations=True),
+        "GET",
+        f"{GUILD_COMMANDS}?with_localizations=true",
+        None,
+        [COMMAND],
+    ),
+    (
+        "create guild",
+        lambda client: client.create_guild_application_command(
+            7, 2, CreateGuildApplicationCommandParams(name="ping", description="Check the bot")
+        ),
+        "POST",
+        GUILD_COMMANDS,
+        {"name": "ping", "description": "Check the bot"},
+        COMMAND,
+    ),
+    (
+        "get one guild",
+        lambda client: client.get_guild_application_command(7, 2, 5),
+        "GET",
+        f"{GUILD_COMMANDS}/5",
+        None,
+        COMMAND,
+    ),
+    (
+        "edit guild",
+        lambda client: client.edit_guild_application_command(
+            7, 2, 5, EditGuildApplicationCommandParams(name="pong")
+        ),
+        "PATCH",
+        f"{GUILD_COMMANDS}/5",
+        {"name": "pong"},
+        COMMAND,
+    ),
+    (
+        "delete guild",
+        lambda client: client.delete_guild_application_command(7, 2, 5),
+        "DELETE",
+        f"{GUILD_COMMANDS}/5",
+        None,
+        None,
+    ),
+    (
+        "bulk guild",
+        lambda client: client.bulk_overwrite_guild_application_commands(
+            7, 2, [BulkApplicationCommandParams(name="ping", description="Check the bot")]
+        ),
+        "PUT",
+        GUILD_COMMANDS,
+        [{"name": "ping", "description": "Check the bot"}],
+        [COMMAND],
+    ),
+    (
+        "guild permissions",
+        lambda client: client.get_guild_application_command_permissions(7, 2),
+        "GET",
+        f"{GUILD_COMMANDS}/permissions",
+        None,
+        [PERMISSIONS],
+    ),
+    (
+        "command permissions",
+        lambda client: client.get_application_command_permissions(7, 2, 5),
+        "GET",
+        f"{GUILD_COMMANDS}/5/permissions",
+        None,
+        PERMISSIONS,
+    ),
+    (
+        "edit permissions",
+        lambda client: client.edit_application_command_permissions(
+            7,
+            2,
+            5,
+            EditApplicationCommandPermissionsParams(
+                permissions=[
+                    ApplicationCommandPermission(
+                        id=Snowflake(2), type=ApplicationCommandPermissionType.ROLE, permission=True
+                    )
+                ]
+            ),
+        ),
+        "PUT",
+        f"{GUILD_COMMANDS}/5/permissions",
+        {"permissions": [{"id": "2", "type": 1, "permission": True}]},
+        PERMISSIONS,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("call", "method", "url", "body", "response"),
+    [case[1:] for case in COMMAND_CALLS],
+    ids=[case[0] for case in COMMAND_CALLS],
+)
+async def test_application_command_endpoints(
+    call: CommandCall, method: str, url: str, body: object, response: object
+) -> None:
+    transport = FakeTransport()
+    transport.queue(204 if response is None else 200, response)
+    client = make_client(transport)
+    result = await call(client)
+    request = transport.requests[0]
+    assert (request.method, request.url) == (method, url)
+    assert (msgspec.json.decode(request.body) if request.body is not None else None) == body
+    if response is None:
+        assert result is None
+    else:
+        # Re-encoding what the client returned gives back what Discord sent: nothing lost or mistyped.
+        assert msgspec.json.decode(encode_json(result)) == response
