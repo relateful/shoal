@@ -112,7 +112,7 @@ from shoal.rest.errors import (
 )
 from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, RateLimitHeaders
 from shoal.rest.route import CompiledRoute
-from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport
+from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
 
 _log = logging.getLogger("shoal.rest")
 
@@ -209,6 +209,8 @@ class RestClient:
         base_url: The API base without version. Point it at a REST proxy to centralise rate limits.
         api_version: The API version segment.
         max_retries: Retries for rate limits, idempotent requests that hit 5xx, and network errors.
+            A request that is not idempotent is retried after a network error only when it never
+            left the machine, so a message or an interaction response is never sent twice.
         max_rate_limit_wait: The longest 429 wait, in seconds, the client will sit through before
             raising `RateLimitedError` instead.
         refuse_after_unauthorized: After a 401 on a bot token, refuse every further request. This
@@ -378,7 +380,9 @@ class RestClient:
             response = await self._transport.request(route.method, url, headers=headers, body=payload)
         except OSError as error:
             self._limiter.release(route, None, None, None)
-            if attempt >= self._max_retries:
+            if attempt >= self._max_retries or (
+                not route.method.is_idempotent and _may_have_been_sent(error)
+            ):
                 error.add_note(f"route: {route.method} {route.display}")
                 raise
             delay = backoff_delay(attempt + 1, cap=RETRY_BACKOFF_CAP, random_source=self._random_source)
@@ -787,6 +791,16 @@ class RestClient:
         with_response: Literal[True],
     ) -> InteractionCallbackResponse: ...
 
+    @overload
+    async def create_interaction_response(
+        self,
+        interaction_id: int,
+        interaction_token: str,
+        response: InteractionResponse,
+        *,
+        with_response: bool,
+    ) -> InteractionCallbackResponse | None: ...
+
     async def create_interaction_response(
         self,
         interaction_id: int,
@@ -906,3 +920,10 @@ class RestClient:
                 application_id=application_id, interaction_token=interaction_token, message_id=message_id
             )
         )
+
+
+def _may_have_been_sent(error: OSError) -> bool:
+    """Whether Discord could have received (and acted on) a request that failed with `error`."""
+    if isinstance(error, TransportError):
+        return error.request_sent
+    return not isinstance(error, ConnectionRefusedError)

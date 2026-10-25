@@ -60,3 +60,21 @@ def test_secret_parameters_never_reach_the_display_path() -> None:
     assert compiled.path == "/webhooks/1/aW50ZXJhY3Rpb24/messages/@original"
     assert compiled.display == "/webhooks/1/{interaction_token}/messages/@original"
     assert "aW50ZXJhY3Rpb24" not in compiled.display
+    assert "aW50ZXJhY3Rpb24" not in repr(compiled)
+
+    webhook = Route(
+        HTTPMethod.GET,
+        "/webhooks/{webhook_id}/{webhook_token}",
+        docs="https://docs.discord.com/developers/resources/webhook#get-webhook-with-token",
+    ).compile(webhook_id=2, webhook_token="c2VjcmV0")
+    assert webhook.display == "/webhooks/2/{webhook_token}"
+    assert "c2VjcmV0" not in repr(webhook)
+
+
+def test_routes_without_secrets_display_their_path() -> None:
+    compiled = Route(
+        HTTPMethod.GET,
+        "/users/{user_id}",
+        docs="https://docs.discord.com/developers/resources/user#get-user",
+    ).compile(user_id=1)
+    assert compiled.display == compiled.path == "/users/1"

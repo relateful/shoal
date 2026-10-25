@@ -59,6 +59,8 @@ def _msgpack_enc_hook(value: object) -> object:
     raise TypeError(msg)
 
 
+_TOO_DEEP: Final = "nested too deeply"
+"""msgspec raises `RecursionError` on deeply nested input; callers only ever see `PayloadDecodeError`."""
 _JSON_ENCODER: Final = msgspec.json.Encoder(enc_hook=_json_enc_hook)
 _MSGPACK_ENCODER: Final = msgspec.msgpack.Encoder(enc_hook=_msgpack_enc_hook)
 _json_decoders: dict[object, msgspec.json.Decoder[object]] = {}
@@ -104,6 +106,8 @@ def decode_json[T](data: bytes | bytearray | memoryview | str, target: type[T]) 
         return json_decoder(target).decode(data)
     except msgspec.DecodeError as error:
         raise PayloadDecodeError(target, str(error)) from error
+    except RecursionError:
+        raise PayloadDecodeError(target, _TOO_DEEP) from None
 
 
 def decode_msgpack[T](data: bytes | bytearray | memoryview, target: type[T]) -> T:
@@ -116,6 +120,8 @@ def decode_msgpack[T](data: bytes | bytearray | memoryview, target: type[T]) -> 
         return msgpack_decoder(target).decode(data)
     except msgspec.DecodeError as error:
         raise PayloadDecodeError(target, str(error)) from error
+    except RecursionError:
+        raise PayloadDecodeError(target, _TOO_DEEP) from None
 
 
 type JSONObject = dict[str, Any]
@@ -137,6 +143,8 @@ def convert[T](value: object, target: type[T]) -> T:
         return msgspec.convert(value, target, dec_hook=_dec_hook)
     except msgspec.ValidationError as error:
         raise PayloadDecodeError(target, str(error)) from error
+    except RecursionError:
+        raise PayloadDecodeError(target, _TOO_DEEP) from None
 
 
 def encode_json(value: object) -> bytes:

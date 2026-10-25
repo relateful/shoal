@@ -113,11 +113,13 @@ class CompiledRoute:
     """A route with its parameters filled in."""
 
     route: Route
-    path: str
+    path: str = field(repr=False)
+    """The real path. It can hold a token, so it is left out of the repr; log `display` instead."""
     display: str
     """The path for logs and error messages: secret parameters (tokens) stay as placeholders."""
-    major: str
-    """The major parameter values joined into one string, e.g. `channel_id=123`."""
+    major: str = field(repr=False)
+    """The major parameter values joined into one string, e.g. `channel_id=123`. It can hold a
+    token, so it is left out of the repr and never logged."""
 
     @property
     def method(self) -> HTTPMethod:

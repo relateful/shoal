@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 from collections.abc import Awaitable, Callable
 
@@ -43,6 +44,7 @@ from shoal.rest.errors import (
     UnauthorizedError,
 )
 from shoal.rest.ratelimit import LocalRateLimiter
+from shoal.rest.transport import TransportError
 from tests.support.fakes import FakeClock, FakeTransport
 
 USER: dict[str, object] = {
@@ -220,9 +222,35 @@ async def test_network_errors_retry_then_raise() -> None:
     transport = FakeTransport()
     for _ in range(4):
         transport.queue_error(ConnectionResetError("reset"))
-    with pytest.raises(ConnectionResetError):
+    with pytest.raises(ConnectionResetError) as raised:
         await make_client(transport).get_user(1)
     assert len(transport.requests) == 4
+    assert raised.value.__notes__ == ["route: GET /users/1"]
+
+
+async def test_posts_are_retried_after_a_network_error_only_when_nothing_was_sent() -> None:
+    transport = FakeTransport()
+    transport.queue_error(TransportError("POST request failed: ServerTimeoutError"))
+    with pytest.raises(TransportError):
+        await make_client(transport).create_message(1, CreateMessageParams(content="x"))
+    assert len(transport.requests) == 1
+
+    for error in (TransportError("connect failed", request_sent=False), ConnectionRefusedError("refused")):
+        transport = FakeTransport()
+        transport.queue_error(error)
+        transport.queue(200, MESSAGE)
+        await make_client(transport).create_message(1, CreateMessageParams(content="x"))
+        assert len(transport.requests) == 2
+
+
+async def test_network_retries_log_the_redacted_route(caplog: pytest.LogCaptureFixture) -> None:
+    transport = FakeTransport()
+    transport.queue_error(ConnectionResetError("reset"))
+    transport.queue(200, MESSAGE)
+    with caplog.at_level(logging.WARNING, logger="shoal.rest"):
+        await make_client(transport).get_original_interaction_response(1, "SECRET-TOKEN")
+    assert "/webhooks/1/{interaction_token}/messages/@original" in caplog.text
+    assert "SECRET-TOKEN" not in caplog.text
 
 
 async def test_a_cancelled_request_does_not_block_its_route() -> None:

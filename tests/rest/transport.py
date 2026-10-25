@@ -1,3 +1,5 @@
+import asyncio
+
 import msgspec
 import pytest
 from aiohttp import web
@@ -45,3 +47,33 @@ async def test_connection_failures_become_transport_errors() -> None:
 
 def test_transport_errors_are_os_errors_so_the_client_retries_them() -> None:
     assert issubclass(TransportError, OSError)
+
+
+async def slow(request: web.Request) -> web.Response:
+    del request
+    await asyncio.sleep(1)
+    return web.Response()
+
+
+async def test_timeouts_say_what_happened_without_the_url() -> None:
+    app = web.Application()
+    app.router.add_get("/webhooks/1/{token}", slow)
+    async with serve(app) as address:
+        transport = AiohttpTransport(timeout=0.2)
+        with pytest.raises(TransportError) as raised:
+            await transport.request("GET", f"http://{address}/webhooks/1/TOKEN", headers={}, body=None)
+        await transport.close()
+    assert "TOKEN" not in str(raised.value)
+    assert "Timeout" in str(raised.value)
+    # Nothing chained either: a logged traceback would print the original error's text.
+    assert raised.value.__cause__ is None
+    assert raised.value.__suppress_context__
+    assert raised.value.request_sent
+
+
+async def test_invalid_urls_are_not_repeated() -> None:
+    transport = AiohttpTransport()
+    with pytest.raises(TransportError) as raised:
+        await transport.request("GET", "http:///webhooks/1/TOKEN", headers={}, body=None)
+    await transport.close()
+    assert "TOKEN" not in str(raised.value)
