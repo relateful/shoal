@@ -556,6 +556,46 @@ table.field-list, .doc-section-item { font-size: 0.92rem; }
 .prose p.discord-ref a { text-decoration: none; font-weight: 600; }
 .prose p.discord-ref a:hover { text-decoration: underline; }
 
+/* Parameters, attributes, returns and raises: one row per entry instead of a cramped table.
+   The name, type and default share a line; the description gets the full width below. */
+.is-reference .table-scroll:has(.doc-section-item) { overflow: visible; margin: 0.5rem 0 1.5rem; }
+.is-reference table:has(.doc-section-item) { display: block; margin: 0; border-top: 1px solid var(--line); }
+.is-reference table:has(.doc-section-item) thead { display: none; }
+.is-reference table:has(.doc-section-item) tbody { display: block; }
+.is-reference tr.doc-section-item {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: baseline; gap: 0.3rem 1rem;
+  padding: 0.85rem 0; border-bottom: 1px solid var(--line);
+}
+.is-reference tr.doc-section-item > td { display: block; padding: 0; border: 0; min-width: 0; }
+.is-reference tr.doc-section-item > td:first-child code {
+  background: none; padding: 0; font-weight: 650; color: var(--ink); font-size: 0.92rem;
+}
+.is-reference tr.doc-section-item > td:nth-child(2) code {
+  background: none; padding: 0; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere;
+}
+.is-reference tr.doc-section-item > td:nth-child(2) a code, .is-reference tr.doc-section-item a { color: var(--link); }
+.is-reference tr.doc-section-item .doc-md-description p { margin: 0 0 0.4rem; font-size: 0.98rem; line-height: 1.6; }
+.is-reference tr.doc-section-item .doc-md-description p:last-child { margin-bottom: 0; }
+
+/* Four cells (name, type, description, default) */
+.is-reference tr.doc-section-item:has(> td:nth-child(4)) > td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+.is-reference tr.doc-section-item > td:nth-child(4) {
+  grid-column: 3; grid-row: 1; justify-self: end;
+  font-size: 0.78rem; color: var(--muted);
+}
+.is-reference tr.doc-section-item > td:nth-child(4) code { background: var(--sunk); font-size: 0.78rem; }
+.is-reference tr.doc-section-item > td:nth-child(4) em {
+  font-style: normal; padding: 0.05rem 0.5rem; border: 1px solid var(--line); border-radius: 999px;
+}
+/* Three cells (name, type, description) */
+.is-reference tr.doc-section-item:has(> td:nth-child(3)):not(:has(> td:nth-child(4))) > td:nth-child(2) { grid-column: 2 / -1; }
+.is-reference tr.doc-section-item:has(> td:nth-child(3)):not(:has(> td:nth-child(4))) > td:nth-child(3) { grid-column: 1 / -1; }
+/* Two cells (type, description): returns and raises */
+.is-reference tr.doc-section-item:not(:has(> td:nth-child(3))) > td:first-child { grid-column: 1 / -1; }
+.is-reference tr.doc-section-item:not(:has(> td:nth-child(3))) > td:nth-child(2) { grid-column: 1 / -1; }
+.is-reference tr.doc-section-item:not(:has(> td:nth-child(3))) > td:first-child code { color: var(--link); }
+
 /* ---------- Pager and edit link ---------- */
 
 .pager {
