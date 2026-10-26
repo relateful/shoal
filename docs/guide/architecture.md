@@ -4,7 +4,7 @@ Shoal is a set of layers. Lower layers never import higher ones, and the layers 
 import each other. `import-linter` enforces this in CI.
 
 ```
-rest   gateway   cache   ipc   metrics   diagnostics   interaction_server
+rest   gateway   cache   ipc   metrics   diagnostics   endpoint
    \       |        |      |       |           |           /
                               payloads
                                  |
@@ -21,13 +21,13 @@ rest   gateway   cache   ipc   metrics   diagnostics   interaction_server
 | `ipc` | core | carries dispatch events between processes |
 | `metrics` | core, prometheus-client | exporters |
 | `diagnostics` | core | event loop health |
-| `interaction_server` | core, payloads, aiohttp, cryptography | receives interactions over HTTP, for bots without a gateway |
+| `endpoint` | core, payloads, aiohttp, cryptography | receives interactions over HTTP, for bots without a gateway |
 
 Because the top-row layers share only `core` and `payloads`, any of them can move to another process:
 
 - a gateway process runs shards and an `EventServer`;
 - worker processes run your commands with an `EventClient`, a `CacheUpdater` and a `RestClient`;
-- a dashboard backend uses only `RestClient`, and can serve interactions with `InteractionServer`.
+- a dashboard backend uses only `RestClient`, and can serve interactions with `Endpoint`.
 
 ## The event path
 

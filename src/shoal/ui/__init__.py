@@ -9,7 +9,8 @@
 Discord: https://docs.discord.com/developers/components/reference
 """
 
-from shoal.ui.button import Button, EmojiLike, button
+from shoal.models.emoji import EmojiLike
+from shoal.ui.button import Button, button
 from shoal.ui.item import Item
 from shoal.ui.modal import Modal
 from shoal.ui.select import (

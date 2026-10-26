@@ -6,7 +6,7 @@ from shoal.core.snowflake import Snowflake
 from shoal.models.emoji import Emoji
 from shoal.payloads import ButtonStyle, PartialEmoji
 from shoal.payloads import Emoji as EmojiPayload
-from shoal.ui.button import Button, partial_emoji
+from shoal.ui.button import Button
 from tests.support.models import GUILD, World
 
 
@@ -64,13 +64,13 @@ def test_rows_are_checked() -> None:
     assert button.row is None
 
 
-def test_custom_emojis_become_partial_emojis() -> None:
+def test_a_button_shows_a_custom_emoji_model() -> None:
     world = World()
     custom = Emoji(
         world.state,
         decode_json(encode_json({"id": "5", "name": "wave", "animated": True}), EmojiPayload),
         GUILD,
     )
-    assert partial_emoji(custom) == PartialEmoji(id=Snowflake(5), name="wave", animated=True)
-    payload = PartialEmoji(name="x")
-    assert partial_emoji(payload) is payload
+    assert Button(label="Wave", emoji=custom).emoji == PartialEmoji(
+        id=Snowflake(5), name="wave", animated=True
+    )

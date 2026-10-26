@@ -1,7 +1,7 @@
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from shoal.interaction_server.signature import SignatureVerifier
+from shoal.endpoint.signature import SignatureVerifier
 from tests.support.signing import PUBLIC, sign
 
 BODY = b'{"type":1}'

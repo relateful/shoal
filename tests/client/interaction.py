@@ -194,10 +194,11 @@ async def test_a_responder_replaces_the_callback_request() -> None:
     async def responder(response: ResponsePayload, files: Sequence[File]) -> None:
         sent.append((response, files))
 
+    before = len(transport.requests)
     interaction = await client.process_interaction(payload(command("ping")), responder=responder)
     await interaction.response.send_message("inline")
     assert len(sent) == 1
-    assert transport.requests[-1].url.endswith("/applications/@me")  # nothing new was requested
+    assert len(transport.requests) == before
 
 
 async def test_components_reach_their_view() -> None:

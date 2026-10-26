@@ -5,7 +5,7 @@
             return MessageResponse(data=InteractionMessage(content="pong"))
         return None
 
-    async with InteractionServer(public_key, handle):
+    async with Endpoint(public_key, handle):
         await asyncio.Event().wait()
 
 Every request is checked against the application's public key before anything else runs. `PING`
@@ -27,8 +27,8 @@ from aiohttp import web
 from shoal.core.clock import Clock, SystemClock
 from shoal.core.codec import PayloadDecodeError, encode_json
 from shoal.core.metrics import HTTP_INTERACTION_SECONDS, HTTP_INTERACTIONS, Metrics, NoopMetrics
-from shoal.interaction_server.defaults import HANDLER_TIMEOUT, HOST, PATH, PORT
-from shoal.interaction_server.signature import SignatureVerifier
+from shoal.endpoint.defaults import HANDLER_TIMEOUT, HOST, PATH, PORT
+from shoal.endpoint.signature import SignatureVerifier
 from shoal.payloads.application import InteractionType
 from shoal.payloads.interactions import (
     INTERACTION_RESPONSE_DEADLINE,
@@ -44,9 +44,9 @@ from shoal.payloads.interactions import (
     parse_interaction,
 )
 
-_log = logging.getLogger("shoal.interaction_server")
+_log = logging.getLogger("shoal.endpoint")
 
-type InteractionHandler = Callable[[Interaction | UnknownInteraction], Awaitable[InteractionResponse | None]]
+type EndpointHandler = Callable[[Interaction | UnknownInteraction], Awaitable[InteractionResponse | None]]
 """Answers one interaction: return the response to send inline, or `None` after answering through
 the callback endpoint yourself."""
 
@@ -54,7 +54,7 @@ _JSON = "application/json"
 
 
 @final
-class InteractionServer:
+class Endpoint:
     """Receives interactions over HTTP and hands them to `handler`.
 
     Args:
@@ -89,7 +89,7 @@ class InteractionServer:
     def __init__(
         self,
         public_key: str,
-        handler: InteractionHandler,
+        handler: EndpointHandler,
         *,
         host: str = HOST,
         port: int = PORT,
@@ -100,7 +100,7 @@ class InteractionServer:
     ) -> None:
         """Create a server; see the class docstring for the arguments. Call `start` to listen."""
         self._verifier: SignatureVerifier = SignatureVerifier(public_key)
-        self._handler: InteractionHandler = handler
+        self._handler: EndpointHandler = handler
         self._host: str = host
         self._port: int = port
         self._path: str = path
@@ -119,7 +119,7 @@ class InteractionServer:
         """
         addresses = self._runner.addresses if self._runner is not None else []
         if not addresses:
-            msg = "the InteractionServer is not listening"
+            msg = "the endpoint is not listening"
             raise RuntimeError(msg)
         host, port = addresses[0][:2]
         return str(host), int(port)
@@ -147,7 +147,7 @@ class InteractionServer:
                 await runner.cleanup()
                 raise
             self._runner = runner
-        _log.info("interaction server listening on %s:%d%s", *self.address, self._path)
+        _log.info("endpoint listening on %s:%d%s", *self.address, self._path)
 
     async def close(self) -> None:
         """Stop listening. Idempotent."""

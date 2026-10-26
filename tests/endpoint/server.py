@@ -10,7 +10,7 @@ from aiohttp import web
 from shoal.core.clock import Clock
 from shoal.core.codec import JSONObject
 from shoal.core.metrics import HTTP_INTERACTION_SECONDS, HTTP_INTERACTIONS, InMemoryMetrics
-from shoal.interaction_server import InteractionServer
+from shoal.endpoint import Endpoint
 from shoal.payloads import (
     ApplicationCommandInteraction,
     Interaction,
@@ -19,8 +19,9 @@ from shoal.payloads import (
     MessageResponse,
     UnknownInteraction,
 )
+from tests.support.endpoint import post, url_of
 from tests.support.server import free_port, serve
-from tests.support.signing import PUBLIC, sign
+from tests.support.signing import PUBLIC
 
 USER: JSONObject = {"id": "3", "username": "u", "discriminator": "0", "global_name": None, "avatar": None}
 COMMAND: JSONObject = {
@@ -94,23 +95,6 @@ class SteppedClock(Clock):
         await asyncio.sleep(0)
 
 
-async def post(url: str, payload: JSONObject, *, signature: str | None = None) -> tuple[int, bytes]:
-    timestamp = "1700000000"
-    body = msgspec.json.encode(payload)
-    headers = {
-        "X-Signature-Ed25519": signature if signature is not None else sign(timestamp, body),
-        "X-Signature-Timestamp": timestamp,
-        "Content-Type": "application/json",
-    }
-    async with aiohttp.ClientSession() as session, session.post(url, data=body, headers=headers) as response:
-        return response.status, await response.read()
-
-
-def url_of(server: InteractionServer) -> str:
-    host, port = server.address
-    return f"http://{host}:{port}/interactions"
-
-
 def counted(metrics: InMemoryMetrics, kind: str, result: str) -> float:
     return metrics.counters.get(InMemoryMetrics.key(HTTP_INTERACTIONS, {"type": kind, "result": result}), 0)
 
@@ -122,7 +106,7 @@ def timed(metrics: InMemoryMetrics, kind: str) -> list[float]:
 async def test_ping_is_answered_without_the_handler() -> None:
     metrics = InMemoryMetrics()
     handler = Recorder(None)
-    async with InteractionServer(PUBLIC, handler, port=0, metrics=metrics) as server:
+    async with Endpoint(PUBLIC, handler, port=0, metrics=metrics) as server:
         status, body = await post(url_of(server), PING)
     assert (status, msgspec.json.decode(body)) == (200, {"type": 1})
     assert handler.received == []
@@ -132,7 +116,7 @@ async def test_ping_is_answered_without_the_handler() -> None:
 async def test_requests_that_fail_the_signature_check_get_401() -> None:
     metrics = InMemoryMetrics()
     handler = Recorder(None)
-    async with InteractionServer(PUBLIC, handler, port=0, metrics=metrics) as server:
+    async with Endpoint(PUBLIC, handler, port=0, metrics=metrics) as server:
         forged, _ = await post(url_of(server), COMMAND, signature="00" * 64)
         unsigned, _ = await post(url_of(server), COMMAND, signature="")
         async with aiohttp.ClientSession() as session, session.post(url_of(server), json=COMMAND) as response:
@@ -144,7 +128,7 @@ async def test_requests_that_fail_the_signature_check_get_401() -> None:
 
 async def test_only_posts_to_the_path_are_served() -> None:
     async with (
-        InteractionServer(PUBLIC, Recorder(None), port=0) as server,
+        Endpoint(PUBLIC, Recorder(None), port=0) as server,
         aiohttp.ClientSession() as session,
     ):
         async with session.get(url_of(server)) as response:
@@ -156,7 +140,7 @@ async def test_only_posts_to_the_path_are_served() -> None:
 async def test_a_command_gets_the_handlers_response_inline() -> None:
     metrics = InMemoryMetrics()
     handler = Recorder(MessageResponse(data=InteractionMessage(content="pong")))
-    async with InteractionServer(PUBLIC, handler, port=0, metrics=metrics) as server:
+    async with Endpoint(PUBLIC, handler, port=0, metrics=metrics) as server:
         status, body = await post(url_of(server), COMMAND)
     assert status == 200
     assert msgspec.json.decode(body) == {"type": 4, "data": {"content": "pong"}}
@@ -179,7 +163,7 @@ async def test_a_command_gets_the_handlers_response_inline() -> None:
 async def test_every_interaction_type_reaches_the_handler(payload: JSONObject, label: str) -> None:
     metrics = InMemoryMetrics()
     handler = Recorder(None)
-    async with InteractionServer(PUBLIC, handler, port=0, metrics=metrics) as server:
+    async with Endpoint(PUBLIC, handler, port=0, metrics=metrics) as server:
         status, body = await post(url_of(server), payload)
     assert (status, body) == (202, b"")
     assert len(handler.received) == 1
@@ -190,7 +174,7 @@ async def test_every_interaction_type_reaches_the_handler(payload: JSONObject, l
 async def test_newer_types_reach_the_handler_and_malformed_ones_do_not() -> None:
     metrics = InMemoryMetrics()
     handler = Recorder(None)
-    async with InteractionServer(PUBLIC, handler, port=0, metrics=metrics) as server:
+    async with Endpoint(PUBLIC, handler, port=0, metrics=metrics) as server:
         newer, _ = await post(url_of(server), {**PING, "type": 99})
         malformed, _ = await post(url_of(server), MALFORMED)
     assert (newer, malformed) == (202, 400)
@@ -205,8 +189,8 @@ async def test_a_failing_handler_is_logged_and_answered_500(caplog: pytest.LogCa
         raise RuntimeError(msg)
 
     metrics = InMemoryMetrics()
-    with caplog.at_level(logging.ERROR, logger="shoal.interaction_server"):
-        async with InteractionServer(PUBLIC, explode, port=0, metrics=metrics) as server:
+    with caplog.at_level(logging.ERROR, logger="shoal.endpoint"):
+        async with Endpoint(PUBLIC, explode, port=0, metrics=metrics) as server:
             status, _ = await post(url_of(server), COMMAND)
     assert status == 500
     assert "interaction handler failed for application_command interaction 10" in caplog.text
@@ -221,8 +205,8 @@ async def test_a_hung_handler_is_given_up_on(caplog: pytest.LogCaptureFixture) -
         return None
 
     metrics = InMemoryMetrics()
-    with caplog.at_level(logging.ERROR, logger="shoal.interaction_server"):
-        async with InteractionServer(PUBLIC, hang, port=0, handler_timeout=0.05, metrics=metrics) as server:
+    with caplog.at_level(logging.ERROR, logger="shoal.endpoint"):
+        async with Endpoint(PUBLIC, hang, port=0, handler_timeout=0.05, metrics=metrics) as server:
             status, _ = await post(url_of(server), COMMAND)
     assert status == 500
     assert "did not finish within" in caplog.text
@@ -237,8 +221,8 @@ async def test_slow_handlers_are_warned_about(caplog: pytest.LogCaptureFixture) 
         clock.now += 4.0
         return None
 
-    with caplog.at_level(logging.WARNING, logger="shoal.interaction_server"):
-        async with InteractionServer(PUBLIC, slow, port=0, clock=clock) as server:
+    with caplog.at_level(logging.WARNING, logger="shoal.endpoint"):
+        async with Endpoint(PUBLIC, slow, port=0, clock=clock) as server:
             status, _ = await post(url_of(server), COMMAND)
     assert status == 202
     assert "took 4.00s" in caplog.text
@@ -252,15 +236,15 @@ async def test_handlers_within_the_deadline_are_not_warned_about(caplog: pytest.
         clock.now += 3.0
         return None
 
-    with caplog.at_level(logging.WARNING, logger="shoal.interaction_server"):
-        async with InteractionServer(PUBLIC, on_time, port=0, clock=clock) as server:
+    with caplog.at_level(logging.WARNING, logger="shoal.endpoint"):
+        async with Endpoint(PUBLIC, on_time, port=0, clock=clock) as server:
             await post(url_of(server), COMMAND)
     assert "took" not in caplog.text
 
 
 async def test_the_route_mounts_on_an_existing_application() -> None:
     handler = Recorder(None)
-    server = InteractionServer(PUBLIC, handler, path="/discord")
+    server = Endpoint(PUBLIC, handler, path="/discord")
     app = web.Application()
     server.install(app)
     async with serve(app) as base:
@@ -270,7 +254,7 @@ async def test_the_route_mounts_on_an_existing_application() -> None:
 
 
 async def test_start_and_close_are_idempotent() -> None:
-    server = InteractionServer(PUBLIC, Recorder(None), port=0)
+    server = Endpoint(PUBLIC, Recorder(None), port=0)
     with pytest.raises(RuntimeError, match="not listening"):
         _ = server.address
     async with server:
@@ -284,8 +268,8 @@ async def test_start_and_close_are_idempotent() -> None:
 
 async def test_a_failed_start_leaves_nothing_running() -> None:
     port = free_port()
-    async with InteractionServer(PUBLIC, Recorder(None), port=port):
-        second = InteractionServer(PUBLIC, Recorder(None), port=port)
+    async with Endpoint(PUBLIC, Recorder(None), port=port):
+        second = Endpoint(PUBLIC, Recorder(None), port=port)
         with pytest.raises(OSError):  # noqa: PT011 - the platform decides which OSError
             await second.start()
         with pytest.raises(RuntimeError, match="not listening"):

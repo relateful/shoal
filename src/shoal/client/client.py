@@ -40,6 +40,7 @@ from shoal.core.dispatch import DispatchEvent
 from shoal.core.errors import ShoalError
 from shoal.core.snowflake import Snowflake
 from shoal.core.tasks import spawn
+from shoal.emojis.registry import AppEmojis
 from shoal.gateway.manager import ShardManager
 from shoal.gateway.sharding import LocalIdentifyLimiter
 from shoal.models.channel import (
@@ -58,6 +59,7 @@ from shoal.payloads.gateway import Intents
 from shoal.payloads.gateway_events import BotActivity, Ready, StatusType, UpdatePresence
 from shoal.payloads.guild import UnavailableGuild
 from shoal.payloads.interactions import (
+    INTERACTION_RESPONSE_DEADLINE,
     ApplicationCommandInteraction,
     AutocompleteInteraction,
     ComponentInteraction,
@@ -65,10 +67,14 @@ from shoal.payloads.interactions import (
     UnknownInteraction,
     parse_interaction,
 )
+from shoal.payloads.interactions import Interaction as ReceivedInteraction
+from shoal.payloads.interactions import InteractionResponse as ResponsePayload
 from shoal.payloads.stage_instance import StageInstance
 from shoal.rest.client import RestClient, Token
+from shoal.rest.files import File
 
 if TYPE_CHECKING:
+    from shoal.endpoint import Endpoint
     from shoal.models.thread import Thread
 
 _log = logging.getLogger("shoal.client")
@@ -107,6 +113,8 @@ class Client:
         activity: The bot's activity on connect.
         status: The bot's status on connect.
         rest: Options for the REST client other than the token, such as `base_url` for a REST proxy.
+        app_emojis: The registry of the application's emojis, to declare names and fallbacks
+            with an `AppEmojis` subclass; by default an empty `AppEmojis`.
 
     Subclass it and override `setup_hook` to run code (sync commands, add persistent views) after
     logging in and before connecting.
@@ -116,6 +124,7 @@ class Client:
 
     # A subclass without its own __slots__ still gets a __dict__, so `self.db = ...` keeps working.
     __slots__ = (
+        "_app_emojis",
         "_cache",
         "_closed",
         "_expected_shards",
@@ -150,9 +159,12 @@ class Client:
         activity: BotActivity | None = None,
         status: StatusType = StatusType.ONLINE,
         rest: Callable[[Token], RestClient] | None = None,
+        app_emojis: AppEmojis | None = None,
     ) -> None:
         """Create a client; see the class docstring for the arguments. Call `run` or `start`."""
         self.intents: Intents = intents
+        # Not `or`: a registry is empty, so falsy, until it loads at login.
+        self._app_emojis: AppEmojis = app_emojis if app_emojis is not None else AppEmojis()
         self._cache: CacheStore = cache or CacheStore()
         self._updater: CacheUpdater = CacheUpdater(self._cache, intents=intents)
         self._views: ViewStore = ViewStore()
@@ -204,6 +216,11 @@ class Client:
         return self._cache
 
     @property
+    def app_emojis(self) -> AppEmojis:
+        """The application's own emojis, loaded at login: `client.app_emojis.approve`."""
+        return self._app_emojis
+
+    @property
     def view_store(self) -> ViewStore:
         """Where views and modals wait for their interactions."""
         return self._views
@@ -219,6 +236,7 @@ class Client:
         me = await rest.users.get_me()
         application = await rest.applications.get_me()
         state.identify(user_id=me.id, application_id=application.id)
+        await self._app_emojis.load(state, application.id)
         self._state = state
         self._user = ClientUser(state, me)
         self._translator = EventTranslator(state, self._updater, self.dispatch)
@@ -512,6 +530,78 @@ class Client:
             _log.warning("received an interaction of a type this version of Shoal does not know")
             return
         await self.process_interaction(parsed)
+
+    async def handle_http(self, data: ReceivedInteraction | UnknownInteraction) -> ResponsePayload | None:
+        """Answer an interaction received over HTTP, for `Endpoint` (or `endpoint`, which builds one).
+
+        The interaction goes through the same views, modals and command handlers as one from the
+        gateway. Their first response becomes the HTTP reply; a response with files, or one given
+        after Discord's 3-second deadline, goes through the callback endpoint instead.
+
+        Raises:
+            ClientError: The client has not logged in.
+
+        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#responding-to-an-interaction
+        """
+        if not isinstance(
+            data,
+            ApplicationCommandInteraction
+            | ComponentInteraction
+            | AutocompleteInteraction
+            | ModalSubmitInteraction,
+        ):
+            return None
+        rest = self.state.rest
+        answered: asyncio.Future[ResponsePayload | None] = asyncio.get_running_loop().create_future()
+
+        async def respond(response: ResponsePayload, files: Sequence[File]) -> None:
+            if files or answered.done():
+                await rest.interactions.respond(data.id, data.token, response, files=files)
+                if not answered.done():
+                    answered.set_result(None)
+                return
+            answered.set_result(response)
+
+        await self.process_interaction(data, responder=respond)
+        try:
+            async with asyncio.timeout(INTERACTION_RESPONSE_DEADLINE):
+                return await answered
+        except TimeoutError:
+            # The timeout cancelled `answered`, so a later response goes through the callback endpoint.
+            _log.warning(
+                "interaction %s was not answered within %.0fs; defer when the work takes longer",
+                data.id,
+                INTERACTION_RESPONSE_DEADLINE,
+            )
+            return None
+
+    def endpoint(
+        self,
+        public_key: str,
+        *,
+        host: str | None = None,
+        port: int | None = None,
+        path: str | None = None,
+    ) -> "Endpoint":
+        """An `Endpoint` answering interactions over HTTP through this client.
+
+        `async with client.endpoint(public_key):` serves until the block ends.
+
+        For bots without a gateway connection: log in, then serve. Needs `shoal[interactions]`.
+
+        Raises:
+            MissingDependencyError: `shoal[interactions]` is not installed.
+            ValueError: `public_key` is not a valid Ed25519 public key.
+        """
+        from shoal.endpoint import Endpoint, defaults
+
+        return Endpoint(
+            public_key,
+            self.handle_http,
+            host=host if host is not None else defaults.HOST,
+            port=port if port is not None else defaults.PORT,
+            path=path if path is not None else defaults.PATH,
+        )
 
     async def process_interaction(
         self, data: InteractionPayload, *, responder: Responder | None = None

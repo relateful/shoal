@@ -16,26 +16,14 @@ from msgspec import UNSET
 
 from shoal.client.interaction import Interaction
 from shoal.core.snowflake import Snowflake
-from shoal.models.emoji import Emoji
+from shoal.models.emoji import EmojiLike, partial_emoji
 from shoal.payloads.components import Button as ButtonPayload
 from shoal.payloads.components import ButtonStyle
-from shoal.payloads.emoji import PartialEmoji
 from shoal.ui.item import ITEM_FACTORY, Item
 
 if TYPE_CHECKING:
+    from shoal.payloads.emoji import PartialEmoji
     from shoal.ui.view import View
-
-type EmojiLike = str | PartialEmoji | Emoji
-"""An emoji on a component: a unicode emoji, or a custom emoji (its model or payload)."""
-
-
-def partial_emoji(emoji: EmojiLike) -> PartialEmoji:
-    """`emoji` as components take it."""
-    if isinstance(emoji, str):
-        return PartialEmoji(name=emoji)
-    if isinstance(emoji, Emoji):
-        return PartialEmoji(id=emoji.id, name=emoji.name, animated=emoji.animated)
-    return emoji
 
 
 class Button(Item):

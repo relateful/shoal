@@ -79,7 +79,7 @@ the whole object.
 
 ### Over HTTP, without a gateway
 
-An app that only uses commands and components needs no gateway connection. `InteractionServer`
+An app that only uses commands and components needs no gateway connection. `Endpoint`
 (`pip install 'shoal[interactions]'`) checks Discord's Ed25519 signature on every request, answers
 `PING` itself, and passes the rest to your handler. Return the response to send it in the HTTP reply,
 or return `None` after answering through the callback endpoint yourself. Returning `None` without
@@ -88,7 +88,7 @@ answering leaves the interaction unanswered, and Discord shows it as failed.
 ```python
 import asyncio
 
-from shoal.interaction_server import InteractionServer
+from shoal.endpoint import Endpoint
 from shoal.payloads import (
     ApplicationCommandInteraction,
     Interaction,
@@ -105,7 +105,7 @@ async def handle(interaction: Interaction | UnknownInteraction) -> InteractionRe
     return None
 
 
-async with InteractionServer(public_key, handle, port=8080):
+async with Endpoint(public_key, handle, port=8080):
     await asyncio.Event().wait()
 ```
 
@@ -130,7 +130,7 @@ own class, so a modal cannot be sent with message data by mistake:
 | `AutocompleteResponse` | suggest up to 25 choices, in `AutocompleteChoices` |
 | `ModalResponse` | open a form, described by a `Modal` |
 
-When the work may take longer than 3 seconds, defer first. `InteractionServer` logs every handler
+When the work may take longer than 3 seconds, defer first. `Endpoint` logs every handler
 that takes longer, and records handler time as `shoal_http_interaction_seconds`.
 
 The interaction token stays valid for 15 minutes from when the interaction is received

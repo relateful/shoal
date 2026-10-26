@@ -17,6 +17,7 @@ from msgspec import UNSET, UnsetType
 from shoal.client.interaction import Interaction
 from shoal.core.snowflake import Snowflake
 from shoal.models.channel import AnyGuildChannel, DMChannel, channel_from_payload
+from shoal.models.emoji import EmojiLike, partial_emoji
 from shoal.models.member import Member
 from shoal.models.role import Role
 from shoal.models.thread import Thread
@@ -41,7 +42,6 @@ from shoal.payloads.components import (
     UserSelect as UserSelectPayload,
 )
 from shoal.payloads.interactions import ResolvedData
-from shoal.ui.button import EmojiLike, partial_emoji
 from shoal.ui.item import ITEM_FACTORY, Item
 
 if TYPE_CHECKING:

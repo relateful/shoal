@@ -1,4 +1,4 @@
-"""Shoal's own HTTP interaction server defaults. Nothing here is defined anywhere else."""
+"""Shoal's own HTTP endpoint defaults. Nothing here is defined anywhere else."""
 
 from typing import Final
 

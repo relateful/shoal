@@ -203,7 +203,7 @@ The [architecture guide](guide/architecture.md) explains what each layer owns.
 
 <div class="layer-row layer-top" markdown>
 
-[rest](reference/shoal/rest/index.md){ .layer } [gateway](reference/shoal/gateway/index.md){ .layer } [cache](reference/shoal/cache/index.md){ .layer } [ipc](reference/shoal/ipc/index.md){ .layer } [metrics](reference/shoal/metrics/index.md){ .layer } [diagnostics](reference/shoal/diagnostics/index.md){ .layer } [interaction_server](reference/shoal/interaction_server/index.md){ .layer }
+[rest](reference/shoal/rest/index.md){ .layer } [gateway](reference/shoal/gateway/index.md){ .layer } [cache](reference/shoal/cache/index.md){ .layer } [ipc](reference/shoal/ipc/index.md){ .layer } [metrics](reference/shoal/metrics/index.md){ .layer } [diagnostics](reference/shoal/diagnostics/index.md){ .layer } [endpoint](reference/shoal/endpoint/index.md){ .layer }
 
 </div>
 

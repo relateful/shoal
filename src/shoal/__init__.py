@@ -10,7 +10,7 @@ The package is split into layers that can be used on their own:
 - `shoal.ipc`: streams gateway events from gateway processes to worker processes.
 - `shoal.metrics`: exporters for the metrics every layer records (Prometheus).
 - `shoal.diagnostics`: event loop health (`LoopMonitor`).
-- `shoal.interaction_server`: receives interactions over HTTP, for bots without a gateway.
+- `shoal.endpoint`: receives interactions over HTTP, for bots without a gateway.
 """
 
 from shoal._version import __version__

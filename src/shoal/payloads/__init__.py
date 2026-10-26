@@ -202,6 +202,8 @@ from shoal.payloads.components import (
     parse_submitted_components,
 )
 from shoal.payloads.emoji import (
+    APPLICATION_MAX_EMOJIS,
+    EMOJI_MAX_SIZE,
     ApplicationEmojis,
     CreateApplicationEmojiParams,
     CreateEmojiParams,
@@ -209,6 +211,8 @@ from shoal.payloads.emoji import (
     EditEmojiParams,
     Emoji,
     PartialEmoji,
+    emoji_content_type,
+    emoji_data,
 )
 from shoal.payloads.errors import (
     ErrorResponse,
@@ -634,6 +638,7 @@ __all__ = [
     "API_BASE_URL",
     "API_VERSION",
     "APPLICATION_MAX_COMMANDS",
+    "APPLICATION_MAX_EMOJIS",
     "AUDIT_LOG_REASON_MAX_LENGTH",
     "BULK_DELETE_MAX_AGE",
     "BULK_DELETE_MAX_MESSAGES",
@@ -646,6 +651,7 @@ __all__ = [
     "DEFAULT_GATEWAY_URL",
     "DISPATCH_PAYLOADS",
     "DOCS_BASE_URL",
+    "EMOJI_MAX_SIZE",
     "GATEWAY_CLOSE_CODES",
     "GATEWAY_SEND_LIMIT",
     "GATEWAY_SEND_WINDOW",
@@ -1184,6 +1190,8 @@ __all__ = [
     "WidgetMember",
     "WidgetStyle",
     "all_channels_permission_id",
+    "emoji_content_type",
+    "emoji_data",
     "everyone_permission_id",
     "excluding",
     "image_data",

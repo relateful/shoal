@@ -60,9 +60,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Interactions: one class per interaction type and per response type, `parse_interaction` with an
   `UnknownInteraction` fallback, modal submissions, resolved data, and the eight response and
   follow-up endpoints. Interaction tokens never appear in logs, errors or metrics.
-- `shoal.interaction_server`: receive interactions over HTTP without a gateway, with Ed25519
+- `shoal.endpoint`: receive interactions over HTTP without a gateway, with Ed25519
   signature checks, inline or callback answers, and handler timing against the 3-second deadline
-  (`pip install 'shoal[interactions]'`).
+  (`pip install 'shoal[interactions]'`). `client.endpoint(public_key)` serves a client's views,
+  modals and commands over HTTP; the first response becomes the HTTP reply.
+- `shoal.models`: guilds, members, roles, channels, threads, messages, users, emojis and embeds, with
+  synchronous lookups that read the cache (`guild.get_member`, `get_member_named`) and actions that
+  call REST (`send`, `edit`, `ban`, `add_roles`, `history`, `typing`).
+- `shoal.client`: `Client` with login, sharded connect and `run`; events as models with the earlier
+  state read from the cache; raw events that are never dropped; readiness that does not wait for
+  member chunking; `wait_for`; interactions with `response` and `followup`.
+- `shoal.ui`: `View`, `Modal`, `Button`, the five selects and `TextInput`, with persistent views,
+  timeouts and interaction checks.
+- `shoal.app_commands`: `CommandTree`, slash commands, groups and context menus with options from type
+  hints, autocomplete, checks, cooldowns, error handlers and sync; Discord's limits are checked where
+  the decorator is written.
+- `shoal.emojis`: the application's emojis by name (`client.app_emojis.approve`), loaded at login,
+  with declared names and unicode fallbacks, and a sync from a folder of images (in the bot, or
+  `python -m shoal.emojis sync`) that skips unchanged images and never re-uploads what it lost track of.
 - `shoal.metrics.prometheus`: `PrometheusMetrics`, exporting every metric in the catalog.
 - `shoal.diagnostics`: `LoopMonitor`, which names the code blocking the event loop while it blocks.
 - Documentation site with generated API reference, guides, and a Discord API coverage page checked

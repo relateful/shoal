@@ -203,13 +203,14 @@ root_package = "shoal"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | interaction_server) < models < client < (ui | app_commands)"
+name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | endpoint) < models < emojis < client < (ui | app_commands)"
 type = "layers"
 layers = [
     "shoal.ui | shoal.app_commands",
     "shoal.client",
+    "shoal.emojis",
     "shoal.models",
-    "shoal.rest | shoal.gateway | shoal.cache | shoal.ipc | shoal.metrics | shoal.diagnostics | shoal.interaction_server",
+    "shoal.rest | shoal.gateway | shoal.cache | shoal.ipc | shoal.metrics | shoal.diagnostics | shoal.endpoint",
     "shoal.payloads",
     "shoal.core",
 ]

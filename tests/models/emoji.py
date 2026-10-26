@@ -1,10 +1,12 @@
 import pytest
 
 from shoal.core.codec import decode_json, encode_json
+from shoal.core.snowflake import Snowflake
 from shoal.models.base import Object
-from shoal.models.emoji import Emoji
+from shoal.models.emoji import AppEmoji, Emoji, partial_emoji
 from shoal.payloads import Emoji as EmojiPayload
-from tests.support.models import EMOJI, GUILD, MODS, World, user
+from shoal.payloads import PartialEmoji
+from tests.support.models import APPLICATION, EMOJI, GUILD, MODS, World, user
 
 
 def payload(data: object) -> EmojiPayload:
@@ -68,3 +70,38 @@ async def test_edit_and_delete() -> None:
     world.transport.queue(204)
     await wave.delete(reason="old")
     assert world.last_request()[:2] == ("DELETE", f"/guilds/{GUILD}/emojis/{EMOJI}")
+
+
+async def test_application_emojis_render_and_change() -> None:
+    world = World()
+    star = AppEmoji(world.state, payload({"id": "9", "name": "star", "animated": True}), APPLICATION)
+    assert (str(star), star.name, star.application_id, star.animated) == (
+        "<a:star:9>",
+        "star",
+        APPLICATION,
+        True,
+    )
+    assert star.payload.name == "star"
+    assert star.url == "https://cdn.discordapp.com/emojis/9.webp?animated=true"
+    assert repr(star) == "<AppEmoji id=9 name='star' animated=True>"
+    world.transport.queue(200, {"id": "9", "name": "shine"})
+    renamed = await star.edit(name="shine")
+    assert world.last_request() == ("PATCH", f"/applications/{APPLICATION}/emojis/9", {"name": "shine"})
+    assert renamed.name == "shine"
+    world.transport.queue(204)
+    await star.delete()
+    assert world.last_request()[:2] == ("DELETE", f"/applications/{APPLICATION}/emojis/9")
+    with pytest.raises(ValueError, match="an ID and a name"):
+        AppEmoji(world.state, payload({"id": None, "name": "\N{FIRE}"}), APPLICATION)
+
+
+async def test_every_kind_of_emoji_becomes_a_partial_emoji() -> None:
+    world = await World.started()
+    wave = world.guild().get_emoji(EMOJI)
+    assert wave is not None
+    star = AppEmoji(world.state, payload({"id": "9", "name": "star"}), APPLICATION)
+    assert partial_emoji("\N{FIRE}") == PartialEmoji(name="\N{FIRE}")
+    assert partial_emoji(wave) == PartialEmoji(id=Snowflake(EMOJI), name="wave", animated=False)
+    assert partial_emoji(star) == PartialEmoji(id=Snowflake(9), name="star", animated=False)
+    given = PartialEmoji(id=Snowflake(1), name="x")
+    assert partial_emoji(given) is given

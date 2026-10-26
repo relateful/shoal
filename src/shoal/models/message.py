@@ -20,10 +20,11 @@ from shoal.core.snowflake import Snowflake
 from shoal.core.tasks import spawn
 from shoal.models.base import MISSING, Hashable, MissingType
 from shoal.models.embed import Embed
+from shoal.models.emoji import EmojiLike, partial_emoji
 from shoal.models.sending import EmbedLike, edit
 from shoal.models.state import ComponentView, State
 from shoal.payloads.channel import CreateThreadFromMessageParams
-from shoal.payloads.emoji import Emoji as EmojiPayload
+from shoal.payloads.emoji import PartialEmoji
 from shoal.payloads.gateway_events import MessageCreate
 from shoal.payloads.message import (
     LIST_MESSAGES_MAX_LIMIT,
@@ -266,32 +267,32 @@ class PartialMessage(Hashable):
             self._state, await self._state.rest.messages.crosspost(channel_id, self._id), guild_id=guild_id
         )
 
-    async def add_reaction(self, emoji: ReactionEmoji, /) -> None:
-        """React with a unicode emoji, `name:id`, or an emoji object.
+    async def add_reaction(self, emoji: EmojiLike, /) -> None:
+        """React with a unicode emoji, `name:id`, or a guild or application emoji.
 
         Discord: https://docs.discord.com/developers/resources/message#create-reaction
         """
         channel_id = self._channel_id
-        await self._state.rest.reactions.add(channel_id, self._id, emoji)
+        await self._state.rest.reactions.add(channel_id, self._id, _reaction(emoji))
 
-    async def remove_reaction(self, emoji: ReactionEmoji, member: Hashable) -> None:
+    async def remove_reaction(self, emoji: EmojiLike, member: Hashable) -> None:
         """Remove `member`'s reaction (the bot's own, when `member` is the bot).
 
         Discord: https://docs.discord.com/developers/resources/message#delete-user-reaction
         """
         channel_id = self._channel_id
         if member.id == self._state.user_id:
-            await self._state.rest.reactions.remove_mine(channel_id, self._id, emoji)
+            await self._state.rest.reactions.remove_mine(channel_id, self._id, _reaction(emoji))
         else:
-            await self._state.rest.reactions.remove(channel_id, self._id, emoji, member.id)
+            await self._state.rest.reactions.remove(channel_id, self._id, _reaction(emoji), member.id)
 
-    async def clear_reaction(self, emoji: ReactionEmoji, /) -> None:
+    async def clear_reaction(self, emoji: EmojiLike, /) -> None:
         """Remove every reaction with one emoji.
 
         Discord: https://docs.discord.com/developers/resources/message#delete-all-reactions-for-emoji
         """
         channel_id = self._channel_id
-        await self._state.rest.reactions.clear_emoji(channel_id, self._id, emoji)
+        await self._state.rest.reactions.clear_emoji(channel_id, self._id, _reaction(emoji))
 
     async def clear_reactions(self) -> None:
         """Remove every reaction.
@@ -533,10 +534,12 @@ class Reaction:
         return self._data
 
     @property
-    def emoji(self) -> str | EmojiPayload:
-        """The unicode emoji, or the custom emoji's payload (which reaction methods take)."""
+    def emoji(self) -> str | PartialEmoji:
+        """The unicode emoji, or the custom emoji; either can be passed back to reaction methods."""
         emoji = self._data.emoji
-        return emoji.name if emoji.id is None and emoji.name is not None else emoji
+        if emoji.id is None and emoji.name is not None:
+            return emoji.name
+        return PartialEmoji(id=emoji.id, name=emoji.name, animated=emoji.animated)
 
     @property
     def count(self) -> int:
@@ -577,7 +580,7 @@ class Reaction:
         while remaining is None or remaining > 0:
             size = LIST_MESSAGES_MAX_LIMIT if remaining is None else min(remaining, LIST_MESSAGES_MAX_LIMIT)
             params = ListReactionsParams(type=kind, after=after, limit=size)
-            page = await state.rest.reactions.list(message.channel_id, message.id, self._data.emoji, params)
+            page = await state.rest.reactions.list(message.channel_id, message.id, self.emoji, params)
             for user in page:
                 yield User(state, user)
             if remaining is not None:
@@ -591,15 +594,20 @@ class Reaction:
 
         Discord: https://docs.discord.com/developers/resources/message#delete-user-reaction
         """
-        await self._message.remove_reaction(self._data.emoji, user)
+        await self._message.remove_reaction(self.emoji, user)
 
     async def clear(self) -> None:
         """Remove every reaction with this emoji.
 
         Discord: https://docs.discord.com/developers/resources/message#delete-all-reactions-for-emoji
         """
-        await self._message.clear_reaction(self._data.emoji)
+        await self._message.clear_reaction(self.emoji)
 
     @override
     def __repr__(self) -> str:
         return f"<Reaction emoji={self.emoji!r} count={self.count}>"
+
+
+def _reaction(emoji: EmojiLike) -> ReactionEmoji:
+    """`emoji` as the reaction endpoints take it; a string (unicode, or `name:id`) passes through."""
+    return emoji if isinstance(emoji, str) else partial_emoji(emoji)

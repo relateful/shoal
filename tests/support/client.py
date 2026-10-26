@@ -37,6 +37,7 @@ async def logged_in(kind: type[Client] = Client) -> tuple[Client, FakeTransport]
     client = kind(intents=INTENTS, rest=rest)
     transport.queue(200, user(BOT, "shoalbot") | {"bot": True})
     transport.queue(200, APPLICATION | {"id": str(APPLICATION_ID)})
+    transport.queue(200, {"items": []})
     await client.login("token")
     return client, transport
 

@@ -39,7 +39,7 @@ src/shoal/
   ipc/           gateway-to-worker transport
   metrics/       exporters (Prometheus)
   diagnostics/   event loop health
-  interaction_server/  interactions over HTTP, for bots without a gateway
+  endpoint/      interactions over HTTP, for bots without a gateway
 tests/           mirrors src/shoal/: tests/rest/route.py tests src/shoal/rest/route.py
 scripts/         maintenance scripts (docs checker, export generator, constant sorter)
 docs/            guides and the home page; the API reference is generated from docstrings
@@ -195,5 +195,5 @@ So that anything can be found without searching:
 ## Commits
 
 Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes are the layers (`core`,
-`payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `interaction_server`) plus `docs`, `ci` and
+`payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`) plus `docs`, `ci` and
 `build`. Update `CHANGELOG.md` under "Unreleased".

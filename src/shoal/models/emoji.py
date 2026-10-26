@@ -1,8 +1,11 @@
-"""Custom emojis: a guild's own (or the application's) images usable in messages and reactions.
+"""Custom emojis: a guild's own, or the application's, usable in messages, reactions and components.
 
     emoji = client.get_emoji(emoji_id)
     await message.add_reaction(emoji)
     await channel.send(f"Nice {emoji}")
+
+Anything that takes an emoji takes an `EmojiLike`: a unicode emoji, a guild or application emoji,
+or a `PartialEmoji`.
 
 Discord: https://docs.discord.com/developers/resources/emoji#emoji-object
 """
@@ -16,7 +19,7 @@ from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
 from shoal.models.base import MISSING, Hashable, MissingType
 from shoal.models.state import State
-from shoal.payloads.emoji import EditEmojiParams
+from shoal.payloads.emoji import EditApplicationEmojiParams, EditEmojiParams, PartialEmoji
 from shoal.payloads.emoji import Emoji as EmojiPayload
 
 if TYPE_CHECKING:
@@ -162,3 +165,97 @@ class Emoji(Hashable):
     @override
     def __repr__(self) -> str:
         return f"<Emoji id={int(self._id)} name={self.name!r} animated={self.animated}>"
+
+
+class AppEmoji(Hashable):
+    """An emoji the application owns, usable in every guild without Use External Emojis.
+
+    `str(emoji)` is the text that shows it in a message. Look them up by name through
+    `client.app_emojis`.
+
+    Discord: https://docs.discord.com/developers/resources/emoji#emoji-object-applicationowned-emoji
+    """
+
+    __slots__ = ("_application_id", "_data", "_id", "_state")
+
+    def __init__(self, state: State, data: EmojiPayload, application_id: int) -> None:
+        """An emoji of application `application_id` from its payload.
+
+        Raises:
+            ValueError: The payload has no ID or no name, so it is not an application emoji.
+        """
+        if data.id is None or data.name is None:
+            msg = "an application emoji has an ID and a name"
+            raise ValueError(msg)
+        self._state: State = state
+        self._data: EmojiPayload = data
+        self._id: Snowflake = data.id
+        self._application_id: Snowflake = Snowflake(application_id)
+
+    @property
+    @override
+    def id(self) -> Snowflake:
+        return self._id
+
+    @property
+    def application_id(self) -> Snowflake:
+        """The ID of the application that owns it."""
+        return self._application_id
+
+    @property
+    def payload(self) -> EmojiPayload:
+        """The emoji as Discord sent it."""
+        return self._data
+
+    @property
+    def name(self) -> str:
+        """The emoji's name, without colons."""
+        return self._data.name or ""
+
+    @property
+    def animated(self) -> bool:
+        """Whether it is animated."""
+        return self._data.animated is True
+
+    @property
+    def url(self) -> str:
+        """The emoji's image."""
+        return Asset.for_emoji(self._id, animated=self.animated).url
+
+    async def edit(self, *, name: str) -> "AppEmoji":
+        """Rename the emoji.
+
+        Discord: https://docs.discord.com/developers/resources/emoji#modify-application-emoji
+        """
+        params = EditApplicationEmojiParams(name=name)
+        data = await self._state.rest.emojis.edit_for_application(self._application_id, self._id, params)
+        return AppEmoji(self._state, data, self._application_id)
+
+    async def delete(self) -> None:
+        """Delete the emoji.
+
+        Discord: https://docs.discord.com/developers/resources/emoji#delete-application-emoji
+        """
+        await self._state.rest.emojis.delete_for_application(self._application_id, self._id)
+
+    @override
+    def __str__(self) -> str:
+        prefix = "a" if self.animated else ""
+        return f"<{prefix}:{self.name}:{int(self._id)}>"
+
+    @override
+    def __repr__(self) -> str:
+        return f"<AppEmoji id={int(self._id)} name={self.name!r} animated={self.animated}>"
+
+
+type EmojiLike = str | Emoji | AppEmoji | PartialEmoji
+"""An emoji to show or react with: a unicode emoji, a guild or application emoji, or a partial one."""
+
+
+def partial_emoji(emoji: EmojiLike) -> PartialEmoji:
+    """`emoji` as components and reactions take it."""
+    if isinstance(emoji, str):
+        return PartialEmoji(name=emoji)
+    if isinstance(emoji, Emoji | AppEmoji):
+        return PartialEmoji(id=emoji.id, name=emoji.name, animated=emoji.animated)
+    return emoji

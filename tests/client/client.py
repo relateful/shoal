@@ -9,15 +9,28 @@ import pytest
 from shoal.client import client as client_module
 from shoal.client.client import Client, ClientError, Listener
 from shoal.client.interaction import Interaction
+from shoal.core.codec import encode_json
 from shoal.core.dispatch import DispatchEvent, DispatchHandler
 from shoal.models.activity import Game
 from shoal.models.channel import PartialMessageable, TextChannel
-from shoal.payloads import ActivityType, Intents, StatusType, UpdatePresence
+from shoal.payloads import (
+    ActivityType,
+    DeferredMessageResponse,
+    Intents,
+    MessageResponse,
+    StatusType,
+    UnknownInteraction,
+    UpdatePresence,
+    parse_interaction,
+)
 from shoal.rest.client import RestClient, Token
+from shoal.rest.files import File
 from tests.support.calls import call_unchecked
 from tests.support.client import INTENTS, Recorder, feed, logged_in, started
-from tests.support.interactions import PersistentView, command
+from tests.support.endpoint import post, url_of
+from tests.support.interactions import PersistentView, command, payload
 from tests.support.models import ALICE, APPLICATION, BOT, EMOJI, GENERAL, GUILD, channel, guild_create, user
+from tests.support.signing import PUBLIC
 
 
 async def test_login_learns_who_the_bot_is() -> None:
@@ -28,6 +41,7 @@ async def test_login_learns_who_the_bot_is() -> None:
     assert [request.url.rsplit("/v10", 1)[1] for request in transport.requests] == [
         "/users/@me",
         "/applications/@me",
+        f"/applications/{APPLICATION}/emojis",
     ]
 
 
@@ -366,3 +380,78 @@ def test_run_closes_the_client() -> None:
     client.run("token", log_level=None)
     assert started_with == ["token"]
     assert client.is_closed()
+
+
+async def test_http_interactions_are_answered_in_the_http_reply() -> None:
+    client, _ = await started()
+
+    async def handler(interaction: Interaction) -> bool:
+        await interaction.response.send_message("pong")
+        return True
+
+    client.add_interaction_handler(handler)
+    reply = await client.handle_http(payload(command("ping")))
+    assert isinstance(reply, MessageResponse)
+    assert reply.data.content == "pong"
+
+
+async def test_a_response_from_a_later_task_still_makes_the_reply() -> None:
+    client, _ = await started()
+
+    async def handler(interaction: Interaction) -> bool:
+        async def later() -> None:
+            await asyncio.sleep(0)
+            await interaction.response.defer()
+
+        _ = asyncio.get_running_loop().create_task(later())
+        return True
+
+    client.add_interaction_handler(handler)
+    assert isinstance(await client.handle_http(payload(command("ping"))), DeferredMessageResponse)
+
+
+async def test_files_and_late_responses_use_the_callback_endpoint(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    client, transport = await started()
+    answered: list[Interaction] = []
+
+    async def handler(interaction: Interaction) -> bool:
+        answered.append(interaction)
+        if interaction.id == 901:
+            await interaction.response.send_message("file", file=File("a.txt", b"data"))
+        return True
+
+    client.add_interaction_handler(handler)
+    transport.queue(204)
+    assert await client.handle_http(payload(command("ping", interaction_id=901))) is None
+    assert transport.requests[-1].url.endswith("/interactions/901/interaction-token/callback")
+
+    monkeypatch.setattr(client_module, "INTERACTION_RESPONSE_DEADLINE", 0.01)
+    with caplog.at_level(logging.WARNING, logger="shoal.client"):
+        assert await client.handle_http(payload(command("ping", interaction_id=902))) is None
+    assert "was not answered within" in caplog.text
+    transport.queue(204)
+    await answered[-1].response.send_message("too late")
+    assert transport.requests[-1].url.endswith("/interactions/902/interaction-token/callback")
+
+
+async def test_interactions_the_client_does_not_answer_get_no_reply() -> None:
+    client, _ = await started()
+    unknown = parse_interaction(encode_json({"id": "1", "application_id": "2", "type": 99, "token": "t"}))
+    assert isinstance(unknown, UnknownInteraction)
+    assert await client.handle_http(unknown) is None
+
+
+async def test_an_endpoint_serves_the_clients_interactions() -> None:
+    client, _ = await started()
+
+    async def handler(interaction: Interaction) -> bool:
+        await interaction.response.send_message("over http")
+        return True
+
+    client.add_interaction_handler(handler)
+    async with client.endpoint(PUBLIC, port=0) as server:
+        status, body = await post(url_of(server), command("ping"))
+    assert status == 200
+    assert msgspec.json.decode(body) == {"type": 4, "data": {"content": "over http"}}
