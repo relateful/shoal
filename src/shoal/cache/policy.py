@@ -18,6 +18,10 @@ class EntityKind(StrEnum):
     MESSAGE = "message"
     PRESENCE = "presence"
     ROLE = "role"
+    SCHEDULED_EVENT = "scheduled_event"
+    SOUNDBOARD_SOUND = "soundboard_sound"
+    STAGE_INSTANCE = "stage_instance"
+    STICKER = "sticker"
     USER = "user"
     VOICE_STATE = "voice_state"
 
@@ -68,6 +72,10 @@ DEFAULT_POLICIES: Final = {
     EntityKind.MESSAGE: CachePolicy(max_entries=MESSAGE_CACHE_LIMIT, persist=False),
     EntityKind.PRESENCE: CachePolicy(persist=False),
     EntityKind.ROLE: CachePolicy(),
+    EntityKind.SCHEDULED_EVENT: CachePolicy(),
+    EntityKind.SOUNDBOARD_SOUND: CachePolicy(),
+    EntityKind.STAGE_INSTANCE: CachePolicy(),
+    EntityKind.STICKER: CachePolicy(),
     EntityKind.USER: CachePolicy(max_entries=USER_CACHE_LIMIT),
     EntityKind.VOICE_STATE: CachePolicy(),
 }

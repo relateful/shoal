@@ -6,6 +6,10 @@ be shared by several shards or a dashboard. `MemoryCollection` is the in-process
 `CacheStore` reads an entry and then writes it (`edit`, reconciling, sweeping). In memory nothing runs
 in between; an implementation shared by several processes must make each call atomic and accept that
 a write from another process between a read and a write is overwritten.
+
+The `peek` methods read synchronously what this process holds, for lookups that cannot await, like
+discord.py's `guild.get_member`. An implementation backed by a remote store answers them from a local
+copy it keeps, or with nothing.
 """
 
 from collections import OrderedDict
@@ -52,6 +56,18 @@ class CacheCollection[K: Hashable, V](Protocol):
         """How many entries are stored (expired ones may still be counted until accessed)."""
         ...
 
+    def peek(self, key: K) -> Entry[V] | None:
+        """`get`, synchronously, from what this process holds."""
+        ...
+
+    def peek_scoped(self, scope: Snowflake | None) -> list[tuple[K, Entry[V]]]:
+        """`scoped`, synchronously, from what this process holds."""
+        ...
+
+    def peek_items(self) -> list[tuple[K, Entry[V]]]:
+        """`items`, synchronously, from what this process holds."""
+        ...
+
 
 @final
 class MemoryCollection[K: Hashable, V](CacheCollection[K, V]):
@@ -88,6 +104,10 @@ class MemoryCollection[K: Hashable, V](CacheCollection[K, V]):
 
     @override
     async def get(self, key: K) -> Entry[V] | None:
+        return self.peek(key)
+
+    @override
+    def peek(self, key: K) -> Entry[V] | None:
         entry = self._entries.get(key)
         if entry is None:
             return None
@@ -115,6 +135,10 @@ class MemoryCollection[K: Hashable, V](CacheCollection[K, V]):
 
     @override
     async def items(self) -> list[tuple[K, Entry[V]]]:
+        return self.peek_items()
+
+    @override
+    def peek_items(self) -> list[tuple[K, Entry[V]]]:
         now = self._clock.wall()
         for key in [key for key, entry in self._entries.items() if self._expired(entry, now)]:
             self._remove(key)
@@ -122,6 +146,10 @@ class MemoryCollection[K: Hashable, V](CacheCollection[K, V]):
 
     @override
     async def scoped(self, scope: Snowflake | None) -> list[tuple[K, Entry[V]]]:
+        return self.peek_scoped(scope)
+
+    @override
+    def peek_scoped(self, scope: Snowflake | None) -> list[tuple[K, Entry[V]]]:
         now = self._clock.wall()
         live: list[tuple[K, Entry[V]]] = []
         for key in list(self._scopes.get(scope, ())):
@@ -175,3 +203,15 @@ class NullCollection[K: Hashable, V](CacheCollection[K, V]):
     @override
     async def size(self) -> int:
         return 0
+
+    @override
+    def peek(self, key: K) -> Entry[V] | None:
+        return None
+
+    @override
+    def peek_scoped(self, scope: Snowflake | None) -> list[tuple[K, Entry[V]]]:
+        return []
+
+    @override
+    def peek_items(self) -> list[tuple[K, Entry[V]]]:
+        return []

@@ -50,6 +50,10 @@ from shoal.payloads.gateway_events import Presence
 from shoal.payloads.guild import GuildMember
 from shoal.payloads.message import Message
 from shoal.payloads.permissions import Role
+from shoal.payloads.scheduled_event import GuildScheduledEvent
+from shoal.payloads.soundboard import SoundboardSound
+from shoal.payloads.stage_instance import StageInstance
+from shoal.payloads.sticker import Sticker
 from shoal.payloads.user import User
 from shoal.payloads.voice import VoiceState
 
@@ -93,6 +97,16 @@ class Snapshot(msgspec.Struct, kw_only=True, gc=False):
         default_factory=list[tuple[GuildUserKey, Entry[Presence]]]
     )
     roles: Rows[Snowflake, Role] = msgspec.field(default_factory=list[tuple[Snowflake, Entry[Role]]])
+    scheduled_events: Rows[Snowflake, GuildScheduledEvent] = msgspec.field(
+        default_factory=list[tuple[Snowflake, Entry[GuildScheduledEvent]]]
+    )
+    soundboard_sounds: Rows[Snowflake, SoundboardSound] = msgspec.field(
+        default_factory=list[tuple[Snowflake, Entry[SoundboardSound]]]
+    )
+    stage_instances: Rows[Snowflake, StageInstance] = msgspec.field(
+        default_factory=list[tuple[Snowflake, Entry[StageInstance]]]
+    )
+    stickers: Rows[Snowflake, Sticker] = msgspec.field(default_factory=list[tuple[Snowflake, Entry[Sticker]]])
     users: Rows[Snowflake, User] = msgspec.field(default_factory=list[tuple[Snowflake, Entry[User]]])
     voice_states: Rows[GuildUserKey, VoiceState] = msgspec.field(
         default_factory=list[tuple[GuildUserKey, Entry[VoiceState]]]
@@ -136,8 +150,8 @@ class CacheStore:
         clock: Time source.
         metrics: Receives lookup results (hit, stale, miss) per entity kind.
 
-    Guild entries are stored without their `roles` and `emojis` lists; those live in the `roles` and
-    `emojis` collections, so each object has exactly one cached copy.
+    Guild entries are stored without their `roles`, `emojis` and `stickers` lists; those live in their
+    own collections, so each object has exactly one cached copy.
     """
 
     __slots__ = (
@@ -161,6 +175,10 @@ class CacheStore:
         "messages",
         "presences",
         "roles",
+        "scheduled_events",
+        "soundboard_sounds",
+        "stage_instances",
+        "stickers",
         "users",
         "voice_states",
     )
@@ -206,6 +224,18 @@ class CacheStore:
         )
         self.roles: CacheCollection[Snowflake, Role] = self._register(
             EntityKind.ROLE, NullCollection[Snowflake, Role]()
+        )
+        self.scheduled_events: CacheCollection[Snowflake, GuildScheduledEvent] = self._register(
+            EntityKind.SCHEDULED_EVENT, NullCollection[Snowflake, GuildScheduledEvent]()
+        )
+        self.soundboard_sounds: CacheCollection[Snowflake, SoundboardSound] = self._register(
+            EntityKind.SOUNDBOARD_SOUND, NullCollection[Snowflake, SoundboardSound]()
+        )
+        self.stage_instances: CacheCollection[Snowflake, StageInstance] = self._register(
+            EntityKind.STAGE_INSTANCE, NullCollection[Snowflake, StageInstance]()
+        )
+        self.stickers: CacheCollection[Snowflake, Sticker] = self._register(
+            EntityKind.STICKER, NullCollection[Snowflake, Sticker]()
         )
         self.users: CacheCollection[Snowflake, User] = self._register(
             EntityKind.USER, NullCollection[Snowflake, User]()
@@ -342,7 +372,27 @@ class CacheStore:
         self, collection: CacheCollection[K, V], key: K, *, fresh_only: bool = False
     ) -> V | None:
         """Read a value. With `fresh_only`, stale entries count as missing."""
-        entry = await collection.get(key)
+        return self._looked_up(collection, await collection.get(key), fresh_only=fresh_only)
+
+    def peek[K: Hashable, V](
+        self, collection: CacheCollection[K, V], key: K, *, fresh_only: bool = False
+    ) -> V | None:
+        """`value`, synchronously, from what this process holds (see `CacheCollection.peek`)."""
+        return self._looked_up(collection, collection.peek(key), fresh_only=fresh_only)
+
+    def peek_scoped[K: Hashable, V](
+        self, collection: CacheCollection[K, V], scope: Snowflake | None, *, fresh_only: bool = False
+    ) -> list[V]:
+        """Every value of one guild (or of no guild, for `None`) this process holds, synchronously."""
+        return [
+            entry.value
+            for _, entry in collection.peek_scoped(scope)
+            if not fresh_only or self.is_fresh(entry)
+        ]
+
+    def _looked_up[K: Hashable, V](
+        self, collection: CacheCollection[K, V], entry: Entry[V] | None, *, fresh_only: bool
+    ) -> V | None:
         kind = self._kinds.get(id(collection))
         label = kind.value if kind is not None else "custom"
         if entry is None:
@@ -387,6 +437,28 @@ class CacheStore:
         """A cached role."""
         return await self.value(self.roles, Snowflake(role_id), fresh_only=fresh_only)
 
+    async def get_scheduled_event(
+        self, event_id: int, *, fresh_only: bool = False
+    ) -> GuildScheduledEvent | None:
+        """A cached guild scheduled event."""
+        return await self.value(self.scheduled_events, Snowflake(event_id), fresh_only=fresh_only)
+
+    async def get_soundboard_sound(
+        self, sound_id: int, *, fresh_only: bool = False
+    ) -> SoundboardSound | None:
+        """A cached guild soundboard sound."""
+        return await self.value(self.soundboard_sounds, Snowflake(sound_id), fresh_only=fresh_only)
+
+    async def get_stage_instance(
+        self, stage_instance_id: int, *, fresh_only: bool = False
+    ) -> StageInstance | None:
+        """A cached live stage, by the stage instance's ID (not the channel's)."""
+        return await self.value(self.stage_instances, Snowflake(stage_instance_id), fresh_only=fresh_only)
+
+    async def get_sticker(self, sticker_id: int, *, fresh_only: bool = False) -> Sticker | None:
+        """A cached guild sticker."""
+        return await self.value(self.stickers, Snowflake(sticker_id), fresh_only=fresh_only)
+
     async def get_user(self, user_id: int, *, fresh_only: bool = False) -> User | None:
         """A cached user."""
         return await self.value(self.users, Snowflake(user_id), fresh_only=fresh_only)
@@ -399,7 +471,13 @@ class CacheStore:
         return await self.value(self.voice_states, key, fresh_only=fresh_only)
 
     async def reconcile_guild(
-        self, guild_id: Snowflake, *, since: int, members: bool = True, presences: bool = True
+        self,
+        guild_id: Snowflake,
+        *,
+        since: int,
+        members: bool = True,
+        presences: bool = True,
+        stickers: bool = True,
     ) -> int:
         """Drop a guild's entries that its `GUILD_CREATE` did not contain.
 
@@ -407,14 +485,16 @@ class CacheStore:
         every entry of the guild written at or before `since` was not in the guild's current state,
         so it no longer exists. Messages are never part of `GUILD_CREATE` and are left alone. Pass
         `members=False` or `presences=False` when the `GUILD_CREATE` did not list them all (see
-        `CacheUpdater`); those stay until chunking or member events update them. Returns how many
-        entries were removed.
+        `CacheUpdater`); those stay until chunking or member events update them, and
+        `stickers=False` when it had no sticker list. Returns how many entries were removed.
         """
         skipped = {EntityKind.GUILD, EntityKind.MESSAGE}
         if not members:
             skipped.add(EntityKind.MEMBER)
         if not presences:
             skipped.add(EntityKind.PRESENCE)
+        if not stickers:
+            skipped.add(EntityKind.STICKER)
 
         def doomed(freshness: Freshness, scope: Snowflake | None) -> bool:
             del scope
@@ -477,6 +557,10 @@ class CacheStore:
             messages=await rows(EntityKind.MESSAGE, self.messages),
             presences=await rows(EntityKind.PRESENCE, self.presences),
             roles=await rows(EntityKind.ROLE, self.roles),
+            scheduled_events=await rows(EntityKind.SCHEDULED_EVENT, self.scheduled_events),
+            soundboard_sounds=await rows(EntityKind.SOUNDBOARD_SOUND, self.soundboard_sounds),
+            stage_instances=await rows(EntityKind.STAGE_INSTANCE, self.stage_instances),
+            stickers=await rows(EntityKind.STICKER, self.stickers),
             users=await rows(EntityKind.USER, self.users),
             voice_states=await rows(EntityKind.VOICE_STATE, self.voice_states),
         )
@@ -526,6 +610,10 @@ class CacheStore:
         await self._restore(EntityKind.MESSAGE, self.messages, snapshot.messages)
         await self._restore(EntityKind.PRESENCE, self.presences, snapshot.presences)
         await self._restore(EntityKind.ROLE, self.roles, snapshot.roles)
+        await self._restore(EntityKind.SCHEDULED_EVENT, self.scheduled_events, snapshot.scheduled_events)
+        await self._restore(EntityKind.SOUNDBOARD_SOUND, self.soundboard_sounds, snapshot.soundboard_sounds)
+        await self._restore(EntityKind.STAGE_INSTANCE, self.stage_instances, snapshot.stage_instances)
+        await self._restore(EntityKind.STICKER, self.stickers, snapshot.stickers)
         await self._restore(EntityKind.USER, self.users, snapshot.users)
         await self._restore(EntityKind.VOICE_STATE, self.voice_states, snapshot.voice_states)
         _log.info("restored cache snapshot from %s (revision %d)", target, snapshot.revision)

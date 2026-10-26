@@ -77,3 +77,36 @@ async def test_null_collection_stores_nothing() -> None:
     assert await collection.scoped(None) == []
     assert await collection.size() == 0
     await collection.clear()
+
+
+async def test_memory_collection_peeks_synchronously_with_the_same_rules() -> None:
+    clock = FakeClock()
+    collection = MemoryCollection[int, str](clock, ttl=10)
+    await collection.set(1, entry("a", clock.wall(), scope=5))
+    await collection.set(2, entry("old", clock.wall() - 11))
+    peeked = collection.peek(1)
+    assert peeked is not None
+    assert peeked.value == "a"
+    assert collection.peek(2) is None  # expired, and removed on the way
+    assert [key for key, _ in collection.peek_scoped(Snowflake(5))] == [1]
+    assert collection.peek_scoped(None) == []
+    assert [key for key, _ in collection.peek_items()] == [1]
+    assert await collection.size() == 1
+
+
+async def test_peeks_see_what_the_async_api_wrote() -> None:
+    clock = FakeClock()
+    collection = MemoryCollection[int, str](clock, max_entries=2)
+    await collection.set(1, entry("a", clock.wall(), scope=5))
+    await collection.set(2, entry("b", clock.wall()))
+    assert collection.peek(1) is not None  # 1 is now the most recently used
+    await collection.set(3, entry("c", clock.wall()))
+    assert collection.peek(2) is None
+    assert sorted(key for key, _ in collection.peek_items()) == [1, 3]
+
+
+def test_null_collection_peeks_nothing() -> None:
+    collection = NullCollection[int, str]()
+    assert collection.peek(1) is None
+    assert collection.peek_scoped(None) == []
+    assert collection.peek_items() == []

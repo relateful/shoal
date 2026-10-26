@@ -4,9 +4,9 @@ The updater consumes `shoal.core.DispatchEvent`, so the same updater runs next t
 worker process that receives events over `shoal.ipc`.
 
 Every event that changes a cached kind is handled; `handled_events` lists them and the tests pin that
-list, so an event cannot silently fall out. Events about resources the cache does not hold (stickers,
-scheduled events, stage instances, soundboard, integrations, invites, auto moderation, entitlements)
-are ignored by design until those kinds are added.
+list, so an event cannot silently fall out. Events about things the cache does not hold (integrations,
+invites, bans, Auto Moderation, entitlements, subscriptions, typing) pass through untouched, as in
+discord.py.
 """
 
 import logging
@@ -23,7 +23,7 @@ from shoal.cache.store import CacheStore
 from shoal.core.codec import PayloadDecodeError, decode_msgpack, encode_msgpack
 from shoal.core.dispatch import DispatchEvent
 from shoal.core.snowflake import Snowflake
-from shoal.payloads.channel import Channel
+from shoal.payloads.channel import Channel, ThreadMember
 from shoal.payloads.emoji import Emoji
 from shoal.payloads.gateway import Intents
 from shoal.payloads.gateway_events import (
@@ -38,8 +38,13 @@ from shoal.payloads.gateway_events import (
     GuildMemberUpdate,
     GuildRoleCreate,
     GuildRoleDelete,
+    GuildScheduledEventUserAdd,
+    GuildSoundboardSoundDelete,
+    GuildSoundboardSoundsUpdate,
+    GuildStickersUpdate,
     MessageDelete,
     MessageDeleteBulk,
+    MessagePollVoteAdd,
     MessageReactionAdd,
     MessageReactionRemove,
     MessageReactionRemoveAll,
@@ -48,11 +53,17 @@ from shoal.payloads.gateway_events import (
     Presence,
     PresenceUpdate,
     Ready,
+    SoundboardSounds,
     ThreadListSync,
     ThreadMembersUpdate,
+    ThreadMemberUpdate,
 )
 from shoal.payloads.guild import Guild, GuildMember, GuildMemberFlags, UnavailableGuild
 from shoal.payloads.message import Message, Reaction, ReactionCountDetails
+from shoal.payloads.poll import PollAnswerCount
+from shoal.payloads.scheduled_event import GuildScheduledEvent
+from shoal.payloads.soundboard import SoundboardSound
+from shoal.payloads.stage_instance import StageInstance
 from shoal.payloads.user import User
 from shoal.payloads.voice import VoiceState
 
@@ -74,12 +85,19 @@ def _known[T](value: T | msgspec.UnsetType, fallback: T) -> T:
 
 
 def _cached_guild(guild: Guild) -> CachedGuild:
-    """`guild` without its roles and emojis (and a `GuildCreate`'s startup lists), as the cache holds it.
+    """`guild` without its roles, emojis and stickers (and a `GuildCreate`'s startup lists), as cached.
 
     Re-encoding keeps every field `CachedGuild` shares with the source, whichever type it is.
     """
-    trimmed = msgspec.structs.replace(guild, roles=[], emojis=[])
+    trimmed = msgspec.structs.replace(guild, roles=[], emojis=[], stickers=[])
     return decode_msgpack(encode_msgpack(trimmed), CachedGuild)
+
+
+def _membership(member: ThreadMember) -> ThreadMember:
+    """The bot's thread membership as a thread holds it, without an event's extra fields."""
+    return ThreadMember(
+        id=member.id, user_id=member.user_id, join_timestamp=member.join_timestamp, flags=member.flags
+    )
 
 
 _EMPTY_MEMBER = GuildMember(roles=[], joined_at=None, deaf=False, mute=False, flags=GuildMemberFlags())
@@ -129,10 +147,22 @@ class CacheUpdater:
             "GUILD_ROLE_CREATE": self._guild_role_upsert,
             "GUILD_ROLE_DELETE": self._guild_role_delete,
             "GUILD_ROLE_UPDATE": self._guild_role_upsert,
+            "GUILD_SCHEDULED_EVENT_CREATE": self._scheduled_event_upsert,
+            "GUILD_SCHEDULED_EVENT_DELETE": self._scheduled_event_delete,
+            "GUILD_SCHEDULED_EVENT_UPDATE": self._scheduled_event_upsert,
+            "GUILD_SCHEDULED_EVENT_USER_ADD": self._scheduled_event_user_add,
+            "GUILD_SCHEDULED_EVENT_USER_REMOVE": self._scheduled_event_user_remove,
+            "GUILD_SOUNDBOARD_SOUNDS_UPDATE": self._soundboard_sounds_update,
+            "GUILD_SOUNDBOARD_SOUND_CREATE": self._soundboard_sound_upsert,
+            "GUILD_SOUNDBOARD_SOUND_DELETE": self._soundboard_sound_delete,
+            "GUILD_SOUNDBOARD_SOUND_UPDATE": self._soundboard_sound_upsert,
+            "GUILD_STICKERS_UPDATE": self._guild_stickers_update,
             "GUILD_UPDATE": self._guild_update,
             "MESSAGE_CREATE": self._message_upsert,
             "MESSAGE_DELETE": self._message_delete,
             "MESSAGE_DELETE_BULK": self._message_delete_bulk,
+            "MESSAGE_POLL_VOTE_ADD": self._poll_vote_add,
+            "MESSAGE_POLL_VOTE_REMOVE": self._poll_vote_remove,
             "MESSAGE_REACTION_ADD": self._message_reaction_add,
             "MESSAGE_REACTION_REMOVE": self._message_reaction_remove,
             "MESSAGE_REACTION_REMOVE_ALL": self._message_reaction_remove_all,
@@ -141,10 +171,15 @@ class CacheUpdater:
             "PRESENCE_UPDATE": self._presence_update,
             "READY": self._ready,
             "RESUMED": self._resumed,
+            "SOUNDBOARD_SOUNDS": self._soundboard_sounds,
+            "STAGE_INSTANCE_CREATE": self._stage_instance_upsert,
+            "STAGE_INSTANCE_DELETE": self._stage_instance_delete,
+            "STAGE_INSTANCE_UPDATE": self._stage_instance_upsert,
             "THREAD_CREATE": self._channel_upsert,
             "THREAD_DELETE": self._channel_delete,
             "THREAD_LIST_SYNC": self._thread_list_sync,
             "THREAD_MEMBERS_UPDATE": self._thread_members_update,
+            "THREAD_MEMBER_UPDATE": self._thread_member_update,
             "THREAD_UPDATE": self._channel_upsert,
             "USER_UPDATE": self._user_update,
             "VOICE_STATE_UPDATE": self._voice_state_update,
@@ -232,12 +267,19 @@ class CacheUpdater:
             await self._store_voice_state(event, guild.id, voice_state)
         for presence in guild.presences:
             await self._put(event, self._store.presences, (guild.id, presence.user.id), presence, guild.id)
+        for stage in guild.stage_instances:
+            await self._put(event, self._store.stage_instances, stage.id, stage, guild.id)
+        for scheduled in guild.guild_scheduled_events:
+            await self._put(event, self._store.scheduled_events, scheduled.id, scheduled, guild.id)
+        for sound in guild.soundboard_sounds:
+            await self._store_sound(event, guild.id, sound)
         presences_listed = self._intents is not None and self._intents.guild_presences
         removed = await self._store.reconcile_guild(
             guild.id,
             since=since,
             members=presences_listed and not guild.large,
             presences=presences_listed and guild.member_count <= GUILD_CREATE_MEMBER_LIMIT,
+            stickers=not isinstance(guild.stickers, msgspec.UnsetType),
         )
         if removed:
             _log.debug("guild %s: dropped %d entries that no longer exist", guild.id, removed)
@@ -252,13 +294,13 @@ class CacheUpdater:
 
     async def _guild_emojis_update(self, event: DispatchEvent) -> None:
         update = event.decode(GuildEmojisUpdate)
-        current = {emoji.id for emoji in update.emojis if emoji.id is not None}
-        for key, _ in await self._store.emojis.scoped(update.guild_id):
-            if key not in current:
-                await self._store.emojis.delete(key)
-        for emoji in update.emojis:
-            if emoji.id is not None:
-                await self._put(event, self._store.emojis, emoji.id, emoji, update.guild_id)
+        current = {emoji.id: emoji for emoji in update.emojis if emoji.id is not None}
+        await self._replace_scope(event, self._store.emojis, update.guild_id, current)
+
+    async def _guild_stickers_update(self, event: DispatchEvent) -> None:
+        update = event.decode(GuildStickersUpdate)
+        current = {sticker.id: sticker for sticker in update.stickers}
+        await self._replace_scope(event, self._store.stickers, update.guild_id, current)
 
     async def _guild_member_add(self, event: DispatchEvent) -> None:
         added = event.decode(GuildMemberAdd)
@@ -443,6 +485,35 @@ class CacheUpdater:
         await self._put(event, self._store.messages, message.id, message, scope)
         await self._put(event, self._store.users, message.author.id, message.author, None)
 
+    async def _poll_vote_add(self, event: DispatchEvent) -> None:
+        await self._count_vote(event.decode(MessagePollVoteAdd), 1)
+
+    async def _poll_vote_remove(self, event: DispatchEvent) -> None:
+        # MESSAGE_POLL_VOTE_REMOVE has the same fields as the add event.
+        await self._count_vote(event.decode(MessagePollVoteAdd), -1)
+
+    async def _count_vote(self, vote: MessagePollVoteAdd, change: int) -> None:
+        mine = vote.user_id == self._self_id
+
+        def recount(message: Message) -> Message:
+            poll = message.poll
+            if isinstance(poll, msgspec.UnsetType) or isinstance(poll.results, msgspec.UnsetType):
+                # Without results the counts are unknown, and one vote does not make them known.
+                return message
+            counts = {count.id: count for count in poll.results.answer_counts}
+            current = counts.get(vote.answer_id, PollAnswerCount(id=vote.answer_id, count=0, me_voted=False))
+            updated = msgspec.structs.replace(
+                current,
+                count=max(0, current.count + change),
+                me_voted=(change > 0) if mine else current.me_voted,
+            )
+            counts[vote.answer_id] = updated
+            answer_counts = [count for count in counts.values() if count.count > 0 or count.me_voted]
+            results = msgspec.structs.replace(poll.results, answer_counts=answer_counts)
+            return msgspec.structs.replace(message, poll=msgspec.structs.replace(poll, results=results))
+
+        await self._store.edit(self._store.messages, vote.message_id, recount)
+
     async def _presence_update(self, event: DispatchEvent) -> None:
         update = event.decode(PresenceUpdate)
         presence = Presence(
@@ -465,6 +536,58 @@ class CacheUpdater:
     async def _resumed(self, event: DispatchEvent) -> None:
         self._store.session_resumed(event.shard_id)
 
+    async def _scheduled_event_delete(self, event: DispatchEvent) -> None:
+        await self._store.scheduled_events.delete(event.decode(GuildScheduledEvent).id)
+
+    async def _scheduled_event_upsert(self, event: DispatchEvent) -> None:
+        scheduled = event.decode(GuildScheduledEvent)
+        await self._put(event, self._store.scheduled_events, scheduled.id, scheduled, scheduled.guild_id)
+
+    async def _scheduled_event_user_add(self, event: DispatchEvent) -> None:
+        await self._count_subscribers(event.decode(GuildScheduledEventUserAdd).guild_scheduled_event_id, 1)
+
+    async def _scheduled_event_user_remove(self, event: DispatchEvent) -> None:
+        # GUILD_SCHEDULED_EVENT_USER_REMOVE has the same fields as the add event.
+        await self._count_subscribers(event.decode(GuildScheduledEventUserAdd).guild_scheduled_event_id, -1)
+
+    async def _count_subscribers(self, event_id: Snowflake, change: int) -> None:
+        def recount(scheduled: GuildScheduledEvent) -> GuildScheduledEvent:
+            if isinstance(scheduled.user_count, msgspec.UnsetType):
+                return scheduled
+            return msgspec.structs.replace(scheduled, user_count=max(0, scheduled.user_count + change))
+
+        await self._store.edit(self._store.scheduled_events, event_id, recount)
+
+    async def _soundboard_sound_delete(self, event: DispatchEvent) -> None:
+        await self._store.soundboard_sounds.delete(event.decode(GuildSoundboardSoundDelete).sound_id)
+
+    async def _soundboard_sound_upsert(self, event: DispatchEvent) -> None:
+        sound = event.decode(SoundboardSound)
+        if isinstance(sound.guild_id, Snowflake):
+            await self._store_sound(event, sound.guild_id, sound)
+
+    async def _soundboard_sounds(self, event: DispatchEvent) -> None:
+        # The answer to Request Soundboard Sounds: the guild's complete list.
+        listed = event.decode(SoundboardSounds)
+        current = {
+            sound.sound_id: msgspec.structs.replace(sound, guild_id=listed.guild_id)
+            for sound in listed.soundboard_sounds
+        }
+        await self._replace_scope(event, self._store.soundboard_sounds, listed.guild_id, current)
+
+    async def _soundboard_sounds_update(self, event: DispatchEvent) -> None:
+        # Several sounds changed; the others are untouched, so nothing is removed.
+        update = event.decode(GuildSoundboardSoundsUpdate)
+        for sound in update.soundboard_sounds:
+            await self._store_sound(event, update.guild_id, sound)
+
+    async def _stage_instance_delete(self, event: DispatchEvent) -> None:
+        await self._store.stage_instances.delete(event.decode(StageInstance).id)
+
+    async def _stage_instance_upsert(self, event: DispatchEvent) -> None:
+        stage = event.decode(StageInstance)
+        await self._put(event, self._store.stage_instances, stage.id, stage, stage.guild_id)
+
     async def _thread_list_sync(self, event: DispatchEvent) -> None:
         sync = event.decode(ThreadListSync)
         active = {thread.id for thread in sync.threads}
@@ -481,11 +604,40 @@ class CacheUpdater:
 
     async def _thread_members_update(self, event: DispatchEvent) -> None:
         update = event.decode(ThreadMembersUpdate)
+        added = update.added_members if not isinstance(update.added_members, msgspec.UnsetType) else []
+        removed = (
+            update.removed_member_ids if not isinstance(update.removed_member_ids, msgspec.UnsetType) else []
+        )
+        joined = next((member for member in added if member.user_id == self._self_id), None)
+        left = self._self_id is not None and self._self_id in removed
 
         def recount(thread: Channel) -> Channel:
-            return msgspec.structs.replace(thread, member_count=update.member_count)
+            membership = thread.member
+            if joined is not None:
+                membership = _membership(joined)
+            elif left:
+                membership = UNSET
+            return msgspec.structs.replace(thread, member_count=update.member_count, member=membership)
 
         await self._store.edit(self._store.channels, update.id, recount)
+        for member in added:
+            # Added thread members carry their guild member and presence in this event only.
+            if not isinstance(member.member, msgspec.UnsetType):
+                await self._store_member(event, update.guild_id, member.member)
+            if member.presence is not None and not isinstance(member.presence, msgspec.UnsetType):
+                key = (update.guild_id, member.presence.user.id)
+                await self._put(event, self._store.presences, key, member.presence, update.guild_id)
+
+    async def _thread_member_update(self, event: DispatchEvent) -> None:
+        # The bot's own membership of a thread changed.
+        update = event.decode(ThreadMemberUpdate)
+        membership = _membership(update)
+
+        def join(thread: Channel) -> Channel:
+            return msgspec.structs.replace(thread, member=membership)
+
+        if isinstance(update.id, Snowflake):
+            await self._store.edit(self._store.channels, update.id, join)
 
     async def _user_update(self, event: DispatchEvent) -> None:
         user = event.decode(User)
@@ -518,12 +670,35 @@ class CacheUpdater:
         await self._put(event, self._store.guilds, guild.id, cached, guild.id)
 
     async def _store_guild_contents(self, event: DispatchEvent, guild: Guild) -> None:
-        """A guild's roles and emojis, which live in their own collections."""
+        """A guild's roles, emojis and stickers, which live in their own collections."""
         for role in guild.roles:
             await self._put(event, self._store.roles, role.id, role, guild.id)
         for emoji in guild.emojis:
             if emoji.id is not None:
                 await self._put(event, self._store.emojis, emoji.id, emoji, guild.id)
+        if not isinstance(guild.stickers, msgspec.UnsetType):
+            for sticker in guild.stickers:
+                await self._put(event, self._store.stickers, sticker.id, sticker, guild.id)
+
+    async def _replace_scope[V](
+        self,
+        event: DispatchEvent,
+        collection: CacheCollection[Snowflake, V],
+        guild_id: Snowflake,
+        current: dict[Snowflake, V],
+    ) -> None:
+        """Make `current` the guild's complete set in `collection` (a full list event)."""
+        for key, _ in await collection.scoped(guild_id):
+            if key not in current:
+                await collection.delete(key)
+        for key, value in current.items():
+            await self._put(event, collection, key, value, guild_id)
+
+    async def _store_sound(self, event: DispatchEvent, guild_id: Snowflake, sound: SoundboardSound) -> None:
+        # Sounds listed in `GUILD_CREATE` and `SOUNDBOARD_SOUNDS` leave out the guild they belong to.
+        if isinstance(sound.guild_id, msgspec.UnsetType):
+            sound = msgspec.structs.replace(sound, guild_id=guild_id)
+        await self._put(event, self._store.soundboard_sounds, sound.sound_id, sound, guild_id)
 
     async def _store_member(self, event: DispatchEvent, guild_id: Snowflake, member: GuildMember) -> None:
         if isinstance(member.user, msgspec.UnsetType):

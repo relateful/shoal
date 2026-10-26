@@ -10,9 +10,15 @@ from shoal.cache.defaults import SNAPSHOT_FORMAT
 from shoal.cache.entry import Source
 from shoal.cache.policy import CacheConfig, CachePolicy, EntityKind, RestartStrategy
 from shoal.cache.store import CacheStore, Snapshot
+from shoal.core.codec import decode_json
 from shoal.core.metrics import CACHE_LOOKUPS, InMemoryMetrics
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import Channel, ChannelType, GuildMember, GuildMemberFlags, Message, MessageType, User
+from shoal.payloads.gateway_events import GuildStickersUpdate
+from shoal.payloads.scheduled_event import GuildScheduledEvent
+from shoal.payloads.soundboard import SoundboardSound
+from shoal.payloads.stage_instance import StageInstance
+from tests.support.dispatches import DISPATCH_SAMPLES
 from tests.support.fakes import FakeClock
 
 GUILD = Snowflake(10)
@@ -275,3 +281,47 @@ def _message() -> Message:
         pinned=False,
         type=MessageType.DEFAULT,
     )
+
+
+async def test_peek_reads_synchronously_and_counts_like_value() -> None:
+    metrics = InMemoryMetrics()
+    store = CacheStore(clock=FakeClock(), metrics=metrics)
+    store.session_started(0)
+    await store.put(store.channels, Snowflake(1), channel(1), Source.GATEWAY, scope=GUILD, shard=0)
+    await store.put(store.channels, Snowflake(2), channel(2, OTHER_GUILD), Source.GATEWAY, scope=OTHER_GUILD)
+    assert store.peek(store.channels, Snowflake(1)) == channel(1)
+    assert store.peek(store.channels, Snowflake(3)) is None
+    assert store.peek_scoped(store.channels, GUILD) == [channel(1)]
+    store.session_started(0)
+    assert store.peek(store.channels, Snowflake(1), fresh_only=True) is None
+    assert store.peek_scoped(store.channels, GUILD, fresh_only=True) == []
+    assert store.peek_scoped(store.channels, OTHER_GUILD, fresh_only=True) == [channel(2, OTHER_GUILD)]
+    counts = {key[1]: value for key, value in metrics.counters.items() if key[0] == CACHE_LOOKUPS.name}
+    assert counts == {
+        (("kind", "channel"), ("result", "hit")): 1,
+        (("kind", "channel"), ("result", "miss")): 1,
+        (("kind", "channel"), ("result", "stale")): 1,
+    }
+
+
+async def test_the_newer_kinds_survive_a_snapshot(tmp_path: Path) -> None:
+    def sample[T](name: str, kind: type[T]) -> T:
+        return decode_json(msgspec.json.encode(DISPATCH_SAMPLES[name]), kind)
+
+    store = CacheStore(clock=FakeClock())
+    sticker = sample("GUILD_STICKERS_UPDATE", GuildStickersUpdate).stickers[0]
+    stage = sample("STAGE_INSTANCE_CREATE", StageInstance)
+    scheduled = sample("GUILD_SCHEDULED_EVENT_CREATE", GuildScheduledEvent)
+    sound = sample("GUILD_SOUNDBOARD_SOUND_CREATE", SoundboardSound)
+    await store.put(store.stickers, sticker.id, sticker, Source.GATEWAY, scope=GUILD)
+    await store.put(store.stage_instances, stage.id, stage, Source.GATEWAY, scope=GUILD)
+    await store.put(store.scheduled_events, scheduled.id, scheduled, Source.GATEWAY, scope=GUILD)
+    await store.put(store.soundboard_sounds, sound.sound_id, sound, Source.GATEWAY, scope=GUILD)
+    path = tmp_path / "snapshot"
+    await store.save_snapshot(path)
+    restored = CacheStore(clock=FakeClock())
+    assert await restored.load_snapshot(path)
+    assert await restored.get_sticker(sticker.id) == sticker
+    assert await restored.get_stage_instance(stage.id) == stage
+    assert await restored.get_scheduled_event(scheduled.id) == scheduled
+    assert await restored.get_soundboard_sound(sound.sound_id) == sound

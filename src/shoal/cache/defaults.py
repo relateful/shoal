@@ -9,7 +9,7 @@ from typing import Final
 MESSAGE_CACHE_LIMIT: Final = 1000
 """Messages kept in memory by default, matching discord.py's default `max_messages`."""
 
-SNAPSHOT_FORMAT: Final = 2
+SNAPSHOT_FORMAT: Final = 3
 """Bumped whenever the snapshot layout changes incompatibly; older snapshots are then ignored."""
 
 USER_CACHE_LIMIT: Final = 100_000

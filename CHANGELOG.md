@@ -31,6 +31,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   sounds, polls, typing, voice channel effects and status, voice server updates and `RATE_LIMITED`
   (which the shard logs). Shards send the new Request Soundboard Sounds and Request Channel Info
   commands; `ShardManager.request_soundboard_sounds` splits a guild list across shards.
+- The cache holds stickers, scheduled events, stage instances and soundboard sounds, follows poll
+  votes, scheduled event subscriber counts and the bot's thread membership, and can be read
+  synchronously with `CacheStore.peek` and `peek_scoped` (snapshot format 3; older snapshots are
+  ignored and the cache starts cold once).
 - File uploads: `File` (bytes, or read off the event loop with `File.from_path`) on every endpoint
   that takes files. Message-like requests describe new files in `attachments` themselves; edits only
   append, so existing attachments are never dropped by accident. `image_data` and `sound_data` build

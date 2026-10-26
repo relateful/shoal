@@ -5,8 +5,9 @@ restart without serving stale data as if it were current.
 
 ## Policies
 
-Each entity kind (`CHANNEL`, `EMOJI`, `GUILD`, `MEMBER`, `MESSAGE`, `PRESENCE`, `ROLE`, `USER`,
-`VOICE_STATE`) has a `CachePolicy`:
+Each entity kind (`CHANNEL`, `EMOJI`, `GUILD`, `MEMBER`, `MESSAGE`, `PRESENCE`, `ROLE`,
+`SCHEDULED_EVENT`, `SOUNDBOARD_SOUND`, `STAGE_INSTANCE`, `STICKER`, `USER`, `VOICE_STATE`) has a
+`CachePolicy`:
 
 ```python
 from shoal.cache import CacheConfig, CachePolicy, CacheStore, EntityKind
@@ -43,6 +44,25 @@ re-identifying never makes the rest of the cache stale.
 member = await store.get_member(guild_id, user_id)  # fast: may be stale
 member = await store.get_member(guild_id, user_id, fresh_only=True)  # confirmed this session
 ```
+
+Every kind has a lookup: `get_channel`, `get_emoji`, `get_guild`, `get_member`, `get_message`,
+`get_presence`, `get_role`, `get_scheduled_event`, `get_soundboard_sound`, `get_stage_instance`,
+`get_sticker`, `get_user` and `get_voice_state`.
+
+## Reading without `await`
+
+The lookups above are async because a cache can live outside the process (Redis, a database) and be
+shared by several shards. `peek` reads what this process holds, synchronously, for code that cannot
+await, like discord.py's `guild.get_member(...)`:
+
+```python
+member = store.peek(store.members, (guild_id, user_id))
+channels = store.peek_scoped(store.channels, guild_id)  # every cached channel of the guild
+```
+
+Both take `fresh_only` and count in the lookup metrics like the async reads. With the in-memory
+collections (the default) they see everything; a collection backed by a remote store answers them
+from a local copy it keeps, or with nothing.
 
 ## Warm restarts
 
@@ -89,11 +109,20 @@ that disappeared only when the event listed them all; otherwise they are kept un
 chunking update them. Without `intents` it never assumes a complete list. Partial events (reactions,
 pins, thread member counts, and member or guild updates merged into an entry that is not fresh)
 change a cached entry without making it fresh: they confirm only what they change. Archived threads
-leave the cache, like deleted ones. Deleting a channel also removes its threads and cached messages; deleting a role removes it
-from cached members.
+leave the cache, like deleted ones. Deleting a channel also removes its threads and cached
+messages; deleting a role removes it from cached members.
+
+Stickers, scheduled events, stage instances and soundboard sounds arrive with `GUILD_CREATE` and
+follow their own events. `GUILD_STICKERS_UPDATE` and `SOUNDBOARD_SOUNDS` (the answer to
+`ShardManager.request_soundboard_sounds`) replace a guild's whole list; scheduled event subscriber
+counts follow `GUILD_SCHEDULED_EVENT_USER_ADD` and `_REMOVE` when the count is known; poll votes
+update a cached message's poll results when they are known. The bot's own thread membership
+(`Channel.member`) follows `THREAD_MEMBER_UPDATE` and `THREAD_MEMBERS_UPDATE`, which also caches the
+guild member and presence of each added thread member.
 
 Cached guilds are `CachedGuild`: a `Guild` plus `joined_at`, `large` and `member_count`, which only
-`GUILD_CREATE` sends. They are kept across `GUILD_UPDATE` and restarts, and `member_count` follows
+`GUILD_CREATE` sends. Their `roles`, `emojis` and `stickers` lists are empty: those live in their
+own collections, so each object is cached once. They are kept across `GUILD_UPDATE` and restarts, and `member_count` follows
 joins and leaves.
 
 ## Obfuscated channels
