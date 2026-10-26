@@ -2,14 +2,16 @@
 
 Discord: https://docs.discord.com/developers/resources/user
 
-Not yet modeled: the connection and application role connection objects (OAuth2-only).
+Not yet modeled: `Connection.integrations` (partial guild integrations). Decoding ignores it until
+it is added.
 """
 
 from msgspec import UNSET, UnsetType
 
-from shoal.core.enums import DiscordIntEnum
+from shoal.core.enums import DiscordIntEnum, DiscordStrEnum
 from shoal.core.flags import BaseFlags, flag
 from shoal.core.snowflake import Snowflake
+from shoal.payloads.api import ImageData
 from shoal.payloads.base import Payload
 
 
@@ -117,3 +119,138 @@ class User(Payload):
     avatar_decoration_data: AvatarDecorationData | UnsetType | None = UNSET
     collectibles: Collectibles | UnsetType | None = UNSET
     primary_guild: UserPrimaryGuild | UnsetType | None = UNSET
+
+
+class ConnectionService(DiscordStrEnum):
+    """The service an account connection links to.
+
+    Discord: https://docs.discord.com/developers/resources/user#connection-object-services
+    """
+
+    AMAZON_MUSIC = "amazon-music"
+    BLUESKY = "bluesky"
+    BUNGIE = "bungie"
+    CRUNCHYROLL = "crunchyroll"
+    DOMAIN = "domain"
+    EBAY = "ebay"
+    EPIC_GAMES = "epicgames"
+    FACEBOOK = "facebook"
+    GITHUB = "github"
+    INSTAGRAM = "instagram"
+    """No longer available for new connections."""
+    MASTODON = "mastodon"
+    PAYPAL = "paypal"
+    PLAYSTATION = "playstation"
+    REDDIT = "reddit"
+    ROBLOX = "roblox"
+    SKYPE = "skype"
+    """No longer available for new connections."""
+    SPOTIFY = "spotify"
+    STEAM = "steam"
+    TIKTOK = "tiktok"
+    TWITCH = "twitch"
+    TWITTER = "twitter"
+    XBOX = "xbox"
+    YOUTUBE = "youtube"
+
+
+class ConnectionVisibility(DiscordIntEnum):
+    """Who can see an account connection.
+
+    Discord: https://docs.discord.com/developers/resources/user#connection-object-visibility-types
+    """
+
+    NONE = 0
+    """Only the user."""
+    EVERYONE = 1
+
+
+class Connection(Payload):
+    """An account on another service that a user has connected. Needs the `connections` scope.
+
+    Discord: https://docs.discord.com/developers/resources/user#connection-object
+    """
+
+    id: str
+    name: str
+    type: ConnectionService
+    revoked: bool | UnsetType = UNSET
+    verified: bool
+    friend_sync: bool
+    show_activity: bool
+    two_way_link: bool
+    visibility: ConnectionVisibility
+
+
+class ApplicationRoleConnection(Payload):
+    """What an app has recorded about a user, which linked roles check against.
+
+    Discord: https://docs.discord.com/developers/resources/user#application-role-connection-object
+    """
+
+    platform_name: str | None
+    """Up to 50 characters."""
+    metadata: dict[str, str]
+    """Values by metadata key, each up to 100 characters."""
+
+
+class ModifyCurrentUserParams(Payload):
+    """JSON body of Modify Current User.
+
+    Discord: https://docs.discord.com/developers/resources/user#modify-current-user-json-params
+    """
+
+    username: str | UnsetType = UNSET
+    """Changing it may change the discriminator."""
+    avatar: ImageData | UnsetType | None = UNSET
+    banner: ImageData | UnsetType | None = UNSET
+
+
+class GetCurrentUserGuildsParams(Payload):
+    """Query of Get Current User Guilds.
+
+    Discord: https://docs.discord.com/developers/resources/user#get-current-user-guilds-query-string-params
+    """
+
+    before: Snowflake | UnsetType = UNSET
+    after: Snowflake | UnsetType = UNSET
+    limit: int | UnsetType = UNSET
+    """1 to 200; Discord's default is 200."""
+    shard: int | UnsetType = UNSET
+    """Required for large bot sharding: `0` to `max_concurrency - 1`, not the gateway shard ID."""
+    with_counts: bool | UnsetType = UNSET
+
+
+class CreateDMParams(Payload):
+    """JSON body of Create DM.
+
+    Discord: https://docs.discord.com/developers/resources/user#create-dm-json-params
+    """
+
+    recipient_id: Snowflake
+
+
+class CreateGroupDMParams(Payload):
+    """JSON body of Create Group DM.
+
+    Discord: https://docs.discord.com/developers/resources/user#create-group-dm-json-params
+    """
+
+    access_tokens: list[str]
+    """OAuth2 tokens of users who granted the app the `gdm.join` scope."""
+    nicks: dict[Snowflake, str]
+    """Nicknames by user ID."""
+
+
+class UpdateApplicationRoleConnectionParams(Payload):
+    """JSON body of Update Current User Application Role Connection.
+
+    Discord: https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection-json-params
+    """
+
+    platform_name: str | UnsetType = UNSET
+    """Up to 50 characters."""
+    platform_username: str | UnsetType = UNSET
+    """Up to 100 characters."""
+    metadata: dict[str, str] | UnsetType = UNSET
+    """Values by metadata key, each up to 100 characters."""

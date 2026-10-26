@@ -22,6 +22,12 @@ BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands",
 )
 
+CREATE_DM: Final = Route(
+    HTTPMethod.POST,
+    "/users/@me/channels",
+    docs="https://docs.discord.com/developers/resources/user#create-dm",
+)
+
 CREATE_FOLLOWUP_MESSAGE: Final = Route(
     HTTPMethod.POST,
     "/webhooks/{application_id}/{interaction_token}",
@@ -34,6 +40,12 @@ CREATE_GLOBAL_APPLICATION_COMMAND: Final = Route(
     HTTPMethod.POST,
     "/applications/{application_id}/commands",
     docs="https://docs.discord.com/developers/interactions/application-commands#create-global-application-command",
+)
+
+CREATE_GROUP_DM: Final = Route(
+    HTTPMethod.POST,
+    "/users/@me/channels",
+    docs="https://docs.discord.com/developers/resources/user#create-group-dm",
 )
 
 CREATE_GUILD_APPLICATION_COMMAND: Final = Route(
@@ -54,6 +66,12 @@ CREATE_MESSAGE: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/messages",
     docs="https://docs.discord.com/developers/resources/message#create-message",
+)
+
+DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
+    HTTPMethod.DELETE,
+    "/users/@me/applications/{application_id}/role-connection",
+    docs="https://docs.discord.com/developers/resources/user#delete-current-user-application-role-connection",
 )
 
 DELETE_FOLLOWUP_MESSAGE: Final = Route(
@@ -148,6 +166,30 @@ GET_CURRENT_USER: Final = Route(
     docs="https://docs.discord.com/developers/resources/user#get-current-user",
 )
 
+GET_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
+    HTTPMethod.GET,
+    "/users/@me/applications/{application_id}/role-connection",
+    docs="https://docs.discord.com/developers/resources/user#get-current-user-application-role-connection",
+)
+
+GET_CURRENT_USER_CONNECTIONS: Final = Route(
+    HTTPMethod.GET,
+    "/users/@me/connections",
+    docs="https://docs.discord.com/developers/resources/user#get-current-user-connections",
+)
+
+GET_CURRENT_USER_GUILDS: Final = Route(
+    HTTPMethod.GET,
+    "/users/@me/guilds",
+    docs="https://docs.discord.com/developers/resources/user#get-current-user-guilds",
+)
+
+GET_CURRENT_USER_GUILD_MEMBER: Final = Route(
+    HTTPMethod.GET,
+    "/users/@me/guilds/{guild_id}/member",
+    docs="https://docs.discord.com/developers/resources/user#get-current-user-guild-member",
+)
+
 GET_FOLLOWUP_MESSAGE: Final = Route(
     HTTPMethod.GET,
     "/webhooks/{application_id}/{interaction_token}/messages/{message_id}",
@@ -224,20 +266,41 @@ GET_USER: Final = Route(
     docs="https://docs.discord.com/developers/resources/user#get-user",
 )
 
+LEAVE_GUILD: Final = Route(
+    HTTPMethod.DELETE,
+    "/users/@me/guilds/{guild_id}",
+    docs="https://docs.discord.com/developers/resources/user#leave-guild",
+)
+
+MODIFY_CURRENT_USER: Final = Route(
+    HTTPMethod.PATCH,
+    "/users/@me",
+    docs="https://docs.discord.com/developers/resources/user#modify-current-user",
+)
+
 SEARCH_GUILD_MESSAGES: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/messages/search",
     docs="https://docs.discord.com/developers/resources/message#search-guild-messages",
 )
 
+UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
+    HTTPMethod.PUT,
+    "/users/@me/applications/{application_id}/role-connection",
+    docs="https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection",
+)
+
 ALL_ROUTES: Final = (
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
+    CREATE_DM,
     CREATE_FOLLOWUP_MESSAGE,
     CREATE_GLOBAL_APPLICATION_COMMAND,
+    CREATE_GROUP_DM,
     CREATE_GUILD_APPLICATION_COMMAND,
     CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
+    DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     DELETE_FOLLOWUP_MESSAGE,
     DELETE_GLOBAL_APPLICATION_COMMAND,
     DELETE_GUILD_APPLICATION_COMMAND,
@@ -252,6 +315,10 @@ ALL_ROUTES: Final = (
     GET_CHANNEL,
     GET_CHANNEL_MESSAGE,
     GET_CURRENT_USER,
+    GET_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
+    GET_CURRENT_USER_CONNECTIONS,
+    GET_CURRENT_USER_GUILDS,
+    GET_CURRENT_USER_GUILD_MEMBER,
     GET_FOLLOWUP_MESSAGE,
     GET_GATEWAY,
     GET_GATEWAY_BOT,
@@ -264,6 +331,9 @@ ALL_ROUTES: Final = (
     GET_GUILD_MEMBER,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_USER,
+    LEAVE_GUILD,
+    MODIFY_CURRENT_USER,
     SEARCH_GUILD_MESSAGES,
+    UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
 )
 """Every declared route, for the docs checker and tests."""

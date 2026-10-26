@@ -3,6 +3,7 @@
 Discord: https://docs.discord.com/developers/reference
 """
 
+import base64
 from typing import Final
 
 from shoal.core.enums import DiscordStrEnum
@@ -80,3 +81,32 @@ type Localizations = dict[Locale, str]
 
 Discord: https://docs.discord.com/developers/interactions/application-commands#localization
 """
+
+
+type ImageData = str
+"""An image sent inline as a data URI, such as `data:image/png;base64,iVBOR…`. Build one with
+`image_data`.
+
+Discord: https://docs.discord.com/developers/reference#image-data
+"""
+
+_IMAGE_SIGNATURES: Final = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+"""The leading bytes of each format image data accepts (JPG, GIF and PNG)."""
+
+
+def image_data(image: bytes) -> ImageData:
+    """Encode an image as the data URI Discord expects, with the content type its bytes show.
+
+    Raises:
+        ValueError: `image` is not a PNG, JPEG or GIF, the only formats Discord accepts as image data.
+    """
+    for signature, content_type in _IMAGE_SIGNATURES:
+        if image.startswith(signature):
+            return f"data:{content_type};base64,{base64.b64encode(image).decode()}"
+    msg = "image data must be a PNG, JPEG or GIF"
+    raise ValueError(msg)

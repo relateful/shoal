@@ -213,6 +213,29 @@ class Guild(Payload):
     safety_alerts_channel_id: Snowflake | None
 
 
+class PartialGuild(Payload):
+    """A guild the current user is in, as Get Current User Guilds lists it.
+
+    Discord does not give this object a field table; its fields follow the documented example.
+
+    Discord: https://docs.discord.com/developers/resources/user#get-current-user-guilds-example-partial-guild
+    """
+
+    id: Snowflake
+    name: str
+    icon: str | None
+    banner: str | None
+    owner: bool
+    """Whether the current user owns the guild."""
+    permissions: Permissions
+    """The current user's permissions in the guild."""
+    features: list[GuildFeature]
+    approximate_member_count: int | UnsetType = UNSET
+    """Only with `with_counts`."""
+    approximate_presence_count: int | UnsetType = UNSET
+    """Only with `with_counts`."""
+
+
 class UnavailableGuild(Payload):
     """A guild Discord has not sent yet (startup) or cannot serve (outage).
 
