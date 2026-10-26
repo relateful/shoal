@@ -23,9 +23,12 @@ jobs:
       - name: Fail when Discord documented something new
         run: |
           if ! diff -u docs/coverage.md coverage.md; then
-            echo "Discord's docs changed: copy coverage.md over docs/coverage.md and review the new endpoints."
+            echo "Discord's docs document endpoints or events the pinned revision does not: review the mirror's upstream-docs pull requests."
             exit 1
           fi
+      - name: Every docs path has a triage rule
+        if: ${{ !cancelled() }}
+        run: uv run python scripts/mirror_upstream_prs.py --unmatched ../discord-api-docs
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

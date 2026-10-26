@@ -22,8 +22,10 @@ uv run python scripts/sort_constants.py --check
 uv run python scripts/generate_exports.py --check
 uv run pytest --cov
 uv run mkdocs build --strict
-git clone --depth 1 https://github.com/discord/discord-api-docs ../discord-api-docs
-uv run python scripts/check_docs.py --docs-repo ../discord-api-docs
+git init ../discord-api-docs
+git -C ../discord-api-docs fetch --depth 1 https://github.com/discord/discord-api-docs "$(cat discord-api-docs.lock)"
+git -C ../discord-api-docs checkout --detach FETCH_HEAD
+uv run python scripts/check_docs.py --docs-repo ../discord-api-docs --check-coverage docs/coverage.md
 ```
 
 ## Layout and layers
@@ -47,7 +49,7 @@ src/shoal/
   app_commands/  slash commands, context menus, the command tree and its checks
   commands/      prefix and hybrid commands, Bot, cogs, converters, extensions, help
 tests/           mirrors src/shoal/: tests/rest/route.py tests src/shoal/rest/route.py
-scripts/         maintenance scripts (docs checker, export generator, constant sorter)
+scripts/         maintenance scripts (docs checker, export generator, constant sorter, upstream mirror)
 docs/            guides and the home page; the API reference is generated from docstrings
 theme/           the docs site's own theme: templates, styles and scripts, no third-party theme
 ```
@@ -115,10 +117,75 @@ gateway event's body is named after the event (`GuildBanAdd` for `GUILD_BAN_ADD`
   link in `docs=`, and the resource method that calls it repeats the link in its docstring.
 - Links use `https://docs.discord.com/developers/` and point at the narrowest section that exists.
 - `scripts/check_docs.py` verifies every link and anchor against the Discord docs source, and every
-  `Route`'s method and path against Discord's `<Route>` declaration. CI runs it on every change.
+  `Route`'s method and path against Discord's `<Route>` declaration. CI runs it on every change,
+  against the docs revision `discord-api-docs.lock` pins, and checks that the revision is on
+  Discord's main branch. The weekly coverage workflow compares against Discord's latest docs.
 - `docs/coverage.md` is generated and lists every documented endpoint with whether Shoal implements
   it. Every endpoint is implemented except the ones Discord has deprecated (marked in the heading)
   or disabled (`DISABLED_ROUTES` in `scripts/check_docs.py`), which are marked and not counted.
+
+### Upstream docs changes
+
+Every pull request on [discord/discord-api-docs](https://github.com/discord/discord-api-docs) that
+touches the API Shoal models gets a pull request here, so a change to the API is noticed, checked
+and implemented before it ships. `.github/workflows/upstream-docs.yml` runs
+`scripts/mirror_upstream_prs.py` hourly (Discord's webhooks cannot reach another organisation's
+repository, so it polls), looking back to an hour before its last successful scheduled run (24 hours
+on the first run, and never more than seven days). A failed run does not move that point, so the next
+one tries again; manual runs never move it. A pull request that fails is reported and the others
+carry on, and the run then fails.
+
+- **What a mirror pull request changes.** Its branch, `upstream/discord-api-docs-<number>`, moves
+  `discord-api-docs.lock` to the upstream change and regenerates `docs/coverage.md` for it, so CI
+  checks Shoal against the change. While upstream is open the pin is GitHub's test merge of the
+  change into Discord's main branch (its head commit if it conflicts), and the "pinned revision is on
+  Discord's main branch" check fails, so it cannot be merged early; once upstream merges, the pin
+  moves to the merge commit. Push the Shoal changes the update needs to the same branch, then merge.
+- **The body** links the upstream pull request and each changed file's diff, and reports what
+  `scripts/check_docs.py` finds against the new revision that it did not against the one `main`
+  pins: new or fixed problems and endpoint or event coverage, limited to the pages the change
+  touches. It ends with a hidden record (upstream number, head, state, verdict, pin) that later runs
+  read, and is rewritten as upstream moves, so discuss in comments. The report is not committed:
+  the body keeps it current, and committed reports would pile up and conflict.
+- **Triage by path.** `RULES` in the script maps each docs path to the areas of Shoal it feeds, which
+  become labels (`payloads`, `rest`, `gateway`, `interactions`, `ui`, `voice`, `changelog`), or to
+  nothing for pages a bot library has no use for (Social SDK, Activities, Embedded App and Game
+  SDKs, Rich Presence, guides, policies, the site's own assets). A change that is entirely unrelated
+  gets no pull request; one that becomes unrelated after new commits is closed with the `unrelated`
+  label. A path no rule covers, an unrelated page that Shoal links to, or a change to the change log
+  alone gets a pull request labelled `needs-triage`. Nothing is opened for a change closed without
+  merging, or for a merged one that the revision `main` pins already includes.
+- **Updates.** A merge adds `upstream-merged` and a comment; a close without merging closes the pull
+  request, and so does a merge that the revision `main` pins already includes (reopen it if its
+  branch carries Shoal changes, taking `main`'s pin and coverage report). Runs act only on what
+  changed upstream since the record, so a pull request you close or reopen, or a label you remove,
+  stays as you left it. The record is written last, so a run that fails part way is redone by the
+  next, which may repeat a comment but never loses one.
+- **Branches.** Every mirror branch changes the same pin, so while a branch holds only the mirror's
+  commits it is rebuilt on `main` whenever `main` moves, and stays mergeable, unless `main` already
+  pins past it. Once you push to it, the mirror never rewrites it: it only adds commits that move the
+  pin, and you regenerate `docs/coverage.md` (CI says when it is stale). The branch of a closed pull
+  request is left alone, since GitHub cannot reopen a pull request whose branch was rewritten.
+- **A token that starts CI.** Pull requests and pushes made with the workflow's `GITHUB_TOKEN` do not
+  trigger other workflows, so CI would not run on mirror pull requests. Create a GitHub App owned by
+  the repository's owner with repository permissions Contents, Pull requests, Issues and Workflows
+  (read and write; Workflows because a branch rebuilt on `main` takes in `main`'s changes to
+  `.github/workflows`) and Actions (read), install it on this repository only, then add its client
+  ID as the
+  Actions variable `UPSTREAM_DOCS_APP_CLIENT_ID` and a private key as the secret
+  `UPSTREAM_DOCS_APP_PRIVATE_KEY`. The workflow uses the App's token when the variable is set, and
+  warns and falls back to `GITHUB_TOKEN` when it is not. A fine-grained personal access token with the
+  same permissions works too, but acts as a person and expires; the App is preferred.
+- **Changing the rules.** Edit `RULES` and its tests in `tests/scripts/mirror_upstream_prs.py`. The
+  weekly coverage workflow fails when the docs gain a path no rule covers;
+  `--unmatched ../discord-api-docs` lists them locally. To preview a run, or to backfill, with the
+  docs check run in a checkout the script may move freely (`--pin` stands in for the revision `main`
+  pins, before it pins one):
+
+```bash
+export GITHUB_TOKEN=$(gh auth token)
+uv run python scripts/mirror_upstream_prs.py --since-hours 72 --docs-repo ../docs-mirror --dry-run
+```
 
 ## Payloads
 

@@ -9,9 +9,14 @@ reads the docs source (https://github.com/discord/discord-api-docs) and verifies
    of the section its `docs` link points at.
 
 With `--coverage FILE` it also writes a Markdown report of every endpoint Discord documents and
-whether Shoal implements it; `--check-coverage FILE` fails when that report is out of date.
+whether Shoal implements it; `--check-coverage FILE` fails when that report is out of date. CI checks
+Shoal against the docs revision `discord-api-docs.lock` pins:
 
-    git clone --depth 1 https://github.com/discord/discord-api-docs ../discord-api-docs
+    git init ../discord-api-docs
+    cd ../discord-api-docs
+    git fetch --depth 1 https://github.com/discord/discord-api-docs $(cat ../shoal/discord-api-docs.lock)
+    git checkout --detach FETCH_HEAD
+    cd ../shoal
     uv run python scripts/check_docs.py --docs-repo ../discord-api-docs --coverage docs/coverage.md
 """
 
@@ -312,6 +317,16 @@ def events_report(events: list[tuple[str, str]], decoded: dict[str, str]) -> str
     return "\n".join(lines) + "\n"
 
 
+def check(repository: Path) -> tuple[list[str], str]:
+    """Every problem Shoal has against a docs checkout, and the coverage report for it."""
+    pages = load_docs(repository)
+    routes = implemented_routes()
+    events = documented_events(repository)
+    decoded = dispatch_payloads()
+    problems = check_links(pages) + check_routes(pages, routes) + check_events(events, decoded)
+    return problems, coverage_report(pages, routes) + events_report(events, decoded)
+
+
 def main() -> int:
     """Run the checks; see the module docstring for the options."""
     parser = argparse.ArgumentParser(description="Check Shoal against the Discord docs source.")
@@ -320,14 +335,11 @@ def main() -> int:
     parser.add_argument("--check-coverage", type=Path, help="fail if this coverage report is stale")
     options = parser.parse_args()
 
-    pages = load_docs(options.docs_repo)
-    routes = implemented_routes()
-    events = documented_events(options.docs_repo)
-    decoded = dispatch_payloads()
-    problems = check_links(pages) + check_routes(pages, routes) + check_events(events, decoded)
+    problems, report = check(options.docs_repo)
     for problem in problems:
         print(problem)
-    report = coverage_report(pages, routes) + events_report(events, decoded)
+    routes = implemented_routes()
+    events = documented_events(options.docs_repo)
     if options.coverage is not None:
         options.coverage.write_text(report, encoding="utf-8", newline="\n")
     stale = False
