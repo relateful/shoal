@@ -21,7 +21,7 @@ async def post(url: str, payload: JSONObject, *, signature: str | None = None) -
         return response.status, await response.read()
 
 
-def url_of(server: Endpoint) -> str:
-    """Where a started endpoint listens."""
+def url_of(server: Endpoint, path: str = "/interactions") -> str:
+    """Where a started endpoint listens: its interactions URL, or another `path` of it."""
     host, port = server.address
-    return f"http://{host}:{port}/interactions"
+    return f"http://{host}:{port}{path}"

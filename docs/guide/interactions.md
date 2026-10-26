@@ -1,9 +1,9 @@
 # Commands and interactions
 
 Slash commands, buttons, select menus and modals all reach your app as **interactions**. This page
-covers the typed building blocks: registering commands, receiving interactions over the gateway or
-over HTTP, and answering them. A command framework with decorators, checks and cogs is on the
-[roadmap](../roadmap.md); everything here is what it will be built on.
+covers the typed building blocks underneath: registering commands, receiving interactions over the
+gateway or over HTTP, and answering them. Most bots use the command framework built on them, shown in
+[writing a bot](bot.md); this page is for when you want the layer below.
 
 ## Registering commands
 
@@ -115,6 +115,35 @@ Put a TLS reverse proxy in front: Discord only calls HTTPS URLs. A handler that 
 To serve interactions from an existing aiohttp application, such as a dashboard's backend, call
 `server.install(app)` instead of starting the server. The route then shares that application's
 settings, including its request body limit (`client_max_size`, 1 MiB by default).
+
+### Webhook events
+
+Discord can also post app-level events to a second URL, the app's Webhook Events URL: an app was
+authorized or deauthorized, an entitlement was created, updated or deleted, and Social SDK lobby
+and direct messages. Give `Endpoint` an `events` handler and set the URL to its `events_path`
+(`/events` by default):
+
+```python
+from shoal.core.codec import decode_json
+from shoal.payloads import ApplicationAuthorized, WebhookEventPayload
+
+
+async def events(payload: WebhookEventPayload) -> None:
+    event = payload.event
+    if event and event.type == "APPLICATION_AUTHORIZED" and event.data:
+        authorized = decode_json(event.data, ApplicationAuthorized)
+        ...
+
+
+async with Endpoint(public_key, handle, events=events, port=8080):
+    ...
+```
+
+The server verifies each request like an interaction, answers the `PING` Discord sends when the URL
+is saved, and acknowledges every event with `204` at once, running the handler in its own task:
+Discord retries an event not acknowledged within 3 seconds, for up to 10 minutes.
+`client.endpoint(public_key)` does this for a `Client`, which emits each event as
+`on_<event type>` (`on_application_authorized`, `on_entitlement_create`, ...) with its data.
 
 ## Answering
 

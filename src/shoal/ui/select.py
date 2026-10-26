@@ -16,6 +16,7 @@ from msgspec import UNSET, UnsetType
 
 from shoal.client.interaction import Interaction
 from shoal.core.snowflake import Snowflake
+from shoal.models.base import unset_if_none
 from shoal.models.channel import AnyGuildChannel, DMChannel, channel_from_payload
 from shoal.models.emoji import EmojiLike, partial_emoji
 from shoal.models.member import Member
@@ -25,6 +26,9 @@ from shoal.models.user import User
 from shoal.payloads.channel import ChannelType
 from shoal.payloads.components import (
     ACTION_ROW_MAX_BUTTONS,
+    SELECT_MAX_OPTIONS,
+    SELECT_OPTION_TEXT_MAX_LENGTH,
+    SELECT_PLACEHOLDER_MAX_LENGTH,
     SelectDefaultValue,
     SelectOption,
     StringSelect,
@@ -42,14 +46,10 @@ from shoal.payloads.components import (
     UserSelect as UserSelectPayload,
 )
 from shoal.payloads.interactions import ResolvedData
-from shoal.ui.item import ITEM_FACTORY, Item
+from shoal.ui.item import ITEM_FACTORY, Item, check_length
 
 if TYPE_CHECKING:
     from shoal.ui.view import View
-
-
-def _unset[T](value: T | None) -> T | UnsetType:
-    return UNSET if value is None else value
 
 
 class BaseSelect(Item):
@@ -99,6 +99,17 @@ class BaseSelect(Item):
         self._interaction = interaction
         self._resolved = resolved
 
+    @override
+    def validate(self) -> None:
+        super().validate()
+        check_length(self, "placeholder", self.placeholder, SELECT_PLACEHOLDER_MAX_LENGTH)
+        if not 0 <= self.min_values <= self.max_values <= SELECT_MAX_OPTIONS or self.max_values < 1:
+            msg = (
+                f"{self!r}: needs 0 <= min_values <= max_values <= {SELECT_MAX_OPTIONS} and max_values >= 1, "
+                f"not {self.min_values} and {self.max_values}"
+            )
+            raise ValueError(msg)
+
 
 class Select(BaseSelect):
     """A select of options you choose; `values` holds the chosen options' values.
@@ -137,6 +148,18 @@ class Select(BaseSelect):
         """The values of the options chosen in the last interaction."""
         return list(self._values)
 
+    @override
+    def validate(self) -> None:
+        super().validate()
+        if not 1 <= len(self.options) <= SELECT_MAX_OPTIONS:
+            msg = f"{self!r}: a select needs 1 to {SELECT_MAX_OPTIONS} options, not {len(self.options)}"
+            raise ValueError(msg)
+        for option in self.options:
+            check_length(self, "an option's label", option.label, SELECT_OPTION_TEXT_MAX_LENGTH)
+            check_length(self, "an option's value", option.value, SELECT_OPTION_TEXT_MAX_LENGTH)
+            description = option.description if isinstance(option.description, str) else None
+            check_length(self, "an option's description", description, SELECT_OPTION_TEXT_MAX_LENGTH)
+
     def add_option(
         self,
         *,
@@ -151,7 +174,7 @@ class Select(BaseSelect):
             SelectOption(
                 label=label,
                 value=value if value is not None else label,
-                description=_unset(description),
+                description=unset_if_none(description),
                 emoji=partial_emoji(emoji) if emoji is not None else UNSET,
                 default=default or UNSET,
             )
@@ -163,10 +186,10 @@ class Select(BaseSelect):
         return StringSelect(
             custom_id=self.custom_id,
             options=self.options,
-            placeholder=_unset(self.placeholder),
+            placeholder=unset_if_none(self.placeholder),
             min_values=self.min_values,
             max_values=self.max_values,
-            required=_unset(self.required),
+            required=unset_if_none(self.required),
             disabled=self.disabled or UNSET,
         )
 
@@ -266,11 +289,11 @@ class UserSelect(_ResolvedSelect):
         """The select as Discord takes it."""
         return UserSelectPayload(
             custom_id=self.custom_id,
-            placeholder=_unset(self.placeholder),
+            placeholder=unset_if_none(self.placeholder),
             default_values=self.default_values or UNSET,
             min_values=self.min_values,
             max_values=self.max_values,
-            required=_unset(self.required),
+            required=unset_if_none(self.required),
             disabled=self.disabled or UNSET,
         )
 
@@ -295,11 +318,11 @@ class RoleSelect(_ResolvedSelect):
         """The select as Discord takes it."""
         return RoleSelectPayload(
             custom_id=self.custom_id,
-            placeholder=_unset(self.placeholder),
+            placeholder=unset_if_none(self.placeholder),
             default_values=self.default_values or UNSET,
             min_values=self.min_values,
             max_values=self.max_values,
-            required=_unset(self.required),
+            required=unset_if_none(self.required),
             disabled=self.disabled or UNSET,
         )
 
@@ -325,11 +348,11 @@ class MentionableSelect(_ResolvedSelect):
         """The select as Discord takes it."""
         return MentionableSelectPayload(
             custom_id=self.custom_id,
-            placeholder=_unset(self.placeholder),
+            placeholder=unset_if_none(self.placeholder),
             default_values=self.default_values or UNSET,
             min_values=self.min_values,
             max_values=self.max_values,
-            required=_unset(self.required),
+            required=unset_if_none(self.required),
             disabled=self.disabled or UNSET,
         )
 
@@ -381,11 +404,11 @@ class ChannelSelect(_ResolvedSelect):
         return ChannelSelectPayload(
             custom_id=self.custom_id,
             channel_types=self.channel_types or UNSET,
-            placeholder=_unset(self.placeholder),
+            placeholder=unset_if_none(self.placeholder),
             default_values=self.default_values or UNSET,
             min_values=self.min_values,
             max_values=self.max_values,
-            required=_unset(self.required),
+            required=unset_if_none(self.required),
             disabled=self.disabled or UNSET,
         )
 

@@ -16,10 +16,11 @@ from msgspec import UNSET
 
 from shoal.client.interaction import Interaction
 from shoal.core.snowflake import Snowflake
+from shoal.models.base import unset_if_none
 from shoal.models.emoji import EmojiLike, partial_emoji
+from shoal.payloads.components import BUTTON_LABEL_MAX_LENGTH, BUTTON_URL_MAX_LENGTH, ButtonStyle
 from shoal.payloads.components import Button as ButtonPayload
-from shoal.payloads.components import ButtonStyle
-from shoal.ui.item import ITEM_FACTORY, Item
+from shoal.ui.item import ITEM_FACTORY, Item, check_length
 
 if TYPE_CHECKING:
     from shoal.payloads.emoji import PartialEmoji
@@ -69,16 +70,22 @@ class Button(Item):
         return self.url is None and self.sku_id is None
 
     @override
+    def validate(self) -> None:
+        super().validate()
+        check_length(self, "label", self.label, BUTTON_LABEL_MAX_LENGTH)
+        check_length(self, "url", self.url, BUTTON_URL_MAX_LENGTH)
+
+    @override
     def to_component(self) -> ButtonPayload:
         """The button as Discord takes it."""
         dispatchable = self.is_dispatchable()
         return ButtonPayload(
             style=self.style,
-            label=self.label if self.label is not None else UNSET,
-            emoji=self.emoji if self.emoji is not None else UNSET,
+            label=unset_if_none(self.label),
+            emoji=unset_if_none(self.emoji),
             custom_id=self.custom_id if dispatchable else UNSET,
-            sku_id=self.sku_id if self.sku_id is not None else UNSET,
-            url=self.url if self.url is not None else UNSET,
+            sku_id=unset_if_none(self.sku_id),
+            url=unset_if_none(self.url),
             disabled=self.disabled or UNSET,
         )
 

@@ -43,6 +43,14 @@ CACHE_LOOKUPS: Final = MetricSpec(
     ("kind", "result"),
 )
 
+EVENTS_DROPPED: Final = MetricSpec(
+    "shoal_events_dropped_total",
+    MetricKind.COUNTER,
+    "Gateway payloads or dispatches dropped because they could not be decoded, by stage (gateway, "
+    "cache) and event.",
+    ("stage", "event"),
+)
+
 GATEWAY_EVENTS: Final = MetricSpec(
     "shoal_gateway_events_total",
     MetricKind.COUNTER,
@@ -91,6 +99,14 @@ HTTP_INTERACTION_SECONDS: Final = MetricSpec(
     MetricKind.HISTOGRAM,
     "Time the handler took to answer an HTTP interaction; Discord fails it after 3 seconds.",
     ("type",),
+)
+
+HTTP_WEBHOOK_EVENTS: Final = MetricSpec(
+    "shoal_http_webhook_events_total",
+    MetricKind.COUNTER,
+    "Webhook events received over HTTP, by event (ping, unknown for a type Shoal does not know) and "
+    "result (accepted, invalid_signature, malformed, handler_error).",
+    ("event", "result"),
 )
 
 IPC_DISCONNECTS: Final = MetricSpec(
@@ -166,6 +182,7 @@ REST_RETRIES: Final = MetricSpec(
 
 ALL_METRICS: Final = (
     CACHE_LOOKUPS,
+    EVENTS_DROPPED,
     GATEWAY_EVENTS,
     GATEWAY_EVENT_DELAY_SECONDS,
     GATEWAY_LATENCY_SECONDS,
@@ -173,6 +190,7 @@ ALL_METRICS: Final = (
     GATEWAY_SHARD_READY,
     HTTP_INTERACTIONS,
     HTTP_INTERACTION_SECONDS,
+    HTTP_WEBHOOK_EVENTS,
     IPC_DISCONNECTS,
     IPC_EVENTS_SENT,
     IPC_SUBSCRIBERS,
@@ -190,6 +208,8 @@ ALL_METRICS: Final = (
 
 class Metrics(Protocol):
     """Receives measurements. Implementations must be cheap and must never raise."""
+
+    __slots__ = ()
 
     def increment(
         self, spec: MetricSpec, labels: Mapping[str, str] | None = None, value: float = 1.0

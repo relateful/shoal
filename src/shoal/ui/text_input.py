@@ -10,13 +10,19 @@ Discord: https://docs.discord.com/developers/components/reference#text-input
 from collections.abc import Sequence
 from typing import override
 
-from msgspec import UNSET
-
 from shoal.client.interaction import Interaction
-from shoal.payloads.components import Label, TextInputStyle
+from shoal.models.base import unset_if_none
+from shoal.payloads.components import (
+    LABEL_DESCRIPTION_MAX_LENGTH,
+    LABEL_MAX_LENGTH,
+    TEXT_INPUT_MAX_LENGTH,
+    TEXT_INPUT_PLACEHOLDER_MAX_LENGTH,
+    Label,
+    TextInputStyle,
+)
 from shoal.payloads.components import TextInput as TextInputPayload
 from shoal.payloads.interactions import ResolvedData
-from shoal.ui.item import Item
+from shoal.ui.item import Item, check_length
 
 
 class TextInput(Item):
@@ -76,20 +82,34 @@ class TextInput(Item):
         self._value = values[0] if values else ""
 
     @override
+    def validate(self) -> None:
+        super().validate()
+        check_length(self, "label", self.label, LABEL_MAX_LENGTH)
+        check_length(self, "description", self.description, LABEL_DESCRIPTION_MAX_LENGTH)
+        check_length(self, "placeholder", self.placeholder, TEXT_INPUT_PLACEHOLDER_MAX_LENGTH)
+        check_length(self, "default", self.default, TEXT_INPUT_MAX_LENGTH)
+        low = self.min_length if self.min_length is not None else 0
+        high = self.max_length if self.max_length is not None else TEXT_INPUT_MAX_LENGTH
+        if not 0 <= low <= high <= TEXT_INPUT_MAX_LENGTH or high < 1:
+            limit = TEXT_INPUT_MAX_LENGTH
+            msg = f"{self!r}: needs 0 <= min_length <= max_length <= {limit}, not {low} and {high}"
+            raise ValueError(msg)
+
+    @override
     def to_component(self) -> Label:
         """The input, in its label, as Discord takes it."""
         field = TextInputPayload(
             custom_id=self.custom_id,
             style=self.style,
-            min_length=self.min_length if self.min_length is not None else UNSET,
-            max_length=self.max_length if self.max_length is not None else UNSET,
+            min_length=unset_if_none(self.min_length),
+            max_length=unset_if_none(self.max_length),
             required=self.required,
-            value=self.default if self.default is not None else UNSET,
-            placeholder=self.placeholder if self.placeholder is not None else UNSET,
+            value=unset_if_none(self.default),
+            placeholder=unset_if_none(self.placeholder),
         )
         return Label(
             label=self.label,
-            description=self.description if self.description is not None else UNSET,
+            description=unset_if_none(self.description),
             component=field,
         )
 

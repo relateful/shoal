@@ -1,7 +1,9 @@
 import asyncio
 import time
 
-from shoal.core.clock import SystemClock, sleep_unless
+import pytest
+
+from shoal.core.clock import SystemClock, sleep_unless, within
 from tests.support.fakes import ManualClock, settle
 
 WINDOWS_TIMER_RESOLUTION = 0.016
@@ -36,3 +38,31 @@ async def test_sleep_unless_sleeps_the_full_time_otherwise() -> None:
     assert not sleeping.done()
     await clock.advance(1)
     await asyncio.wait_for(sleeping, timeout=1)
+
+
+async def test_within_returns_the_result_in_time() -> None:
+    clock = ManualClock()
+
+    async def quick() -> str:
+        return "done"
+
+    assert await within(clock, 5, quick()) == "done"
+
+
+async def test_within_cancels_the_work_when_time_runs_out() -> None:
+    clock = ManualClock()
+    cancelled: list[bool] = []
+
+    async def slow() -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
+
+    waiting = asyncio.create_task(within(clock, 5, slow()))
+    await settle()
+    await clock.advance(5)
+    with pytest.raises(TimeoutError):
+        await waiting
+    assert cancelled == [True]

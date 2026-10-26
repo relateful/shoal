@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+import logging
 import struct
 
 import pytest
@@ -44,6 +46,22 @@ async def test_wrong_protocol_version_is_rejected(server: EventServer) -> None:
     writer.close()
 
 
+async def test_a_subscriber_name_is_cut_short_in_logs(
+    server: EventServer, caplog: pytest.LogCaptureFixture
+) -> None:
+    host, port = server.address
+    reader, writer = await asyncio.open_connection(host, port)
+    with caplog.at_level(logging.INFO, logger="shoal.ipc.server"):
+        writer.write(encode_frame(Subscribe(1, TOKEN, "w" * 5000)))
+        await writer.drain()
+        await wait_for_subscribers(server, 1)
+    connected = next(record for record in caplog.records if "connected" in record.message)
+    assert "w" * 100 in connected.message
+    assert "w" * 101 not in connected.message
+    writer.close()
+    await asyncio.wait_for(reader.read(), timeout=5)
+
+
 async def test_slow_subscribers_are_disconnected_not_buffered_forever() -> None:
     metrics = InMemoryMetrics()
     server = EventServer(token=TOKEN, queue_size=2, metrics=metrics)
@@ -64,9 +82,11 @@ async def test_slow_subscribers_are_disconnected_not_buffered_forever() -> None:
 
 async def test_close_does_not_wait_for_clients_still_authenticating(server: EventServer) -> None:
     host, port = server.address
-    _, writer = await asyncio.open_connection(host, port)
-    await asyncio.sleep(0.05)
+    reader, writer = await asyncio.open_connection(host, port)
     await asyncio.wait_for(server.close(), timeout=5)
+    # The connection that never sent its hello is cut, not left waiting for it.
+    with contextlib.suppress(ConnectionResetError):
+        assert await asyncio.wait_for(reader.read(), timeout=5) == b""
     writer.close()
 
 

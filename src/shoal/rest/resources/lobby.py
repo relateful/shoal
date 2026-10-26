@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from shoal.core.snowflake import Snowflake
 from shoal.payloads.lobby import (
     AddLobbyMemberParams,
-    BulkLobbyMemberParams,
+    BulkEditLobbyMemberParams,
     CreateLobbyParams,
     CreateOrJoinLobbyParams,
     EditLobbyParams,
@@ -101,7 +101,7 @@ class Lobbies(Resource):
         )
 
     async def bulk_edit_members(
-        self, lobby_id: int, members: Sequence[BulkLobbyMemberParams]
+        self, lobby_id: int, members: Sequence[BulkEditLobbyMemberParams]
     ) -> list[LobbyMember]:
         """Add, update or remove 1 to 25 members; returns those added or updated.
 

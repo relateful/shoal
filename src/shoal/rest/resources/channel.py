@@ -22,12 +22,12 @@ from shoal.payloads.channel import (
     EditGroupDMParams,
     EditGuildChannelParams,
     EditThreadParams,
+    EditVoiceStatusParams,
     FollowChannelParams,
     FollowedChannel,
     ListArchivedThreadsParams,
     ListJoinedPrivateArchivedThreadsParams,
     ListThreadMembersParams,
-    SetVoiceStatusParams,
     ThreadMember,
 )
 from shoal.payloads.forum import CreatePostParams, ForumThread
@@ -93,7 +93,7 @@ class Channels(Resource):
             MODIFY_CHANNEL.compile(channel_id=channel_id), Channel, body=params, reason=reason
         )
 
-    async def set_voice_status(
+    async def edit_voice_status(
         self, channel_id: int, status: str | None, *, reason: str | None = None
     ) -> None:
         """Set or clear (`None`) a voice channel's status, up to 500 characters.
@@ -104,7 +104,7 @@ class Channels(Resource):
         """
         await self.request_empty(
             SET_VOICE_CHANNEL_STATUS.compile(channel_id=channel_id),
-            body=SetVoiceStatusParams(status=status),
+            body=EditVoiceStatusParams(status=status),
             reason=reason,
         )
 

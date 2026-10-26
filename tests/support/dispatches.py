@@ -90,8 +90,9 @@ DISPATCH_SAMPLES: dict[str, dict[str, object]] = {
         "large": False,
         "member_count": 1,
         "members": [MEMBER],
-        "channels": [CHANNEL],
-        "threads": [THREAD],
+        # As Discord sends them: these lists may leave out each object's `guild_id`.
+        "channels": [{key: value for key, value in CHANNEL.items() if key != "guild_id"}],
+        "threads": [{key: value for key, value in THREAD.items() if key != "guild_id"}],
         "voice_states": [{key: value for key, value in VOICE_STATE.items() if key != "guild_id"}],
         "presences": [PRESENCE],
         "stage_instances": [STAGE_INSTANCE],

@@ -1,8 +1,7 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
-from shoal.core.codec import decode_json, encode_json
 from shoal.core.snowflake import Snowflake
 from shoal.models.base import Object
 from shoal.models.channel import (
@@ -39,13 +38,14 @@ from tests.support.models import (
     VOICE,
     World,
     channel,
+    decoded,
     message,
     user,
 )
 
 
 def payload(data: object) -> Channel:
-    return decode_json(encode_json(data), Channel)
+    return decoded(data, Channel)
 
 
 async def get[T](world: World, channel_id: int, kind: type[T]) -> T:
@@ -221,8 +221,8 @@ async def test_bulk_deletion_and_purge() -> None:
         {"messages": ["1", "2"]},
     )
     await general.delete_messages([])
-    recent = Snowflake.from_datetime(datetime.now(UTC) - timedelta(days=1))
-    old = Snowflake.from_datetime(datetime.now(UTC) - timedelta(days=30))
+    recent = Snowflake.from_datetime(world.state.now() - timedelta(days=1))
+    old = Snowflake.from_datetime(world.state.now() - timedelta(days=30))
     world.transport.queue(200, [message(recent + 2), message(recent + 1), message(old)])
     world.transport.queue(204)
     world.transport.queue(204)

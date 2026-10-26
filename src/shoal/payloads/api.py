@@ -117,6 +117,11 @@ _IMAGE_SIGNATURES: Final = (
 """The leading bytes of each format image data accepts (JPG, GIF and PNG)."""
 
 
+def data_uri(content_type: str, data: bytes) -> str:
+    """`data` as a base64 data URI of `content_type`, the form Discord takes inline files in."""
+    return f"data:{content_type};base64,{base64.b64encode(data).decode()}"
+
+
 def image_data(image: bytes) -> ImageData:
     """Encode an image as the data URI Discord expects, with the content type its bytes show.
 
@@ -125,7 +130,7 @@ def image_data(image: bytes) -> ImageData:
     """
     for signature, content_type in _IMAGE_SIGNATURES:
         if image.startswith(signature):
-            return f"data:{content_type};base64,{base64.b64encode(image).decode()}"
+            return data_uri(content_type, image)
     msg = "image data must be a PNG, JPEG or GIF"
     raise ValueError(msg)
 
@@ -155,6 +160,6 @@ def sound_data(sound: bytes) -> SoundData:
     """
     for signature, content_type in _SOUND_SIGNATURES:
         if sound.startswith(signature):
-            return f"data:{content_type};base64,{base64.b64encode(sound).decode()}"
+            return data_uri(content_type, sound)
     msg = "sound data must be an MP3 or Ogg file"
     raise ValueError(msg)

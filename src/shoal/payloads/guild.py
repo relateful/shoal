@@ -825,7 +825,7 @@ class PruneCount(Payload):
     """`None` when `compute_prune_count` was false."""
 
 
-class EditWidgetParams(Payload):
+class EditWidgetSettingsParams(Payload):
     """JSON body of Modify Guild Widget.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-guild-widget

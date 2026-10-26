@@ -13,6 +13,7 @@ import msgspec
 
 from shoal.cache.store import CacheStore
 from shoal.cache.updater import CacheUpdater
+from shoal.core.codec import decode_json, encode_json
 from shoal.core.dispatch import DispatchEvent
 from shoal.models.guild import Guild
 from shoal.models.state import ComponentView, State, ViewRegistry
@@ -132,6 +133,16 @@ def message(
     return data | extra
 
 
+def decoded[T](data: object, kind: type[T]) -> T:
+    """`data` (a JSON-like dict, as the builders here make) decoded as Discord's payload `kind`."""
+    return decode_json(encode_json(data), kind)
+
+
+def listed_in_guild_create(channels: list[Json]) -> list[Json]:
+    """`channels` as GUILD_CREATE lists them: Discord may leave out each one's `guild_id`."""
+    return [{key: value for key, value in found.items() if key != "guild_id"} for found in channels]
+
+
 def guild_create() -> Json:
     deny_send = {"id": str(EVERYONE), "type": 0, "allow": "0", "deny": str(SEND_MESSAGES)}
     allow_mods = {"id": str(MODS), "type": 0, "allow": str(SEND_MESSAGES), "deny": "0"}
@@ -177,39 +188,43 @@ def guild_create() -> Json:
             member(ALICE, "alice", roles=[RED], nick="Ally", global_name="Alice"),
             member(BOB, "bob", roles=[MODS]),
         ],
-        "channels": [
-            channel(CATEGORY, 4, "Text", position=0),
-            channel(
-                GENERAL,
-                0,
-                "general",
-                position=1,
-                parent=CATEGORY,
-                permission_overwrites=[deny_send, allow_mods],
-            ),
-            channel(ANNOUNCEMENTS, 5, "news", position=2, parent=CATEGORY),
-            channel(VOICE, 2, "Voice", position=3, bitrate=96000, user_limit=5),
-            channel(STAGE, 13, "Stage", position=4),
-            channel(FORUM, 15, "help", position=5, available_tags=[]),
-        ],
-        "threads": [
-            {
-                "id": str(THREAD),
-                "type": 11,
-                "guild_id": str(GUILD),
-                "name": "a thread",
-                "parent_id": str(GENERAL),
-                "owner_id": str(ALICE),
-                "message_count": 3,
-                "member_count": 2,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2024-01-01T00:00:00+00:00",
-                    "locked": False,
-                },
-            }
-        ],
+        "channels": listed_in_guild_create(
+            [
+                channel(CATEGORY, 4, "Text", position=0),
+                channel(
+                    GENERAL,
+                    0,
+                    "general",
+                    position=1,
+                    parent=CATEGORY,
+                    permission_overwrites=[deny_send, allow_mods],
+                ),
+                channel(ANNOUNCEMENTS, 5, "news", position=2, parent=CATEGORY),
+                channel(VOICE, 2, "Voice", position=3, bitrate=96000, user_limit=5),
+                channel(STAGE, 13, "Stage", position=4),
+                channel(FORUM, 15, "help", position=5, available_tags=[]),
+            ]
+        ),
+        "threads": listed_in_guild_create(
+            [
+                {
+                    "id": str(THREAD),
+                    "type": 11,
+                    "guild_id": str(GUILD),
+                    "name": "a thread",
+                    "parent_id": str(GENERAL),
+                    "owner_id": str(ALICE),
+                    "message_count": 3,
+                    "member_count": 2,
+                    "thread_metadata": {
+                        "archived": False,
+                        "auto_archive_duration": 60,
+                        "archive_timestamp": "2024-01-01T00:00:00+00:00",
+                        "locked": False,
+                    },
+                }
+            ]
+        ),
         "voice_states": [
             {
                 "channel_id": str(VOICE),
@@ -288,10 +303,11 @@ class World:
     def __init__(self) -> None:
         self.transport = FakeTransport()
         self.rest = make_client(self.transport)
-        self.cache = CacheStore(clock=FakeClock())
+        self.clock = FakeClock()
+        self.cache = CacheStore(clock=self.clock)
         self.updater = CacheUpdater(self.cache, intents=Intents(guild_presences=True, guild_members=True))
         self.views = RecordingViews()
-        self.state = State(rest=self.rest, cache=self.cache, views=self.views)
+        self.state = State(rest=self.rest, cache=self.cache, views=self.views, clock=self.clock)
         self.state.identify(user_id=BOT, application_id=APPLICATION)
 
     @classmethod
@@ -331,4 +347,4 @@ class World:
         """The last request's JSON object body."""
         body = self.requests()[-1][2]
         assert isinstance(body, dict)
-        return cast("dict[str, object]", body)
+        return cast("dict[str, object]", body)  # every endpoint here sends a JSON object

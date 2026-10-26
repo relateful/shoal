@@ -19,7 +19,7 @@ from shoal.cache.updater import CacheUpdater
 from shoal.core.dispatch import DispatchEvent
 from shoal.core.snowflake import Snowflake
 from shoal.models.base import Object
-from shoal.models.channel import GuildChannel, channel_from_payload, resolve_channel, resolve_guild_channel
+from shoal.models.channel import GuildChannel, channel_from_payload, resolve_cached_channel, resolve_channel
 from shoal.models.emoji import Emoji
 from shoal.models.guild import Guild
 from shoal.models.member import Member
@@ -34,6 +34,7 @@ from shoal.payloads.gateway_events import (
     DISPATCH_PAYLOADS,
     ChannelPinsUpdate,
     GuildBanAdd,
+    GuildBanRemove,
     GuildCreate,
     GuildDelete,
     GuildEmojisUpdate,
@@ -43,9 +44,12 @@ from shoal.payloads.gateway_events import (
     GuildMemberUpdate,
     GuildRoleCreate,
     GuildRoleDelete,
+    GuildRoleUpdate,
     GuildScheduledEventUserAdd,
+    GuildScheduledEventUserRemove,
     GuildSoundboardSoundDelete,
     GuildStickersUpdate,
+    MessageCreate,
     MessageDelete,
     MessageDeleteBulk,
     MessageReactionAdd,
@@ -241,7 +245,12 @@ class EventTranslator:
 
     async def _guild_delete(self, event: DispatchEvent) -> None:
         deleted = event.decode(GuildDelete)
-        guild = Guild.from_cache(self._state, deleted.id)
+        state = self._state
+        if deleted.unavailable is not True:
+            # The cache forgets the guild; the one handed to `on_guild_remove` keeps its channels,
+            # roles and members as they were.
+            state = state.using(await state.cache.detached_guild(deleted.id))
+        guild = Guild.from_cache(state, deleted.id)
         await self._updater.apply(event)
         if guild is None:
             return
@@ -254,7 +263,7 @@ class EventTranslator:
 
     async def _guild_ban_remove(self, event: DispatchEvent) -> None:
         await self._updater.apply(event)
-        ban = event.decode(GuildBanAdd)
+        ban = event.decode(GuildBanRemove)
         self._emit("member_unban", self._guild_or_object(ban.guild_id), User(self._state, ban.user))
 
     async def _guild_emojis_update(self, event: DispatchEvent) -> None:
@@ -288,7 +297,7 @@ class EventTranslator:
 
     async def _channel_update(self, event: DispatchEvent) -> None:
         data = event.decode(Channel)
-        before = resolve_guild_channel(self._state, data.id)
+        before = resolve_cached_channel(self._state, data.id)
         await self._updater.apply(event)
         after = channel_from_payload(self._state, data)
         if before is not None:
@@ -297,7 +306,7 @@ class EventTranslator:
 
     async def _channel_delete(self, event: DispatchEvent) -> None:
         data = event.decode(Channel)
-        cached = resolve_guild_channel(self._state, data.id)
+        cached = resolve_cached_channel(self._state, data.id)
         await self._updater.apply(event)
         channel = cached or channel_from_payload(self._state, data)
         self._emit(
@@ -320,14 +329,14 @@ class EventTranslator:
 
     async def _thread_update(self, event: DispatchEvent) -> None:
         data = event.decode(Channel)
-        before = resolve_guild_channel(self._state, data.id)
+        before = resolve_cached_channel(self._state, data.id)
         await self._updater.apply(event)
         if isinstance(before, Thread):
             self._emit("thread_update", before, Thread(self._state, data))
 
     async def _thread_delete(self, event: DispatchEvent) -> None:
         data = event.decode(Channel)
-        before = resolve_guild_channel(self._state, data.id)
+        before = resolve_cached_channel(self._state, data.id)
         await self._updater.apply(event)
         self._emit("raw_thread_delete", data)
         if isinstance(before, Thread):
@@ -336,12 +345,12 @@ class EventTranslator:
     async def _webhooks_update(self, event: DispatchEvent) -> None:
         await self._updater.apply(event)
         update = event.decode(WebhooksUpdate)
-        channel = resolve_guild_channel(self._state, update.channel_id) or Object(update.channel_id)
+        channel = resolve_cached_channel(self._state, update.channel_id) or Object(update.channel_id)
         self._emit("webhooks_update", channel)
 
     async def _message_create(self, event: DispatchEvent) -> None:
         await self._updater.apply(event)
-        self._emit("message", Message(self._state, event.decode(MessageUpdate)))
+        self._emit("message", Message(self._state, event.decode(MessageCreate)))
 
     async def _message_update(self, event: DispatchEvent) -> None:
         data = event.decode(MessageUpdate)
@@ -390,7 +399,7 @@ class EventTranslator:
         await self._updater.apply(event)
         self._emit("raw_reaction_remove", removed)
         if before is not None:
-            after = self._reaction_on(removed.message_id, removed.emoji) or before
+            after = self._reaction_on(removed.message_id, removed.emoji) or before.cleared()
             guild_id = removed.guild_id if isinstance(removed.guild_id, Snowflake) else None
             self._emit("reaction_remove", after, self._user_or_object(guild_id, removed.user_id))
 
@@ -451,7 +460,7 @@ class EventTranslator:
         self._emit("guild_role_create", Role(self._state, created.role, created.guild_id))
 
     async def _guild_role_update(self, event: DispatchEvent) -> None:
-        updated = event.decode(GuildRoleCreate)
+        updated = event.decode(GuildRoleUpdate)
         before = Role.from_cache(self._state, updated.role.id)
         await self._updater.apply(event)
         if before is not None:
@@ -523,7 +532,7 @@ class EventTranslator:
 
     async def _scheduled_event_user_remove(self, event: DispatchEvent) -> None:
         await self._updater.apply(event)
-        removed = event.decode(GuildScheduledEventUserAdd)
+        removed = event.decode(GuildScheduledEventUserRemove)
         self._emit("raw_scheduled_event_user_remove", removed)
         scheduled = self._state.cache.peek(
             self._state.cache.scheduled_events, removed.guild_scheduled_event_id

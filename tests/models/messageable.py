@@ -1,15 +1,17 @@
 import asyncio
+import logging
 from datetime import UTC, datetime
 
 import pytest
 
 from shoal.core.snowflake import Snowflake
-from shoal.models import messageable
 from shoal.models.base import Object
 from shoal.models.channel import TextChannel
+from shoal.models.defaults import TYPING_REFRESH
 from shoal.models.embed import Embed
 from shoal.payloads import AllowedMentions
 from shoal.rest.files import File
+from tests.support.fakes import ManualClock, settle
 from tests.support.models import GENERAL, GUILD, LINK_VIEW, ROW_VIEW, World, message
 
 
@@ -19,7 +21,7 @@ async def general(world: World) -> TextChannel:
     return found
 
 
-async def test_send_takes_discord_py_keywords() -> None:
+async def test_send_takes_keywords_for_every_part() -> None:
     world = await World.started()
     channel = await general(world)
     world.transport.queue(200, message(9))
@@ -71,6 +73,22 @@ async def test_delete_after_deletes_the_sent_message() -> None:
     for _ in range(5):
         await asyncio.sleep(0)
     assert world.last_request()[:2] == ("DELETE", f"/channels/{GENERAL}/messages/9")
+
+
+async def test_a_failing_typing_refresh_leaves_the_block_alone(caplog: pytest.LogCaptureFixture) -> None:
+    world = await World.started()
+    clock = ManualClock()
+    world.state.clock = clock
+    channel = await general(world)
+    world.transport.queue(204)
+    world.transport.queue(403, {"message": "Missing Permissions", "code": 50013})
+    with caplog.at_level(logging.WARNING, logger="shoal.models"):
+        async with channel.typing():
+            await settle()
+            await clock.advance(TYPING_REFRESH)
+            await clock.advance(TYPING_REFRESH)
+    assert "stopped refreshing the typing indicator" in caplog.text
+    assert len(world.requests()) == 2
 
 
 async def test_fetch_message() -> None:
@@ -154,16 +172,18 @@ async def test_pins_page_until_there_are_no_more() -> None:
     )
 
 
-async def test_typing_keeps_the_indicator_on_until_the_block_ends(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_typing_keeps_the_indicator_on_until_the_block_ends() -> None:
     world = await World.started()
+    clock = ManualClock()
+    world.state.clock = clock
     channel = await general(world)
-    monkeypatch.setattr(messageable, "TYPING_REFRESH", 0.01)
-    for _ in range(20):
+    for _ in range(3):
         world.transport.queue(204)
     async with channel.typing():
-        await asyncio.sleep(0.05)
-    count = len(world.requests())
-    assert count >= 2
-    await asyncio.sleep(0.05)
-    assert len(world.requests()) == count
+        await settle()
+        await clock.advance(TYPING_REFRESH)
+        await clock.advance(TYPING_REFRESH)
+    assert len(world.requests()) == 3
+    await clock.advance(TYPING_REFRESH)
+    assert len(world.requests()) == 3
     assert world.requests()[0][:2] == ("POST", f"/channels/{GENERAL}/typing")

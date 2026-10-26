@@ -25,7 +25,7 @@ Discord: https://docs.discord.com/developers/events/gateway#sharding
 import asyncio
 import logging
 from collections.abc import Iterable, Mapping, Sequence
-from typing import final
+from typing import Unpack, final
 
 from shoal.core.clock import Clock
 from shoal.core.dispatch import DispatchHandler
@@ -33,9 +33,9 @@ from shoal.core.metrics import Metrics
 from shoal.core.snowflake import Snowflake
 from shoal.gateway.connection import AiohttpGatewayConnector, GatewayConnector
 from shoal.gateway.session import SessionStore
-from shoal.gateway.shard import GatewayFatalError, Shard
+from shoal.gateway.shard import GatewayFatalError, Shard, ShardOptions
 from shoal.gateway.sharding import IdentifyLimiter, LocalIdentifyLimiter, shard_for_guild
-from shoal.payloads.gateway import DEFAULT_GATEWAY_URL, Intents, TransportCompression
+from shoal.payloads.gateway import Intents
 from shoal.payloads.gateway_events import RequestSoundboardSounds, UpdatePresence
 
 _log = logging.getLogger("shoal.gateway.manager")
@@ -77,11 +77,11 @@ class ShardManager:
             pass the bot's real `max_concurrency` from Get Gateway Bot to start faster.
         connector: Shared websocket connector. Defaults to one aiohttp session for all shards.
         session_store: Where shard sessions are saved for resuming after a restart.
-        gateway_url: The URL from Get Gateway Bot.
-        compression: Transport compression for every shard.
         presence: Initial presence for every shard.
         metrics: Shared by every shard.
         clock: Time source for the shards and the default identify limiter.
+        options: How every shard connects (`ShardOptions`): `gateway_url`, `compression`,
+            `large_threshold`, `capabilities`, `event_delay_warning`, `resume_window`.
 
     Discord: https://docs.discord.com/developers/events/gateway#sharding
     """
@@ -99,11 +99,10 @@ class ShardManager:
         identify_limiter: IdentifyLimiter | None = None,
         connector: GatewayConnector | None = None,
         session_store: SessionStore | None = None,
-        gateway_url: str = DEFAULT_GATEWAY_URL,
-        compression: TransportCompression | None = TransportCompression.ZLIB_STREAM,
         presence: UpdatePresence | None = None,
         metrics: Metrics | None = None,
         clock: Clock | None = None,
+        **options: Unpack[ShardOptions],
     ) -> None:
         """Create the shards; see the class docstring for the arguments. Call `run` to connect."""
         ids = list(shard_ids) if shard_ids is not None else list(range(shard_count))
@@ -127,11 +126,10 @@ class ShardManager:
                 connector=self._connector,
                 identify_limiter=limiter,
                 session_store=session_store,
-                gateway_url=gateway_url,
-                compression=compression,
                 presence=presence,
                 metrics=metrics,
                 clock=clock,
+                **options,
             )
             for shard_id in sorted(ids)
         }
@@ -190,6 +188,11 @@ class ShardManager:
         try:
             for finished in asyncio.as_completed(self._tasks):
                 await finished
+        except asyncio.CancelledError:
+            # Stopped from outside (`asyncio.run` ending, a task cancelled) rather than by `close`:
+            # save the sessions first, or the next start identifies every shard again.
+            await self.close(resumable=True)
+            raise
         except GatewayFatalError:
             _log.exception("a shard failed fatally; closing every shard in this manager")
             await self.close(resumable=False)

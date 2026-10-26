@@ -110,7 +110,7 @@ Shoal implements **239 of 239** documented HTTP endpoints. The 4 endpoints Disco
 | yes | [List Thread Members](https://docs.discord.com/developers/resources/channel#list-thread-members) | `rest.threads.list_members` | `GET /channels/{channel_id}/thread-members` |
 | yes | [Modify Channel](https://docs.discord.com/developers/resources/channel#modify-channel) | `rest.channels.edit` | `PATCH /channels/{channel_id}` |
 | yes | [Remove Thread Member](https://docs.discord.com/developers/resources/channel#remove-thread-member) | `rest.threads.remove_member` | `DELETE /channels/{channel_id}/thread-members/{user_id}` |
-| yes | [Set Voice Channel Status](https://docs.discord.com/developers/resources/channel#set-voice-channel-status) | `rest.channels.set_voice_status` | `PUT /channels/{channel_id}/voice-status` |
+| yes | [Set Voice Channel Status](https://docs.discord.com/developers/resources/channel#set-voice-channel-status) | `rest.channels.edit_voice_status` | `PUT /channels/{channel_id}/voice-status` |
 | yes | [Start Thread from Message](https://docs.discord.com/developers/resources/channel#start-thread-from-message) | `rest.threads.create_from_message` | `POST /channels/{channel_id}/messages/{message_id}/threads` |
 | yes | [Start Thread in Forum or Media Channel](https://docs.discord.com/developers/resources/channel#start-thread-in-forum-or-media-channel) | `rest.threads.create`, `rest.threads.create_post` | `POST /channels/{channel_id}/threads` |
 | yes | [Start Thread without Message](https://docs.discord.com/developers/resources/channel#start-thread-without-message) | `rest.threads.create`, `rest.threads.create_post` | `POST /channels/{channel_id}/threads` |
@@ -185,7 +185,7 @@ Shoal implements **239 of 239** documented HTTP endpoints. The 4 endpoints Disco
 | yes | [Modify Guild Role](https://docs.discord.com/developers/resources/guild#modify-guild-role) | `rest.roles.edit` | `PATCH /guilds/{guild_id}/roles/{role_id}` |
 | yes | [Modify Guild Role Positions](https://docs.discord.com/developers/resources/guild#modify-guild-role-positions) | `rest.roles.edit_positions` | `PATCH /guilds/{guild_id}/roles` |
 | yes | [Modify Guild Welcome Screen](https://docs.discord.com/developers/resources/guild#modify-guild-welcome-screen) | `rest.guilds.edit_welcome_screen` | `PATCH /guilds/{guild_id}/welcome-screen` |
-| yes | [Modify Guild Widget](https://docs.discord.com/developers/resources/guild#modify-guild-widget) | `rest.guilds.edit_widget` | `PATCH /guilds/{guild_id}/widget` |
+| yes | [Modify Guild Widget](https://docs.discord.com/developers/resources/guild#modify-guild-widget) | `rest.guilds.edit_widget_settings` | `PATCH /guilds/{guild_id}/widget` |
 | yes | [Remove Guild Ban](https://docs.discord.com/developers/resources/guild#remove-guild-ban) | `rest.members.unban` | `DELETE /guilds/{guild_id}/bans/{user_id}` |
 | yes | [Remove Guild Member](https://docs.discord.com/developers/resources/guild#remove-guild-member) | `rest.members.kick` | `DELETE /guilds/{guild_id}/members/{user_id}` |
 | yes | [Remove Guild Member Role](https://docs.discord.com/developers/resources/guild#remove-guild-member-role) | `rest.members.remove_role` | `DELETE /guilds/{guild_id}/members/{user_id}/roles/{role_id}` |

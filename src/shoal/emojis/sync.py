@@ -244,7 +244,7 @@ def _plan(
 class _Syncer:
     """Carries out a plan, saving the manifest after every change so an interrupted sync keeps them."""
 
-    __slots__ = ("_application_id", "_known", "_manifest", "_path", "_report", "_rest")
+    __slots__ = ("_application_id", "_known", "_manifest", "_path", "_removed", "_report", "_rest")
 
     def __init__(
         self,
@@ -259,6 +259,8 @@ class _Syncer:
         self._rest: RestClient = rest
         self._application_id: int = application_id
         self._known: dict[str, ManifestEntry] = known
+        self._removed: set[Snowflake] = set()
+        """Emojis already deleted, so a replacement tried again does not delete its old one twice."""
         self._manifest: Manifest = manifest
         self._path: Path = path
         self._report: SyncReport = report
@@ -280,8 +282,9 @@ class _Syncer:
     async def upload(self, item: LocalEmoji, previous: _Remote | None, *, last_round: bool) -> bool:
         """Create `item`, after deleting `previous`; `False` when it should be tried again."""
         try:
-            if previous is not None:
+            if previous is not None and previous.id not in self._removed:
                 await self._remove(previous.id)
+                self._removed.add(previous.id)
                 self._known.pop(item.name, None)
             created = await self._create(item)
         except (ServerError, TransportError) as error:

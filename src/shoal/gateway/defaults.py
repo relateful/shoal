@@ -18,6 +18,10 @@ EVENT_DELAY_WARNING: Final = 5.0
 EVENT_DELAY_WARNING_COOLDOWN: Final = 60.0
 """Minimum seconds between two event delay warnings from one shard."""
 
+GATEWAY_DOMAIN: Final = "discord.gg"
+"""The domain a saved resume URL must be on to be trusted with the token. Discord's own gateway
+hosts (and every resume URL seen so far) are on it, though the docs only show it in examples."""
+
 HEARTBEAT_RESERVED_SENDS: Final = 5
 """Gateway send slots per window kept free for heartbeats, so commands can never delay them."""
 

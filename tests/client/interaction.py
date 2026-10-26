@@ -18,6 +18,7 @@ from shoal.payloads import (
     Permissions,
 )
 from shoal.payloads.interactions import InteractionResponse as ResponsePayload
+from shoal.rest.errors import HTTPError
 from shoal.rest.files import File
 from tests.support.client import started
 from tests.support.fakes import FakeTransport
@@ -28,6 +29,7 @@ from tests.support.interactions import (
     autocomplete,
     command,
     component,
+    modal_submit,
     payload,
 )
 from tests.support.models import ALICE, APPLICATION, GENERAL, GUILD, ROW_VIEW, message
@@ -35,6 +37,15 @@ from tests.support.rest import API
 
 CALLBACK = f"/interactions/900/{TOKEN}/callback"
 WEBHOOK = f"/webhooks/{APPLICATION}/{TOKEN}"
+MESSAGE_ID = 4321
+
+
+def created(message_id: int) -> dict[str, object]:
+    """What Create Interaction Response returns with `with_response=true` for a new message."""
+    return {
+        "interaction": {"id": "900", "type": 2, "response_message_id": str(message_id)},
+        "resource": {"type": 4, "message": message(message_id)},
+    }
 
 
 async def receive(data: dict[str, object]) -> tuple[Client, FakeTransport, Interaction]:
@@ -86,11 +97,11 @@ async def test_an_interaction_in_dms() -> None:
 
 async def test_send_message_answers_once() -> None:
     _, transport, interaction = await receive(command("ping"))
-    transport.queue(204)
+    transport.queue(200, created(MESSAGE_ID))
     await interaction.response.send_message("pong", ephemeral=True, embed=Embed(title="t"), view=ROW_VIEW)
     assert interaction.response.is_done()
     method, path, body = last(transport)
-    assert (method, path) == ("POST", CALLBACK)
+    assert (method, path) == ("POST", CALLBACK + "?with_response=true")
     assert body == {
         "type": 4,
         "data": {
@@ -106,6 +117,38 @@ async def test_send_message_answers_once() -> None:
         await interaction.response.send_message("again")
 
 
+async def test_a_view_sent_in_a_response_answers_only_on_its_message() -> None:
+    client, transport, interaction = await receive(command("vote"))
+    view = PersistentView(persistent=False)
+    transport.queue(200, created(MESSAGE_ID))
+    await interaction.response.send_message("vote", view=view)
+    elsewhere = await client.process_interaction(payload(component("persistent:ok", message_id=1)))
+    here = await client.process_interaction(payload(component("persistent:ok", message_id=MESSAGE_ID)))
+    assert view.received == [(here, "persistent:ok")]
+    assert elsewhere.response.is_done() is False
+
+
+async def test_a_failed_response_can_be_sent_again() -> None:
+    _, transport, interaction = await receive(command("ping"))
+    transport.queue(400, {"code": 50035, "message": "Invalid Form Body"})
+    with pytest.raises(HTTPError):
+        await interaction.response.send_message("pong")
+    assert not interaction.response.is_done()
+    transport.queue(204)
+    await interaction.response.send_message("pong")
+    assert interaction.response.is_done()
+
+
+async def test_a_second_response_while_the_first_is_in_flight_is_refused() -> None:
+    _, transport, interaction = await receive(command("ping"))
+    transport.queue(204)
+    first = asyncio.create_task(interaction.response.send_message("pong"))
+    await asyncio.sleep(0)
+    with pytest.raises(InteractionRespondedError):
+        await interaction.response.defer()
+    await first
+
+
 async def test_defer_shows_thinking_for_commands_and_nothing_for_components() -> None:
     _, transport, interaction = await receive(command("slow"))
     transport.queue(204)
@@ -118,6 +161,14 @@ async def test_defer_shows_thinking_for_commands_and_nothing_for_components() ->
     _, transport, thinking = await receive(component("x"))
     transport.queue(204)
     await thinking.response.defer(thinking=True)
+    assert last(transport)[2] == {"type": 5, "data": {}}
+    _, _, suggesting = await receive(autocomplete("ping"))
+    with pytest.raises(TypeError, match="cannot be deferred"):
+        await suggesting.response.defer()
+    # A modal opened by a command has no message to update.
+    _, transport, submitted = await receive(modal_submit("form"))
+    transport.queue(204)
+    await submitted.response.defer()
     assert last(transport)[2] == {"type": 5, "data": {}}
 
 

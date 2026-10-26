@@ -72,6 +72,14 @@ class EventFrame(msgspec.Struct, tag="event", array_like=True, frozen=True, gc=F
         """Unwrap a received dispatch."""
         return DispatchEvent(self.shard_id, self.name, self.sequence, msgspec.Raw(self.data))
 
+    @override
+    def __repr__(self) -> str:
+        """Everything but the data, which can hold interaction tokens."""
+        return (
+            f"EventFrame(shard_id={self.shard_id}, name={self.name!r}, sequence={self.sequence}, "
+            f"data=<{len(self.data)} bytes>)"
+        )
+
 
 type ClientMessage = Subscribe
 type ServerMessage = Accepted | Rejected | EventFrame

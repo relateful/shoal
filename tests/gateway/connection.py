@@ -10,6 +10,7 @@ from tests.support.server import free_port, serve
 async def test_text_binary_send_and_close_code_round_trip() -> None:
     close_codes: list[int | None] = []
     received: list[str] = []
+    server_done = asyncio.Event()
 
     async def gateway(request: web.Request) -> web.WebSocketResponse:
         socket = web.WebSocketResponse()
@@ -18,6 +19,7 @@ async def test_text_binary_send_and_close_code_round_trip() -> None:
         await socket.send_bytes(b"\x00\x01")
         received.extend([message.data async for message in socket if message.type is WSMsgType.TEXT])
         close_codes.append(socket.close_code)
+        server_done.set()
         return socket
 
     app = web.Application()
@@ -31,7 +33,8 @@ async def test_text_binary_send_and_close_code_round_trip() -> None:
         await connection.close(4900)
         closed = await connection.receive()
         await connector.close()
-        await asyncio.sleep(0.05)
+        # The server records the close code once it sees the close frame.
+        await asyncio.wait_for(server_done.wait(), timeout=5)
     assert (first.kind, first.data) == (MessageKind.TEXT, b'{"op":10}')
     assert (second.kind, second.data) == (MessageKind.BINARY, b"\x00\x01")
     assert closed.kind is MessageKind.CLOSED

@@ -13,13 +13,15 @@ from dataclasses import dataclass, field
 from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
-from shoal.models.base import MISSING, MissingType
+from shoal.models.base import MISSING, MissingType, given, unset_if_none
 from shoal.models.embed import Embed
 from shoal.models.state import ComponentView
 from shoal.payloads.components import ActionRow, MessageComponent
 from shoal.payloads.interactions import InteractionMessage, SendFollowupParams
 from shoal.payloads.message import (
     AllowedMentions,
+    Attachment,
+    AttachmentRequest,
     CreateMessageParams,
     EditMessageParams,
     MessageFlags,
@@ -61,7 +63,7 @@ class Outgoing:
             tts=self.tts,
             embeds=self.embeds,
             allowed_mentions=self.allowed_mentions,
-            message_reference=reference if reference is not None else UNSET,
+            message_reference=unset_if_none(reference),
             components=self.components,
             sticker_ids=[Snowflake(sticker) for sticker in sticker_ids] if sticker_ids else UNSET,
             flags=self.flags,
@@ -158,6 +160,8 @@ class Edit:
     allowed_mentions: AllowedMentions | UnsetType | None = UNSET
     components: list[MessageComponent] | UnsetType | None = UNSET
     flags: MessageFlags | UnsetType | None = UNSET
+    attachments: list[AttachmentRequest] | UnsetType = UNSET
+    """The existing attachments to keep; the request adds an entry for each new file."""
     files: list[File] = field(default_factory=list[File])
     view: ComponentView | None = None
 
@@ -169,6 +173,7 @@ class Edit:
             flags=self.flags,
             allowed_mentions=self.allowed_mentions,
             components=self.components,
+            attachments=self.attachments,
         )
 
     def webhook_params(self) -> EditWebhookMessageParams:
@@ -179,6 +184,7 @@ class Edit:
             flags=self.flags,
             allowed_mentions=self.allowed_mentions,
             components=self.components,
+            attachments=self.attachments,
         )
 
     def interaction_message(self) -> InteractionMessage:
@@ -189,6 +195,7 @@ class Edit:
             allowed_mentions=_cleared(self.allowed_mentions, AllowedMentions()),
             flags=_cleared(self.flags, MessageFlags.none()),
             components=_cleared(self.components, []),
+            attachments=self.attachments,
         )
 
 
@@ -202,7 +209,7 @@ def edit(
     content: object = MISSING,
     embed: EmbedLike | MissingType | None = MISSING,
     embeds: Sequence[EmbedLike] | MissingType = MISSING,
-    attachments: Sequence[File] | MissingType = MISSING,
+    attachments: Sequence[File | Attachment] | MissingType = MISSING,
     allowed_mentions: AllowedMentions | MissingType | None = MISSING,
     view: ComponentView | MissingType | None = MISSING,
     suppress: bool | MissingType = MISSING,
@@ -210,7 +217,9 @@ def edit(
 ) -> Edit:
     """Check `edit`'s keywords: leave a keyword out to keep that part, pass `None` to clear it.
 
-    `attachments` are new files to add. `suppress` hides or shows the link embeds; `flags` are the
+    `attachments` is every attachment the message keeps: the current ones to keep
+    (`message.attachments`) and new `File`s to upload; `[]` removes them all, and leaving it out
+    keeps them all. `suppress` hides or shows the link embeds; `flags` are the
     message's current flags, which the edit has to repeat.
 
     Raises:
@@ -241,9 +250,14 @@ def edit(
     return Edit(
         content=new_content,
         embeds=new_embeds,
-        allowed_mentions=UNSET if isinstance(allowed_mentions, MissingType) else allowed_mentions,
+        allowed_mentions=given(allowed_mentions),
         components=components,
         flags=new_flags,
-        files=[] if isinstance(attachments, MissingType) else list(attachments),
+        attachments=UNSET
+        if isinstance(attachments, MissingType)
+        else [AttachmentRequest(id=item.id) for item in attachments if isinstance(item, Attachment)],
+        files=[]
+        if isinstance(attachments, MissingType)
+        else [item for item in attachments if isinstance(item, File)],
         view=chosen_view,
     )

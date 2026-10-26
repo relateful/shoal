@@ -19,6 +19,26 @@ Discord: https://docs.discord.com/developers/reference#snowflakes
 """
 
 
+def parse_uint64(value: int | str, what: str) -> int:
+    """`value` as an unsigned 64-bit integer, from an int or the decimal string Discord sends.
+
+    Raises:
+        TypeError: `value` is a bool.
+        ValueError: It is not decimal digits, or outside 0 to 2**64 - 1.
+    """
+    if isinstance(value, bool):
+        msg = f"{what} cannot be a bool"
+        raise TypeError(msg)
+    if isinstance(value, str) and (not value.isascii() or not value.isdigit()):
+        msg = f"{what} must be a decimal string, got {value!r}"
+        raise ValueError(msg)
+    number = int(value)
+    if not 0 <= number <= UINT64_MAX:
+        msg = f"{what} {number} is outside the unsigned 64-bit range"
+        raise ValueError(msg)
+    return number
+
+
 class Snowflake(int):
     """A 64-bit Discord ID.
 
@@ -37,20 +57,7 @@ class Snowflake(int):
         Raises:
             ValueError: The value is not a decimal integer between 0 and 2**64 - 1.
         """
-        if isinstance(value, str):
-            if not value.isascii() or not value.isdigit():
-                msg = f"snowflake must be a decimal string, got {value!r}"
-                raise ValueError(msg)
-            number = int(value)
-        elif isinstance(value, bool):
-            msg = "snowflake cannot be a bool"
-            raise TypeError(msg)
-        else:
-            number = int(value)
-        if not 0 <= number <= UINT64_MAX:
-            msg = f"snowflake {number} is outside the unsigned 64-bit range"
-            raise ValueError(msg)
-        return super().__new__(cls, number)
+        return super().__new__(cls, parse_uint64(value, "snowflake"))
 
     @classmethod
     def from_datetime(cls, moment: datetime, *, high: bool = False) -> Self:

@@ -8,9 +8,14 @@ import msgspec
 import pytest
 
 from shoal.core.dispatch import DispatchEvent
-from shoal.core.metrics import GATEWAY_EVENT_DELAY_SECONDS, GATEWAY_SHARD_READY, InMemoryMetrics
+from shoal.core.metrics import (
+    EVENTS_DROPPED,
+    GATEWAY_EVENT_DELAY_SECONDS,
+    GATEWAY_SHARD_READY,
+    InMemoryMetrics,
+)
 from shoal.core.snowflake import Snowflake
-from shoal.gateway.defaults import RESUMABLE_CLOSE_CODE
+from shoal.gateway.defaults import HELLO_TIMEOUT, RECONNECT_BACKOFF_CAP, RESUMABLE_CLOSE_CODE
 from shoal.gateway.session import GatewaySession, MemorySessionStore, SessionStore
 from shoal.gateway.shard import GatewayFatalError, Shard, ShardNotConnectedError, ShardState
 from shoal.payloads import (
@@ -164,7 +169,7 @@ async def test_resumes_a_saved_session_after_a_restart() -> None:
             shard_count=1,
             session_id="old",
             sequence=99,
-            resume_gateway_url="wss://resume.example",
+            resume_gateway_url="wss://gateway-us-east1-b.discord.gg",
             saved_at=1_750_000_000.0,
         )
     )
@@ -173,7 +178,7 @@ async def test_resumes_a_saved_session_after_a_restart() -> None:
     connection.push(gateway_message(0, None, s=100, t="RESUMED"))
     harness = Harness(connection, store=store)
     await harness.start()
-    assert harness.connector.urls == ["wss://resume.example/?v=10&encoding=json"]
+    assert harness.connector.urls == ["wss://gateway-us-east1-b.discord.gg/?v=10&encoding=json"]
     resume = sent(connection)[0]
     assert resume["op"] == GatewayOpcode.RESUME
     assert resume["d"] == {"token": "token", "session_id": "old", "seq": 99}
@@ -181,7 +186,9 @@ async def test_resumes_a_saved_session_after_a_restart() -> None:
     await harness.stop()
 
 
-def saved_session(resume_gateway_url: str = "wss://resume.example", *, age: float = 0.0) -> GatewaySession:
+def saved_session(
+    resume_gateway_url: str = "wss://gateway-us-east1-b.discord.gg", *, age: float = 0.0
+) -> GatewaySession:
     return GatewaySession(
         shard_id=0,
         shard_count=1,
@@ -194,7 +201,7 @@ def saved_session(resume_gateway_url: str = "wss://resume.example", *, age: floa
 
 async def test_failed_resume_url_falls_back_to_the_main_gateway_and_keeps_the_session() -> None:
     store = MemorySessionStore()
-    await store.save(saved_session("wss://dead.example"))
+    await store.save(saved_session("wss://gateway-dead.discord.gg"))
     main = FakeConnection()
     main.push(HELLO)
     main.push_close(None)
@@ -205,7 +212,7 @@ async def test_failed_resume_url_falls_back_to_the_main_gateway_and_keeps_the_se
     await harness.start()
     await harness.clock.advance(5)
     await harness.clock.advance(5)
-    assert harness.connector.urls[0].startswith("wss://dead.example/")
+    assert harness.connector.urls[0].startswith("wss://gateway-dead.discord.gg/")
     assert harness.connector.urls[1].startswith("wss://gateway.example/")
     assert harness.connector.urls[2].startswith("wss://gateway.example/")
     assert ops(main) == [GatewayOpcode.RESUME]
@@ -227,9 +234,18 @@ async def test_a_session_older_than_the_resume_window_is_not_resumed() -> None:
     await harness.stop()
 
 
-async def test_a_saved_resume_url_that_is_not_secure_is_never_used() -> None:
+@pytest.mark.parametrize(
+    "url",
+    [
+        "ws://somewhere.example",
+        "wss://evil.example",
+        "wss://gateway.discord.gg.evil.example",
+        "wss://notdiscord.gg",
+    ],
+)
+async def test_a_saved_resume_url_off_discords_hosts_is_never_used(url: str) -> None:
     store = MemorySessionStore()
-    await store.save(saved_session("ws://somewhere.example"))
+    await store.save(saved_session(url))
     connection = FakeConnection()
     connection.push(HELLO)
     connection.push(ready("new"))
@@ -282,6 +298,31 @@ async def test_fatal_close_codes_raise() -> None:
     with pytest.raises(GatewayFatalError) as caught:
         await asyncio.wait_for(harness.shard.run(), timeout=1)
     assert caught.value.code == 4004
+
+
+async def test_a_failing_heartbeat_reconnects_instead_of_going_quiet(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class BrokenHeartbeats(FakeConnection):
+        @override
+        async def send(self, data: bytes) -> None:
+            if data.startswith(b'{"op":1,'):
+                msg = "socket gone"
+                raise OSError(msg)
+            await super().send(data)
+
+    first = BrokenHeartbeats()
+    first.push(HELLO)
+    first.push(ready(sequence=7))
+    second = FakeConnection()
+    harness = Harness(first, second)
+    with caplog.at_level(logging.WARNING, logger="shoal.gateway"):
+        await harness.start()
+        await harness.clock.advance(40)
+    assert "heartbeat failed; reconnecting" in caplog.text
+    assert first.close_codes == [RESUMABLE_CLOSE_CODE]
+    assert harness.shard.latency is None
+    await harness.stop()
 
 
 async def test_heartbeats_carry_the_sequence_and_zombies_reconnect() -> None:
@@ -376,15 +417,14 @@ async def test_a_failing_session_store_does_not_end_the_shard(caplog: pytest.Log
     await asyncio.wait_for(harness.task, timeout=1)
 
 
-async def test_no_hello_reconnects(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("shoal.gateway.shard.HELLO_TIMEOUT", 0.01)
+async def test_no_hello_reconnects() -> None:
     silent = FakeConnection()
     second = FakeConnection()
     second.push(HELLO)
     second.push(ready())
     harness = Harness(silent, second)
     await harness.start()
-    await asyncio.sleep(0.05)
+    await harness.clock.advance(HELLO_TIMEOUT)
     await harness.clock.advance(5)
     assert silent.close_codes == [RESUMABLE_CLOSE_CODE]
     assert state_of(harness.shard) is ShardState.READY
@@ -440,6 +480,23 @@ async def test_late_messages_are_measured_and_warned_about(caplog: pytest.LogCap
     key = InMemoryMetrics.key(GATEWAY_EVENT_DELAY_SECONDS, {"shard": "0", "event": "MESSAGE_CREATE"})
     assert harness.metrics.observations[key][0] == pytest.approx(15, abs=0.01)
     assert "arrived 15.0s after it was created" in caplog.text
+    await harness.stop()
+
+
+async def test_events_replayed_by_a_resume_are_not_counted_as_late() -> None:
+    store = MemorySessionStore()
+    await store.save(saved_session())
+    connection = FakeConnection()
+    connection.push(HELLO)
+    harness = Harness(connection, store=store)
+    created = datetime.fromtimestamp(harness.clock.wall() - 120, tz=UTC)
+    replayed = Snowflake.from_datetime(created)
+    connection.push(gateway_message(0, {"id": str(replayed)}, s=6, t="MESSAGE_CREATE"))
+    connection.push(gateway_message(0, None, s=7, t="RESUMED"))
+    await harness.start()
+    assert state_of(harness.shard) is ShardState.READY
+    assert [event.name for event in harness.events] == ["MESSAGE_CREATE", "RESUMED"]
+    assert harness.metrics.observations == {}
     await harness.stop()
 
 
@@ -572,6 +629,8 @@ async def test_an_undecodable_payload_is_dropped(caplog: pytest.LogCaptureFixtur
     with caplog.at_level(logging.ERROR, logger="shoal.gateway"):
         await harness.start()
     assert "undecodable gateway payload dropped" in caplog.text
+    key = InMemoryMetrics.key(EVENTS_DROPPED, {"stage": "gateway", "event": "unknown"})
+    assert harness.metrics.counters[key] == 1
     assert state_of(harness.shard) is ShardState.READY
     await harness.stop()
 
@@ -639,4 +698,135 @@ async def test_a_rate_limited_command_is_logged_and_still_dispatched(
         await settle()
     assert "rate limited REQUEST_GUILD_MEMBERS; retry after 27.5s" in caplog.text
     assert [event.name for event in harness.events][-1] == "RATE_LIMITED"
+    await harness.stop()
+
+
+async def test_invalid_sessions_in_a_row_back_off() -> None:
+    first = FakeConnection()
+    first.push(HELLO)
+    first.push(gateway_message(9, d=False))
+    second = FakeConnection()
+    second.push(HELLO)
+    second.push(gateway_message(9, d=False))
+    third = FakeConnection()
+    third.push(HELLO)
+    third.push(ready("s3"))
+    harness = Harness(first, second, third)
+    await harness.start()
+    await harness.clock.advance(5)
+    assert len(harness.connector.urls) == 2
+    await harness.clock.advance(5)
+    assert len(harness.connector.urls) == 2  # the second in a row also backs off
+    await harness.clock.advance(60)
+    assert len(harness.connector.urls) == 3
+    assert state_of(harness.shard) is ShardState.READY
+    await harness.stop()
+
+
+async def test_a_close_code_ending_the_session_backs_off_when_it_repeats() -> None:
+    connections: list[FakeConnection] = []
+    for index in range(3):
+        connection = FakeConnection()
+        connection.push(HELLO)
+        connection.push(ready(f"s{index}"))
+        connection.push_close(4009)
+        connections.append(connection)
+    harness = Harness(*connections)
+    await harness.start()
+    await settle()
+    # Closed right after READY: not a stable connection, so the shard waits before identifying again.
+    assert len(harness.connector.urls) == 1
+    await harness.clock.advance(60)
+    assert len(harness.connector.urls) >= 2
+    await harness.stop()
+
+
+async def test_a_slow_store_gets_one_save_at_a_time_however_many_beats_arrive() -> None:
+    class SlowStore(SessionStore):
+        def __init__(self) -> None:
+            self.release = asyncio.Event()
+            self.saves = 0
+
+        @override
+        async def load(self, shard_id: int, shard_count: int) -> GatewaySession | None:
+            return None
+
+        @override
+        async def save(self, session: GatewaySession) -> None:
+            self.saves += 1
+            if self.saves > 1:
+                await self.release.wait()
+
+        @override
+        async def delete(self, shard_id: int) -> None:
+            pass
+
+    store = SlowStore()
+    connection = FakeConnection()
+    connection.push(HELLO)
+    connection.push(ready())
+    harness = Harness(connection, store=store)
+    await harness.start()
+    for _ in range(3):
+        connection.push(gateway_message(11))
+    await settle()
+    # READY saved once; the first acknowledgement's save is still running, so the others wait.
+    assert store.saves == 2
+    store.release.set()
+    await settle()
+    connection.push(gateway_message(11))
+    await settle()
+    assert store.saves == 3
+    await harness.stop()
+
+
+async def test_each_heartbeat_acknowledgement_saves_the_session() -> None:
+    connection = FakeConnection()
+    connection.push(HELLO)
+    connection.push(ready())
+    harness = Harness(connection)
+    await harness.start()
+    connection.push(
+        gateway_message(0, {"channel_id": "1", "user_id": "2", "timestamp": 1}, s=7, t="TYPING_START")
+    )
+    connection.push(gateway_message(11))
+    await settle()
+    saved = await harness.store.load(0, 1)
+    assert saved is not None
+    assert saved.sequence == 7
+    await harness.stop()
+
+
+async def test_a_resume_closed_early_falls_back_to_the_main_gateway() -> None:
+    store = MemorySessionStore()
+    await store.save(saved_session())
+    dropped = FakeConnection()
+    dropped.push(HELLO)
+    dropped.push_close(1006)
+    again = FakeConnection()
+    again.push(HELLO)
+    again.push(gateway_message(0, None, s=6, t="RESUMED"))
+    harness = Harness(dropped, again, store=store)
+    await harness.start()
+    await harness.clock.advance(5)
+    await harness.clock.advance(5)
+    assert harness.connector.urls[0].startswith("wss://gateway-us-east1-b.discord.gg/")
+    assert harness.connector.urls[1].startswith("wss://gateway.example/")
+    assert ops(again) == [GatewayOpcode.RESUME]
+    await harness.stop()
+
+
+async def test_a_connection_that_keeps_dropping_backs_off() -> None:
+    first = FakeConnection()
+    first.push(HELLO)
+    first.push(ready())
+    first.push_close(4000)
+    second = FakeConnection()
+    second.push(HELLO)
+    second.push(gateway_message(0, None, s=2, t="RESUMED"))
+    harness = Harness(first, second)
+    await harness.start()
+    assert len(harness.connector.urls) == 1  # dropped right after READY: not reconnected at once
+    await harness.clock.advance(RECONNECT_BACKOFF_CAP)
+    assert len(harness.connector.urls) == 2
     await harness.stop()

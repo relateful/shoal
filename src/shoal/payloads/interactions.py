@@ -274,10 +274,22 @@ _KNOWN_TYPES: Final = frozenset(int(kind) for kind in InteractionType)
 class _InteractionHead(Payload):
     """The fields needed to keep (and answer) an interaction of an unknown type."""
 
+    REDACTED_FIELDS = frozenset({"token"})
+
     type: int
     id: Snowflake
     application_id: Snowflake
     token: str
+
+
+INTERACTION_TYPES: Final[dict[type[Interaction], InteractionType]] = {
+    ApplicationCommandInteraction: InteractionType.APPLICATION_COMMAND,
+    AutocompleteInteraction: InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE,
+    ComponentInteraction: InteractionType.MESSAGE_COMPONENT,
+    ModalSubmitInteraction: InteractionType.MODAL_SUBMIT,
+    PingInteraction: InteractionType.PING,
+}
+"""Each interaction class and the type Discord sends it with."""
 
 
 def parse_interaction(
@@ -356,6 +368,12 @@ class AutocompleteChoices(Payload):
 
 MODAL_MAX_COMPONENTS: Final = 5
 """The most components (labels and text displays) a modal holds.
+
+Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-response-object-modal
+"""
+
+MODAL_TITLE_MAX_LENGTH: Final = 45
+"""Characters in a modal's title.
 
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-response-object-modal
 """

@@ -41,6 +41,12 @@ Clusters in different processes need a shared `IdentifyLimiter` (so together the
 `max_concurrency`) and a shared `SessionStore`. Both are protocols; a Redis implementation is on the
 [roadmap](../roadmap.md).
 
+REST limits are counted per process too: each `RestClient` keeps its own buckets, global limit and
+invalid request guard, while Discord counts the global limit per bot and the invalid request ban
+(10,000 in 10 minutes) per IP address. Processes on one IP should share a `RateLimiter` (the
+`rate_limiter=` argument; a shared implementation is on the roadmap), or route REST through one
+process, so together they stay under both.
+
 ## Sessions that survive restarts
 
 ```python
@@ -50,6 +56,10 @@ manager = ShardManager(..., session_store=FileSessionStore("sessions/"))
 ...
 await manager.close()  # keeps the sessions resumable and saves them
 ```
+
+Session files hold what resumes a session, so they are created readable by the bot's user only. On
+Windows that mode is not enforced and the files take the directory's access rules: use a directory
+only the bot's user can read.
 
 On the next start each shard resumes its saved session instead of identifying, so a deploy costs no
 session starts and no `GUILD_CREATE` storm. Sessions older than three minutes are not attempted.

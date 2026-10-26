@@ -834,6 +834,12 @@ LIST_MESSAGES_MAX_LIMIT: Final = 100
 Discord: https://docs.discord.com/developers/resources/message#get-channel-messages-query-string-params
 """
 
+MESSAGE_CONTENT_MAX_LENGTH: Final = 2000
+"""The most characters a message's content holds.
+
+Discord: https://docs.discord.com/developers/resources/message#create-message-json/form-params
+"""
+
 
 class ListPinsParams(Payload):
     """Query of Get Channel Pins; page with the last pin's `pinned_at` as `before`.

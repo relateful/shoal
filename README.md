@@ -3,11 +3,12 @@
 A fully typed Discord API library for Python, built for bots that grow: easy for a bot in one server,
 and still the right tool at a million.
 
-> **Status: pre-alpha.** The foundation is complete and tested: typed payloads, a REST client that
-> covers every endpoint Discord documents, the gateway with clusters and resumable sessions, a
-> restart-aware cache, inter-process communication, metrics and diagnostics, and application commands,
-> components and interactions (over the gateway or a signed HTTP endpoint). The high-level bot API
-> (models with methods, a command framework) is next. See the [roadmap](docs/roadmap.md).
+> **Status: pre-alpha.** Built and tested: typed payloads, a REST client that covers every endpoint
+> Discord documents, the gateway with clusters and resumable sessions, a restart-aware cache,
+> inter-process communication, metrics and diagnostics, and the bot API on top: a `Client` with
+> models, slash commands, prefix and hybrid commands with cogs and extensions, views and modals, and
+> the application's emojis. Interactions arrive over the gateway or a signed HTTP endpoint. See the
+> [guide to writing a bot](docs/guide/bot.md) and the [roadmap](docs/roadmap.md).
 
 ## Why Shoal
 

@@ -1,13 +1,13 @@
 import msgspec
 import pytest
 
-from shoal.core.codec import decode_json, encode_json
+from shoal.core.codec import encode_json
 from shoal.core.snowflake import Snowflake
 from shoal.models.emoji import Emoji
 from shoal.payloads import ButtonStyle, PartialEmoji
 from shoal.payloads import Emoji as EmojiPayload
 from shoal.ui.button import Button
-from tests.support.models import GUILD, World
+from tests.support.models import GUILD, World, decoded
 
 
 def json(button: Button) -> object:
@@ -68,7 +68,7 @@ def test_a_button_shows_a_custom_emoji_model() -> None:
     world = World()
     custom = Emoji(
         world.state,
-        decode_json(encode_json({"id": "5", "name": "wave", "animated": True}), EmojiPayload),
+        decoded({"id": "5", "name": "wave", "animated": True}, EmojiPayload),
         GUILD,
     )
     assert Button(label="Wave", emoji=custom).emoji == PartialEmoji(

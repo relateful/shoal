@@ -1,7 +1,7 @@
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
     AddLobbyMemberParams,
-    BulkLobbyMemberParams,
+    BulkEditLobbyMemberParams,
     CreateLobbyParams,
     CreateOrJoinLobbyParams,
     EditLobbyParams,
@@ -104,8 +104,8 @@ CASES = [
         call=lambda client: client.lobbies.bulk_edit_members(
             96008815106887111,
             [
-                BulkLobbyMemberParams(id=Snowflake(41771983429993000), metadata={"team": "blue"}),
-                BulkLobbyMemberParams(id=Snowflake(2), remove_member=True),
+                BulkEditLobbyMemberParams(id=Snowflake(41771983429993000), metadata={"team": "blue"}),
+                BulkEditLobbyMemberParams(id=Snowflake(2), remove_member=True),
             ],
         ),
         method="POST",

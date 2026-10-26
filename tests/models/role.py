@@ -1,8 +1,7 @@
-from shoal.core.codec import decode_json, encode_json
 from shoal.models.role import Role
 from shoal.payloads import Permissions
 from shoal.payloads import Role as RolePayload
-from tests.support.models import ALICE, BOB, EVERYONE, GUILD, MODS, RED, World, role
+from tests.support.models import ALICE, BOB, EVERYONE, GUILD, MODS, RED, World, decoded, role
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
 
@@ -58,7 +57,7 @@ async def test_members_of_a_role_come_from_the_cache() -> None:
 async def test_tags_say_what_manages_a_role() -> None:
     world = World()
     data = role(9, "boost", position=1) | {"tags": {"premium_subscriber": None}}
-    booster = Role(world.state, decode_json(encode_json(data), RolePayload), GUILD)
+    booster = Role(world.state, decoded(data, RolePayload), GUILD)
     assert booster.is_premium_subscriber()
 
 

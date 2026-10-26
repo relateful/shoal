@@ -6,9 +6,9 @@ import pytest
 
 from shoal.app_commands.errors import TransformerError
 from shoal.app_commands.models import Choice, Range
-from shoal.app_commands.parameters import REQUIRED, parameter_from_annotation
+from shoal.app_commands.parameters import NO_DESCRIPTION, REQUIRED, parameter_from_annotation
 from shoal.client.interaction import Interaction
-from shoal.core.codec import decode_json, encode_json
+from shoal.core.codec import encode_json
 from shoal.models.channel import GuildChannel, TextChannel, VoiceChannel
 from shoal.models.member import Member
 from shoal.models.role import Role
@@ -18,7 +18,7 @@ from shoal.payloads.interactions import ResolvedData
 from shoal.payloads.message import Attachment
 from tests.support.client import started
 from tests.support.interactions import command, payload
-from tests.support.models import BOB, GENERAL, MODS, VOICE, channel, member, role, user
+from tests.support.models import BOB, GENERAL, MODS, VOICE, channel, decoded, member, role, user
 
 
 class Colour(enum.Enum):
@@ -39,7 +39,7 @@ def test_primitives_become_their_option_types(annotation: type, kind: Option) ->
     assert option(annotation) == {
         "type": kind,
         "name": "value",
-        "description": "No description given",
+        "description": NO_DESCRIPTION,
         "required": True,
     }
 
@@ -129,7 +129,7 @@ async def converting() -> Interaction:
 
 
 def resolved(**fields: object) -> ResolvedData:
-    return decode_json(encode_json(fields), ResolvedData)
+    return decoded(fields, ResolvedData)
 
 
 BOB_USER = {str(BOB): user(BOB, "bob")}

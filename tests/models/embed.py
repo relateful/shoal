@@ -7,7 +7,7 @@ from shoal.models.embed import Embed
 from shoal.payloads import EmbedField
 
 
-def test_builds_like_discord_py() -> None:
+def test_builds_with_chained_setters() -> None:
     moment = datetime(2024, 1, 1, tzinfo=UTC)
     embed = (
         Embed(

@@ -6,7 +6,6 @@ import pytest
 
 from shoal import app_commands
 from shoal.app_commands.commands import (
-    NO_DESCRIPTION,
     Command,
     CommandCallback,
     ContextMenu,
@@ -14,6 +13,7 @@ from shoal.app_commands.commands import (
     Group,
 )
 from shoal.app_commands.models import Choice, Range
+from shoal.app_commands.parameters import NO_DESCRIPTION
 from shoal.client.interaction import Interaction
 from shoal.core.codec import encode_json
 from shoal.models.member import Member
@@ -84,7 +84,7 @@ def test_commands_are_checked_when_made() -> None:
         del interaction, first, second, third
 
     with pytest.raises(TypeError, match="must be async"):
-        Command(callback=cast("CommandCallback", sync))
+        Command(callback=cast("CommandCallback", sync))  # a sync callback, to prove it is refused
     with pytest.raises(TypeError, match="interaction as its first"):
         Command(callback=nothing)
     with pytest.raises(TypeError, match="needs a type hint"):
@@ -158,7 +158,7 @@ def test_autocomplete_can_be_attached_to_a_made_command() -> None:
         {
             "type": 3,
             "name": "name",
-            "description": "No description given",
+            "description": NO_DESCRIPTION,
             "required": True,
             "autocomplete": True,
         }
@@ -199,7 +199,7 @@ def test_a_group_subclass_collects_its_commands_and_subgroups() -> None:
             "type": 1,
             "name": "show",
             "description": "Show a tag",
-            "options": [{"type": 3, "name": "name", "description": "No description given", "required": True}],
+            "options": [{"type": 3, "name": "name", "description": NO_DESCRIPTION, "required": True}],
         },
         {
             "type": 2,
@@ -210,9 +210,7 @@ def test_a_group_subclass_collects_its_commands_and_subgroups() -> None:
                     "type": 1,
                     "name": "delete",
                     "description": "Delete a tag",
-                    "options": [
-                        {"type": 3, "name": "name", "description": "No description given", "required": True}
-                    ],
+                    "options": [{"type": 3, "name": "name", "description": NO_DESCRIPTION, "required": True}],
                 }
             ],
         },
@@ -464,6 +462,7 @@ def test_a_context_menu_callback_must_be_async() -> None:
         del interaction, target
 
     with pytest.raises(TypeError, match="must be async"):
+        # A sync callback, to prove it is refused.
         ContextMenu(name="Blocking", callback=cast("ContextMenuCallback", blocking))
 
 

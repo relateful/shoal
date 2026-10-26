@@ -68,10 +68,15 @@ from a local copy it keeps, or with nothing.
 
 ```python
 await manager.close()  # saves every shard's session
-await store.save_snapshot("cache.msgpack")  # then the cache, so both end at the same event
+# then the cache, so both end at the same event
+await store.save_snapshot("cache.msgpack", shard_count=manager.shard_count)
 
-await store.load_snapshot("cache.msgpack")  # on start: every entry stale
+await store.load_snapshot("cache.msgpack", shard_count=shard_count)  # on start: every entry stale
 ```
+
+A snapshot saved with a different `shard_count` is not loaded: after resharding no session can
+resume, and its entries belong to shards that no longer exist. `Client(cache_snapshot=...)` passes
+the shard count both ways.
 
 Save the snapshot **after** closing the shards. The snapshot records the last event it applied from
 each shard, and the session file records where Discord will resume; when they line up, snapshot plus

@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from shoal.core.codec import decode_json, encode_json
 from shoal.models.base import Object
 from shoal.models.channel import CategoryChannel, ForumChannel, StageChannel, TextChannel, VoiceChannel
 from shoal.models.guild import Guild
@@ -27,6 +26,7 @@ from tests.support.models import (
     VOICE,
     World,
     channel,
+    decoded,
     guild_create,
     member,
     role,
@@ -63,21 +63,20 @@ async def test_guild_attributes_read_the_cached_guild() -> None:
 async def test_a_guild_from_rest_has_no_gateway_only_fields() -> None:
     world = World()
     data = {k: v for k, v in guild_create().items() if k not in {"joined_at", "large", "member_count"}}
-    guild = Guild(world.state, decode_json(encode_json(data | {"approximate_member_count": 9}), GuildPayload))
+    guild = Guild(world.state, decoded(data | {"approximate_member_count": 9}, GuildPayload))
     assert guild.member_count == 9
     assert guild.joined_at is None
     assert not guild.large
     assert Guild.from_cache(world.state, GUILD) is None
 
 
-async def test_members_are_looked_up_like_discord_py() -> None:
+async def test_members_are_looked_up_by_id_and_name() -> None:
     world = await World.started()
     guild = world.guild()
     assert sorted(member.id for member in guild.members) == [BOT, OWNER, ALICE, BOB]
     assert guild.get_member(999) is None
     assert guild.me is not None
     assert guild.me.id == BOT
-    assert guild.get_user(ALICE) is not None
 
 
 @pytest.mark.parametrize(
@@ -123,6 +122,9 @@ async def test_roles_channels_and_threads() -> None:
     assert guild.default_role is not None
     assert guild.default_role.is_default()
     assert guild.get_role(999) is None
+    await world.dispatch("GUILD_ROLE_CREATE", {"guild_id": "777", "role": role(778, "elsewhere", position=1)})
+    assert guild.get_role(778) is None
+    assert guild.get_role(RED) is not None
     assert guild.premium_subscriber_role is None
     assert [channel.id for channel in guild.channels] == [
         CATEGORY,

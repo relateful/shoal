@@ -17,7 +17,7 @@ from shoal.payloads import (
     EditOnboardingParams,
     EditRoleParams,
     EditWelcomeScreenParams,
-    EditWidgetParams,
+    EditWidgetSettingsParams,
     GetPruneCountParams,
     ListBansParams,
     ListMembersParams,
@@ -489,7 +489,9 @@ CASES = [
     ),
     EndpointCase(
         name="modify widget",
-        call=lambda client: client.guilds.edit_widget(2, EditWidgetParams(enabled=False, channel_id=None)),
+        call=lambda client: client.guilds.edit_widget_settings(
+            2, EditWidgetSettingsParams(enabled=False, channel_id=None)
+        ),
         method="PATCH",
         path=f"{G}/widget",
         body={"enabled": False, "channel_id": None},

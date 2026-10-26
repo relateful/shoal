@@ -8,6 +8,7 @@ list, so an event cannot silently fall out. Events about things the cache does n
 invites, bans, Auto Moderation, entitlements, subscriptions, typing) pass through untouched.
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Hashable
 from typing import final
@@ -16,11 +17,13 @@ import msgspec
 from msgspec import UNSET
 
 from shoal.cache.collection import CacheCollection
+from shoal.cache.defaults import YIELD_EVERY
 from shoal.cache.entry import Source
 from shoal.cache.guild import CachedGuild
 from shoal.cache.store import CacheStore
 from shoal.core.codec import PayloadDecodeError, decode_msgpack, encode_msgpack
 from shoal.core.dispatch import DispatchEvent
+from shoal.core.metrics import EVENTS_DROPPED, Metrics, NoopMetrics
 from shoal.core.snowflake import Snowflake
 from shoal.payloads.channel import Channel, ThreadMember
 from shoal.payloads.emoji import Emoji
@@ -41,9 +44,11 @@ from shoal.payloads.gateway_events import (
     GuildSoundboardSoundDelete,
     GuildSoundboardSoundsUpdate,
     GuildStickersUpdate,
+    MessageCreate,
     MessageDelete,
     MessageDeleteBulk,
     MessagePollVoteAdd,
+    MessagePollVoteRemove,
     MessageReactionAdd,
     MessageReactionRemove,
     MessageReactionRemoveAll,
@@ -53,12 +58,13 @@ from shoal.payloads.gateway_events import (
     PresenceUpdate,
     Ready,
     SoundboardSounds,
+    StatusType,
     ThreadListSync,
     ThreadMembersUpdate,
     ThreadMemberUpdate,
 )
 from shoal.payloads.guild import Guild, GuildMember, GuildMemberFlags, UnavailableGuild
-from shoal.payloads.message import Message, Reaction, ReactionCountDetails
+from shoal.payloads.message import Reaction, ReactionCountDetails
 from shoal.payloads.poll import PollAnswerCount
 from shoal.payloads.scheduled_event import GuildScheduledEvent
 from shoal.payloads.soundboard import SoundboardSound
@@ -89,6 +95,19 @@ def _cached_guild(guild: Guild) -> CachedGuild:
     Re-encoding keeps every field `CachedGuild` shares with the source, whichever type it is.
     """
     trimmed = msgspec.structs.replace(guild, roles=[], emojis=[], stickers=[])
+    if isinstance(trimmed, GuildCreate):
+        # The startup lists are the bulk of a large guild's GUILD_CREATE; none of them is kept here.
+        trimmed = msgspec.structs.replace(
+            trimmed,
+            members=[],
+            channels=[],
+            threads=[],
+            voice_states=[],
+            presences=[],
+            stage_instances=[],
+            guild_scheduled_events=[],
+            soundboard_sounds=[],
+        )
     return decode_msgpack(encode_msgpack(trimmed), CachedGuild)
 
 
@@ -122,15 +141,29 @@ class CacheUpdater:
             with `guild_presences` in a guild of at most 75,000 members. Without `intents` the
             updater never assumes a complete list, so members and presences are never reconciled
             away.
+        metrics: Counts dispatches that could not be decoded and were not applied.
+        self_id: The bot's user ID, which marks its own reactions, poll votes and thread memberships.
+            `READY` sets it; pass it (or call `identify`) where no `READY` arrives: a process that
+            resumed, or a worker fed over IPC.
     """
 
-    __slots__ = ("_handlers", "_intents", "_self_id", "_store")
+    __slots__ = ("_handlers", "_intents", "_member_lists", "_metrics", "_self_id", "_store")
 
-    def __init__(self, store: CacheStore, *, intents: Intents | None = None) -> None:
+    def __init__(
+        self,
+        store: CacheStore,
+        *,
+        intents: Intents | None = None,
+        metrics: Metrics | None = None,
+        self_id: int | None = None,
+    ) -> None:
         """Bind the updater to a store; see the class docstring for the arguments."""
         self._store: CacheStore = store
         self._intents: Intents | None = intents
-        self._self_id: Snowflake | None = None
+        self._metrics: Metrics = metrics or NoopMetrics()
+        self._self_id: Snowflake | None = None if self_id is None else Snowflake(self_id)
+        self._member_lists: dict[str, int | None] = {}
+        """Nonces of requests for every member of a guild, and the revision before their first chunk."""
         self._handlers: dict[str, _Handler] = {
             "CHANNEL_CREATE": self._channel_upsert,
             "CHANNEL_DELETE": self._channel_delete,
@@ -157,7 +190,7 @@ class CacheUpdater:
             "GUILD_SOUNDBOARD_SOUND_UPDATE": self._soundboard_sound_upsert,
             "GUILD_STICKERS_UPDATE": self._guild_stickers_update,
             "GUILD_UPDATE": self._guild_update,
-            "MESSAGE_CREATE": self._message_upsert,
+            "MESSAGE_CREATE": self._message_create,
             "MESSAGE_DELETE": self._message_delete,
             "MESSAGE_DELETE_BULK": self._message_delete_bulk,
             "MESSAGE_POLL_VOTE_ADD": self._poll_vote_add,
@@ -166,7 +199,7 @@ class CacheUpdater:
             "MESSAGE_REACTION_REMOVE": self._message_reaction_remove,
             "MESSAGE_REACTION_REMOVE_ALL": self._message_reaction_remove_all,
             "MESSAGE_REACTION_REMOVE_EMOJI": self._message_reaction_remove_emoji,
-            "MESSAGE_UPDATE": self._message_upsert,
+            "MESSAGE_UPDATE": self._message_update,
             "PRESENCE_UPDATE": self._presence_update,
             "READY": self._ready,
             "RESUMED": self._resumed,
@@ -189,6 +222,22 @@ class CacheUpdater:
         """The dispatch names this updater applies."""
         return frozenset(self._handlers)
 
+    def expect_member_list(self, nonce: str) -> None:
+        """Expect the chunks answering `nonce` to list every member of their guild.
+
+        Once the last arrives, the guild's members that were not in them are dropped: they left while
+        nobody told the cache.
+        """
+        self._member_lists[nonce] = None
+
+    def forget_member_list(self, nonce: str) -> None:
+        """Stop expecting the chunks of `nonce` (the request failed or was abandoned)."""
+        self._member_lists.pop(nonce, None)
+
+    def identify(self, self_id: int) -> None:
+        """Set the bot's user ID, known from logging in before any `READY`."""
+        self._self_id = Snowflake(self_id)
+
     async def apply(self, event: DispatchEvent) -> None:
         """Apply one dispatch. Undecodable data is logged and skipped, never raised.
 
@@ -204,6 +253,7 @@ class CacheUpdater:
             await handler(event)
         except PayloadDecodeError:
             _log.exception("cache could not decode %s; the event was not applied", event.name)
+            self._metrics.increment(EVENTS_DROPPED, {"stage": "cache", "event": event.name})
 
     async def _put[K: Hashable, V](
         self,
@@ -224,9 +274,11 @@ class CacheUpdater:
             if thread.value.parent_id == channel.id and thread.value.type.is_thread:
                 await self._store.channels.delete(thread_id)
                 gone.add(thread_id)
-        for message_id, message in await self._store.messages.scoped(scope):
+        for index, (message_id, message) in enumerate(await self._store.messages.scoped(scope), start=1):
             if message.value.channel_id in gone:
                 await self._store.messages.delete(message_id)
+            if index % YIELD_EVERY == 0:
+                await asyncio.sleep(0)
 
     async def _channel_pins_update(self, event: DispatchEvent) -> None:
         pins = event.decode(ChannelPinsUpdate)
@@ -242,9 +294,12 @@ class CacheUpdater:
         scope = channel.guild_id if isinstance(channel.guild_id, Snowflake) else None
         metadata = channel.thread_metadata
         if not isinstance(metadata, msgspec.UnsetType) and metadata.archived:
-            # Only active threads are cached: nothing reports on archived ones, so they would
-            # otherwise pile up for the whole session.
+            # Only active threads are cached, with their messages: nothing reports on archived
+            # ones, so they would otherwise pile up for the whole session.
             await self._store.channels.delete(channel.id)
+            for message_id, message in await self._store.messages.scoped(scope):
+                if message.value.channel_id == channel.id:
+                    await self._store.messages.delete(message_id)
             return
         await self._put(event, self._store.channels, channel.id, channel, scope)
 
@@ -259,13 +314,17 @@ class CacheUpdater:
         self._store.mark_available(guild.id)
         await self._store_guild(event, guild, _cached_guild(guild))
         for channel in (*guild.channels, *guild.threads):
+            # Channels in GUILD_CREATE may leave out their `guild_id`; every other source sends it,
+            # and everything reading a cached channel relies on it.
+            if channel.guild_id is UNSET:
+                channel = msgspec.structs.replace(channel, guild_id=guild.id)  # noqa: PLW2901
             await self._put(event, self._store.channels, channel.id, channel, guild.id)
         for member in guild.members:
             await self._store_member(event, guild.id, member)
         for voice_state in guild.voice_states:
             await self._store_voice_state(event, guild.id, voice_state)
         for presence in guild.presences:
-            await self._put(event, self._store.presences, (guild.id, presence.user.id), presence, guild.id)
+            await self._store_presence(event, guild.id, presence)
         for stage in guild.stage_instances:
             await self._put(event, self._store.stage_instances, stage.id, stage, guild.id)
         for scheduled in guild.guild_scheduled_events:
@@ -345,12 +404,21 @@ class CacheUpdater:
 
     async def _guild_members_chunk(self, event: DispatchEvent) -> None:
         chunk = event.decode(GuildMembersChunk)
+        nonce = chunk.nonce if isinstance(chunk.nonce, str) else ""
+        full = nonce in self._member_lists
+        if full and chunk.chunk_index == 0:
+            self._member_lists[nonce] = self._store.revision
         for member in chunk.members:
             await self._store_member(event, chunk.guild_id, member)
         if chunk.presences is not UNSET:
             for presence in chunk.presences:
-                key = (chunk.guild_id, presence.user.id)
-                await self._put(event, self._store.presences, key, presence, chunk.guild_id)
+                await self._store_presence(event, chunk.guild_id, presence)
+        if full and chunk.chunk_index + 1 >= chunk.chunk_count:
+            since = self._member_lists.pop(nonce)
+            if since is not None:
+                removed = await self._store.reconcile_members(chunk.guild_id, since=since)
+                if removed:
+                    _log.debug("guild %s: dropped %d members not in its member list", chunk.guild_id, removed)
 
     async def _guild_role_delete(self, event: DispatchEvent) -> None:
         deleted = event.decode(GuildRoleDelete)
@@ -361,9 +429,12 @@ class CacheUpdater:
                 member, roles=[role for role in member.roles if role != deleted.role_id]
             )
 
-        for key, entry in await self._store.members.scoped(deleted.guild_id):
+        # Every member of the guild: for a large one, yield now and then rather than block the loop.
+        for index, (key, entry) in enumerate(await self._store.members.scoped(deleted.guild_id), start=1):
             if deleted.role_id in entry.value.roles:
                 await self._store.edit(self._store.members, key, without_role)
+            if index % YIELD_EVERY == 0:
+                await asyncio.sleep(0)
 
     async def _guild_role_upsert(self, event: DispatchEvent) -> None:
         upsert = event.decode(GuildRoleCreate)
@@ -477,24 +548,44 @@ class CacheUpdater:
 
         await self._edit_reactions(cleared.message_id, without_emoji)
 
-    async def _message_upsert(self, event: DispatchEvent) -> None:
+    async def _message_create(self, event: DispatchEvent) -> None:
+        message = event.decode(MessageCreate)
+        await self._store_message(event, message)
+
+        def latest(channel: Channel) -> Channel:
+            return msgspec.structs.replace(channel, last_message_id=message.id)
+
+        # Nothing else reports a channel's newest message: THREAD_UPDATE and CHANNEL_UPDATE are
+        # not sent for it.
+        await self._store.edit(self._store.channels, message.channel_id, latest)
+
+    async def _message_update(self, event: DispatchEvent) -> None:
         # MESSAGE_UPDATE carries the full message, like MESSAGE_CREATE, so it replaces the entry.
-        message = event.decode(MessageUpdate)
+        await self._store_message(event, event.decode(MessageUpdate))
+
+    async def _store_message(self, event: DispatchEvent, message: MessageCreate) -> None:
         scope = message.guild_id if isinstance(message.guild_id, Snowflake) else None
         await self._put(event, self._store.messages, message.id, message, scope)
+        if not isinstance(message.webhook_id, msgspec.UnsetType):
+            # A webhook's author is the webhook dressed as a user, not a user.
+            return
         await self._put(event, self._store.users, message.author.id, message.author, None)
+        if scope is not None and not isinstance(message.member, msgspec.UnsetType):
+            # The author's membership, sent without its user.
+            await self._store_member(
+                event, scope, msgspec.structs.replace(message.member, user=message.author)
+            )
 
     async def _poll_vote_add(self, event: DispatchEvent) -> None:
         await self._count_vote(event.decode(MessagePollVoteAdd), 1)
 
     async def _poll_vote_remove(self, event: DispatchEvent) -> None:
-        # MESSAGE_POLL_VOTE_REMOVE has the same fields as the add event.
-        await self._count_vote(event.decode(MessagePollVoteAdd), -1)
+        await self._count_vote(event.decode(MessagePollVoteRemove), -1)
 
-    async def _count_vote(self, vote: MessagePollVoteAdd, change: int) -> None:
+    async def _count_vote(self, vote: MessagePollVoteAdd | MessagePollVoteRemove, change: int) -> None:
         mine = vote.user_id == self._self_id
 
-        def recount(message: Message) -> Message:
+        def recount(message: MessageCreate) -> MessageCreate:
             poll = message.poll
             if isinstance(poll, msgspec.UnsetType) or isinstance(poll.results, msgspec.UnsetType):
                 # Without results the counts are unknown, and one vote does not make them known.
@@ -521,8 +612,16 @@ class CacheUpdater:
             activities=update.activities,
             client_status=update.client_status,
         )
-        key = (update.guild_id, update.user.id)
-        await self._put(event, self._store.presences, key, presence, update.guild_id)
+        await self._store_presence(event, update.guild_id, presence)
+
+    async def _store_presence(self, event: DispatchEvent, guild_id: Snowflake, presence: Presence) -> None:
+        # Only non-offline presences are kept, as GUILD_CREATE lists them: an absent one reads as
+        # offline, and everyone who ever went offline would otherwise stay cached all session.
+        key = (guild_id, presence.user.id)
+        if presence.status == StatusType.OFFLINE:
+            await self._store.presences.delete(key)
+        else:
+            await self._put(event, self._store.presences, key, presence, guild_id)
 
     async def _ready(self, event: DispatchEvent) -> None:
         ready = event.decode(Ready)
@@ -598,7 +697,12 @@ class CacheUpdater:
             parent = channel.parent_id if isinstance(channel.parent_id, Snowflake) else None
             if parents is None or parent in parents:
                 await self._store.channels.delete(key)
+        mine = {member.id: _membership(member) for member in sync.members if member.user_id == self._self_id}
         for thread in sync.threads:
+            # The bot's memberships of the synced threads arrive alongside them.
+            membership = mine.get(thread.id)
+            if membership is not None:
+                thread = msgspec.structs.replace(thread, member=membership)  # noqa: PLW2901
             await self._put(event, self._store.channels, thread.id, thread, sync.guild_id)
 
     async def _thread_members_update(self, event: DispatchEvent) -> None:
@@ -624,8 +728,7 @@ class CacheUpdater:
             if not isinstance(member.member, msgspec.UnsetType):
                 await self._store_member(event, update.guild_id, member.member)
             if member.presence is not None and not isinstance(member.presence, msgspec.UnsetType):
-                key = (update.guild_id, member.presence.user.id)
-                await self._put(event, self._store.presences, key, member.presence, update.guild_id)
+                await self._store_presence(event, update.guild_id, member.presence)
 
     async def _thread_member_update(self, event: DispatchEvent) -> None:
         # The bot's own membership of a thread changed.
@@ -658,7 +761,7 @@ class CacheUpdater:
     async def _edit_reactions(
         self, message_id: Snowflake, change: Callable[[list[Reaction]], list[Reaction]]
     ) -> None:
-        def update(message: Message) -> Message:
+        def update(message: MessageCreate) -> MessageCreate:
             current = list(message.reactions) if message.reactions is not UNSET else []
             return msgspec.structs.replace(message, reactions=change(current))
 

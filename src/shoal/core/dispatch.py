@@ -5,7 +5,8 @@ processes. Keeping the type in `shoal.core` lets those layers share it without d
 """
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import cast
 
 import msgspec
 
@@ -26,14 +27,23 @@ class DispatchEvent:
     name: str
     sequence: int | None
     data: msgspec.Raw
+    _decoded: dict[type[object], object] = field(
+        default_factory=dict[type[object], object], init=False, compare=False, repr=False
+    )
+    """Each type the data was decoded into: the cache and the client decode the same event, and only
+    the first pays. Decoded payloads are never changed in place, so sharing one is safe."""
 
     def decode[T](self, target: type[T]) -> T:
-        """Decode the event data into `target`.
+        """Decode the event data into `target`, once per target.
 
         Raises:
             PayloadDecodeError: The data does not match `target`.
         """
-        return decode_json(self.data, target)
+        found = self._decoded.get(target)
+        if found is None:
+            found = decode_json(self.data, target)
+            self._decoded[target] = found
+        return cast("T", found)  # stored under `target` just above, by this method only
 
 
 type DispatchHandler = Callable[[DispatchEvent], Awaitable[None]]

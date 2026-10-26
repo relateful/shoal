@@ -22,6 +22,7 @@ localhost unless told otherwise.
 | Metric | Type | Labels |
 | --- | --- | --- |
 | `shoal_cache_lookups_total` | counter | `kind`, `result` (`hit`, `stale`, `miss`) |
+| `shoal_events_dropped_total` | counter | `stage` (`gateway`, `cache`), `event` |
 | `shoal_gateway_event_delay_seconds` | histogram | `shard`, `event` |
 | `shoal_gateway_events_total` | counter | `shard`, `event` |
 | `shoal_gateway_latency_seconds` | gauge | `shard` |
@@ -29,6 +30,7 @@ localhost unless told otherwise.
 | `shoal_gateway_shard_ready` | gauge | `shard` |
 | `shoal_http_interaction_seconds` | histogram | `type` |
 | `shoal_http_interactions_total` | counter | `type`, `result` (`inline`, `callback`, `invalid_signature`, `malformed`, `handler_error`, `timeout`) |
+| `shoal_http_webhook_events_total` | counter | `event`, `result` (`accepted`, `invalid_signature`, `malformed`, `handler_error`) |
 | `shoal_ipc_disconnects_total` | counter | `reason` |
 | `shoal_ipc_events_sent_total` | counter | |
 | `shoal_ipc_subscribers` | gauge | |

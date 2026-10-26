@@ -8,11 +8,9 @@ Discord: https://docs.discord.com/developers/resources/user#user-object
 
 from typing import TYPE_CHECKING, Self, override
 
-from msgspec import UNSET, UnsetType
-
 from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
-from shoal.models.base import Hashable
+from shoal.models.base import MISSING, Hashable, MissingType, given
 from shoal.models.messageable import Messageable
 from shoal.models.state import State
 from shoal.payloads.api import image_data
@@ -196,11 +194,13 @@ class ClientUser(User):
     async def edit(
         self,
         *,
-        username: str | UnsetType = UNSET,
-        avatar: bytes | UnsetType | None = UNSET,
-        banner: bytes | UnsetType | None = UNSET,
+        username: str | MissingType = MISSING,
+        avatar: bytes | MissingType | None = MISSING,
+        banner: bytes | MissingType | None = MISSING,
     ) -> "ClientUser":
-        """Change the bot's username, avatar or banner (`None` removes the image).
+        """Change the bot's username, avatar or banner (`None` removes the image); returns itself.
+
+        `client.user` is this object, so it shows the change at once.
 
         Raises:
             ValueError: An image is not a PNG, JPEG or GIF.
@@ -208,11 +208,16 @@ class ClientUser(User):
         Discord: https://docs.discord.com/developers/resources/user#modify-current-user
         """
         params = EditCurrentUserParams(
-            username=username,
-            avatar=avatar if not isinstance(avatar, bytes) else image_data(avatar),
-            banner=banner if not isinstance(banner, bytes) else image_data(banner),
+            username=given(username),
+            avatar=given(avatar) if not isinstance(avatar, bytes) else image_data(avatar),
+            banner=given(banner) if not isinstance(banner, bytes) else image_data(banner),
         )
-        return ClientUser(self._state, await self._state.rest.users.edit_me(params))
+        self.refresh(await self._state.rest.users.edit_me(params))
+        return self
+
+    def refresh(self, data: UserPayload) -> None:
+        """Show `data`, a newer copy of the bot's user (from `USER_UPDATE` or an edit)."""
+        self._data = data
 
     @override
     def __repr__(self) -> str:

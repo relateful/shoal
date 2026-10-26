@@ -14,7 +14,6 @@ Discord: https://docs.discord.com/developers/interactions/application-commands
 
 from shoal.app_commands import checks
 from shoal.app_commands.commands import (
-    NO_DESCRIPTION,
     AppCommand,
     Check,
     Command,
@@ -52,7 +51,13 @@ from shoal.app_commands.errors import (
     TransformerError,
 )
 from shoal.app_commands.models import AnyChoice, Choice, Namespace, Range, RangeSpec
-from shoal.app_commands.parameters import REQUIRED, AutocompleteCallback, OptionValue, Parameter
+from shoal.app_commands.parameters import (
+    NO_DESCRIPTION,
+    REQUIRED,
+    AutocompleteCallback,
+    OptionValue,
+    Parameter,
+)
 from shoal.app_commands.tree import CommandTree
 
 __all__ = [

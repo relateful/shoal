@@ -25,6 +25,7 @@ from shoal.core.tasks import cancel_and_wait
 from shoal.ipc.defaults import (
     CLIENT_CONNECT_TIMEOUT,
     CLIENT_RECONNECT_BACKOFF_CAP,
+    CLIENT_STABLE_CONNECTION,
     HANDSHAKE_TIMEOUT,
     MAX_FRAME_SIZE,
 )
@@ -165,16 +166,21 @@ class EventClient:
                 break
             reader, writer = connection
             self._writer = writer
+            subscribed_at: float | None = None
             try:
                 await self._handshake(reader, writer)
-                failures = 0
+                subscribed_at = self._clock.monotonic()
                 async with contextlib.aclosing(self._receive(reader)) as received:
                     async for event in received:
                         yield event
             except (OSError, asyncio.IncompleteReadError, PayloadDecodeError) as error:
                 if self._stopping():
                     break
-                failures += 1
+                stable = (
+                    subscribed_at is not None
+                    and self._clock.monotonic() - subscribed_at >= CLIENT_STABLE_CONNECTION
+                )
+                failures = 1 if stable else failures + 1
                 delay = backoff_delay(
                     failures, cap=CLIENT_RECONNECT_BACKOFF_CAP, random_source=self._random_source
                 )

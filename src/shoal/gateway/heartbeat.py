@@ -16,7 +16,7 @@ class HeartbeatMonitor:
     Discord: https://docs.discord.com/developers/events/gateway#heartbeat-interval
     """
 
-    __slots__ = ("_acked", "_interval", "_last_ack", "_last_sent", "_latency")
+    __slots__ = ("_acked", "_interval", "_last_sent", "_latency")
 
     def __init__(self, interval_ms: int) -> None:
         """Create a monitor from Hello's `heartbeat_interval` (milliseconds)."""
@@ -25,7 +25,6 @@ class HeartbeatMonitor:
             raise ValueError(msg)
         self._interval: float = interval_ms / 1000
         self._last_sent: float | None = None
-        self._last_ack: float | None = None
         self._latency: float | None = None
         self._acked: bool = True
 
@@ -67,4 +66,3 @@ class HeartbeatMonitor:
         if not self._acked and self._last_sent is not None:
             self._latency = now - self._last_sent
         self._acked = True
-        self._last_ack = now

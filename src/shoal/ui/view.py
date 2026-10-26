@@ -20,15 +20,15 @@ choosing) keeps working after a restart once added again with `client.add_view(v
 Discord: https://docs.discord.com/developers/components/reference#action-row
 """
 
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Collection, Sequence
-from typing import ClassVar, Self, cast, override
+from typing import ClassVar, Final, Self, cast, override
 
 from msgspec import UnsetType
 
 from shoal.client.interaction import Interaction
 from shoal.client.views import DispatchableView
+from shoal.core.clock import Clock, SystemClock
 from shoal.core.tasks import spawn
 from shoal.payloads.components import (
     ACTION_ROW_MAX_BUTTONS,
@@ -41,10 +41,11 @@ from shoal.payloads.components import (
 from shoal.payloads.interactions import ComponentInteraction, ResolvedData
 from shoal.ui.defaults import VIEW_TIMEOUT
 from shoal.ui.item import ITEM_FACTORY, Item
+from shoal.ui.lifetime import Lifetime
 
 _log = logging.getLogger("shoal.ui")
 
-MAX_ITEMS = ACTION_ROW_MAX_BUTTONS * LEGACY_MESSAGE_MAX_ACTION_ROWS
+MAX_ITEMS: Final = ACTION_ROW_MAX_BUTTONS * LEGACY_MESSAGE_MAX_ACTION_ROWS
 """The most items a view can hold: five rows of five buttons."""
 
 type _Factory = Callable[[], Item]
@@ -57,32 +58,35 @@ class View(DispatchableView):
     Discord: https://docs.discord.com/developers/components/reference#action-row
     """
 
-    # Subclasses usually add their own attributes; the protocol base already gives instances a __dict__.
-    __slots__ = ("_children", "_finished", "_timed_out", "_timeout", "_timer", "_waiter")
+    # Subclasses that add attributes of their own get a __dict__ by not declaring slots.
+    __slots__ = ("_children", "_lifetime")
 
     __view_items__: ClassVar[list[_Decorated]] = []
 
     @override
     def __init_subclass__(cls) -> None:
-        """Collect the methods decorated with `@ui.button` and `@ui.select`, base classes first."""
+        """Collect the methods decorated with `@ui.button` and `@ui.select`, base classes first.
+
+        A subclass that redefines one without the decorator removes its item.
+        """
         super().__init_subclass__()
         found: dict[str, _Decorated] = {}
         for base in reversed(cls.__mro__):
-            found.update(
-                (name, cast("_Decorated", member))
-                for name, member in vars(base).items()
-                if callable(member) and hasattr(member, ITEM_FACTORY)
-            )
+            for name, member in vars(base).items():
+                if callable(member) and hasattr(member, ITEM_FACTORY):
+                    found[name] = cast("_Decorated", member)  # only the item decorators set ITEM_FACTORY
+                elif name in found:
+                    del found[name]
         cls.__view_items__ = list(found.values())
 
-    def __init__(self, *, timeout: float | None = VIEW_TIMEOUT) -> None:
+    def __init__(self, *, timeout: float | None = VIEW_TIMEOUT, clock: Clock | None = None) -> None:
         """A view that stops after `timeout` seconds without an interaction (`None`: never)."""
-        self._timeout: float | None = timeout
         self._children: list[Item] = []
-        self._finished: bool = False
-        self._timed_out: bool = False
-        self._timer: asyncio.TimerHandle | None = None
-        self._waiter: asyncio.Future[bool] | None = None
+        self._lifetime: Lifetime = Lifetime(
+            timeout,
+            clock=clock or SystemClock(),
+            on_timeout=lambda: spawn(self._run_timeout(), name="shoal-view-timeout"),
+        )
         for method in type(self).__view_items__:
             factory: _Factory = getattr(method, ITEM_FACTORY)
             item = factory()
@@ -129,7 +133,15 @@ class View(DispatchableView):
         Raises:
             TypeError: An item belongs in a modal (a text input), not in a message.
         """
-        self._start_timer()
+        seen: set[str] = set()
+        for item in self._children:
+            item.validate()
+            if item.is_dispatchable():
+                if item.custom_id in seen:
+                    msg = f"{item!r}: another item of the view has custom_id {item.custom_id!r}"
+                    raise ValueError(msg)
+                seen.add(item.custom_id)
+        self._lifetime.restart()
         rows: list[MessageComponent] = []
         for row in _arrange(self._children):
             children: list[ActionRowChild] = []
@@ -145,13 +157,11 @@ class View(DispatchableView):
     @property
     def timeout(self) -> float | None:
         """Seconds without an interaction before the view stops; `None` never stops."""
-        return self._timeout
+        return self._lifetime.timeout
 
     @timeout.setter
     def timeout(self, value: float | None) -> None:
-        self._timeout = value
-        if self._timer is not None:
-            self._start_timer()
+        self._lifetime.timeout = value
 
     @override
     def is_dispatchable(self) -> bool:
@@ -163,50 +173,24 @@ class View(DispatchableView):
 
     @override
     def is_persistent(self) -> bool:
-        return self._timeout is None and all(item.is_persistent() for item in self._children)
+        return self.timeout is None and all(item.is_persistent() for item in self._children)
 
     @override
     def is_finished(self) -> bool:
-        return self._finished
+        return self._lifetime.finished
 
     def stop(self) -> None:
-        """Stop the view: it no longer receives interactions, and `wait()` returns."""
-        if self._finished:
-            return
-        self._finished = True
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
-        if self._waiter is not None and not self._waiter.done():
-            self._waiter.set_result(self._timed_out)
+        """Stop receiving interactions; does nothing the second time."""
+        self._lifetime.stop()
+
+    @override
+    def when_finished(self, callback: Callable[[], object], /) -> None:
+        """Run `callback` once when it stops; now if it already has."""
+        self._lifetime.when_finished(callback)
 
     async def wait(self) -> bool:
-        """Wait until the view stops; returns whether it timed out."""
-        if self._finished:
-            return self._timed_out
-        if self._waiter is None:
-            self._waiter = asyncio.get_running_loop().create_future()
-        return await self._waiter
-
-    def _start_timer(self) -> None:
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
-        if self._timeout is None or self._finished:
-            return
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return  # Rendered outside a loop (a test, a script); the timer starts on the first use.
-        self._timer = loop.call_later(self._timeout, self._expire)
-
-    def _expire(self) -> None:
-        self._timer = None
-        if self._finished:
-            return
-        self._timed_out = True
-        self.stop()
-        _ = spawn(self._run_timeout(), name="shoal-view-timeout")
+        """Wait until it stops; returns whether it timed out."""
+        return await self._lifetime.wait()
 
     async def _run_timeout(self) -> None:
         try:
@@ -231,30 +215,32 @@ class View(DispatchableView):
         _log.error("view %r: the callback of %r raised", self, item, exc_info=error)
 
     @override
-    async def dispatch(self, interaction: Interaction, custom_id: str) -> None:
-        """Route an interaction to the item with `custom_id`, in its own task."""
+    async def dispatch(self, interaction: Interaction, custom_id: str) -> bool:
+        """Route an interaction to the item with `custom_id`, in its own task; whether it has one."""
         item = next((child for child in self._children if child.custom_id == custom_id), None)
-        if item is None or self._finished:
-            return
-        data = interaction.payload
-        if isinstance(data, ComponentInteraction):
-            values = data.data.values if not isinstance(data.data.values, UnsetType) else []
-            resolved = data.data.resolved if isinstance(data.data.resolved, ResolvedData) else None
-            item.refresh(interaction, values, resolved)
-        self._start_timer()
+        if item is None or self._lifetime.finished:
+            return False
         _ = spawn(self._run(interaction, item), name=f"shoal-view-{custom_id}")
+        return True
 
     async def _run(self, interaction: Interaction, item: Item) -> None:
         try:
+            # Checked first: an interaction the view refuses changes nothing, not even its timeout.
             if not await self.interaction_check(interaction):
                 return
+            data = interaction.payload
+            if isinstance(data, ComponentInteraction):
+                values = data.data.values if not isinstance(data.data.values, UnsetType) else []
+                resolved = data.data.resolved if isinstance(data.data.resolved, ResolvedData) else None
+                item.refresh(interaction, values, resolved)
+            self._lifetime.restart()
             await item.invoke(interaction)
         except Exception as error:  # noqa: BLE001 - handed to on_error
             await self.on_error(interaction, error, item)
 
     @override
     def __repr__(self) -> str:
-        return f"<{type(self).__name__} items={len(self._children)} timeout={self._timeout}>"
+        return f"<{type(self).__name__} items={len(self._children)} timeout={self.timeout}>"
 
 
 def _bind(method: _Decorated, view: View, item: Item) -> Callable[[Interaction], Awaitable[None]]:

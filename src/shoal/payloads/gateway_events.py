@@ -248,6 +248,8 @@ class Identify(Payload):
     Discord: https://docs.discord.com/developers/events/gateway-events#identify
     """
 
+    REDACTED_FIELDS = frozenset({"token"})
+
     token: str
     properties: IdentifyConnectionProperties
     compress: bool | UnsetType = UNSET
@@ -269,6 +271,8 @@ class Resume(Payload):
     Discord: https://docs.discord.com/developers/events/gateway-events#resume
     """
 
+    REDACTED_FIELDS = frozenset({"token"})
+
     token: str
     session_id: str
     seq: int
@@ -277,6 +281,13 @@ class Resume(Payload):
     def __repr__(self) -> str:
         """Everything but the token, which must never reach a log or an error tracker."""
         return f"Resume(session_id={self.session_id!r}, seq={self.seq}, token=<redacted>)"
+
+
+MEMBER_QUERY_MAX_RESULTS: Final = 100
+"""Members a Request Guild Members by `query` or `user_ids` returns at most.
+
+Discord: https://docs.discord.com/developers/events/gateway-events#request-guild-members
+"""
 
 
 class RequestGuildMembers(Payload):

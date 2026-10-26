@@ -12,7 +12,7 @@ from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
-from shoal.models.base import MISSING, Hashable, MissingType
+from shoal.models.base import MISSING, Hashable, MissingType, given
 from shoal.models.state import State
 from shoal.payloads.api import image_data
 from shoal.payloads.guild import EditRoleParams, RolePositionParams
@@ -199,13 +199,13 @@ class Role(Hashable):
             await rest.roles.edit_positions(self._guild_id, positions, reason=reason)
         chosen_colour = colour if not isinstance(colour, MissingType) else color
         params = EditRoleParams(
-            name=UNSET if isinstance(name, MissingType) else name,
-            permissions=UNSET if isinstance(permissions, MissingType) else permissions,
-            color=UNSET if isinstance(chosen_colour, MissingType) else chosen_colour,
-            hoist=UNSET if isinstance(hoist, MissingType) else hoist,
+            name=given(name),
+            permissions=given(permissions),
+            color=given(chosen_colour),
+            hoist=given(hoist),
             icon=UNSET if isinstance(icon, MissingType) else None if icon is None else image_data(icon),
-            unicode_emoji=UNSET if isinstance(unicode_emoji, MissingType) else unicode_emoji,
-            mentionable=UNSET if isinstance(mentionable, MissingType) else mentionable,
+            unicode_emoji=given(unicode_emoji),
+            mentionable=given(mentionable),
         )
         data = await rest.roles.edit(self._guild_id, self.id, params, reason=reason)
         return Role(self._state, data, self._guild_id)

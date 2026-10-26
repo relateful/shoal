@@ -103,6 +103,29 @@ async def test_a_changed_image_replaces_its_emoji(tmp_path: Path) -> None:
     assert manifest(tmp_path)["approve"].id == 202
 
 
+async def test_a_replacement_tried_again_does_not_delete_the_old_emoji_twice(tmp_path: Path) -> None:
+    image(tmp_path, "approve")
+    first = FakeTransport()
+    first.queue(200, listing())
+    first.queue(200, remote(101, "approve"))
+    await run(make_client(first), tmp_path)
+    image(tmp_path, "approve", b"two")
+    second = FakeTransport()
+    second.queue(200, listing(remote(101, "approve")))
+    second.queue(204)
+    second.queue(502, {"message": "Bad Gateway", "code": 0})
+    second.queue(200, remote(202, "approve"))
+    report = await run(make_client(second), tmp_path)
+    assert report.replaced == ["approve"]
+    assert report.failed == {}
+    assert requests(second)[1:] == [
+        f"DELETE /applications/{APP}/emojis/101",
+        f"POST /applications/{APP}/emojis",
+        f"POST /applications/{APP}/emojis",
+    ]
+    assert manifest(tmp_path)["approve"].id == 202
+
+
 async def test_emojis_the_manifest_does_not_know_are_adopted(tmp_path: Path) -> None:
     image(tmp_path, "approve")
     transport = FakeTransport()

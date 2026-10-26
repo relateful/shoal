@@ -24,6 +24,8 @@ from shoal.core.snowflake import Snowflake
 class CacheCollection[K: Hashable, V](Protocol):
     """Keyed storage of cache entries for one entity kind."""
 
+    __slots__ = ()
+
     async def get(self, key: K) -> Entry[V] | None:
         """Return the entry for `key`, or `None` if absent or expired."""
         ...

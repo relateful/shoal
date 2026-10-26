@@ -1,16 +1,15 @@
-from shoal.core.codec import decode_json, encode_json
 from shoal.models.message import Message
 from shoal.models.user import ClientUser, User
 from shoal.payloads import Message as MessagePayload
 from shoal.payloads import User as UserPayload
-from tests.support.models import ALICE, BOB, BOT, World, message, user
+from tests.support.models import ALICE, BOB, BOT, World, decoded, message, user
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
 DM = {"id": "60", "type": 1, "recipients": [user(ALICE, "alice")]}
 
 
 def payload(data: object) -> UserPayload:
-    return decode_json(encode_json(data), UserPayload)
+    return decoded(data, UserPayload)
 
 
 async def test_names_follow_discords_display_rules() -> None:
@@ -53,13 +52,9 @@ async def test_profile_extras_are_none_until_discord_sends_them() -> None:
 async def test_mentioned_in_checks_mentions_and_everyone() -> None:
     world = World()
     alice = User(world.state, payload(user(ALICE, "alice")))
-    mentioning = Message(
-        world.state, decode_json(encode_json(message(1, mentions=[user(ALICE, "alice")])), MessagePayload)
-    )
-    everyone = Message(
-        world.state, decode_json(encode_json(message(2, mention_everyone=True)), MessagePayload)
-    )
-    neither = Message(world.state, decode_json(encode_json(message(3)), MessagePayload))
+    mentioning = Message(world.state, decoded(message(1, mentions=[user(ALICE, "alice")]), MessagePayload))
+    everyone = Message(world.state, decoded(message(2, mention_everyone=True), MessagePayload))
+    neither = Message(world.state, decoded(message(3), MessagePayload))
     assert alice.mentioned_in(mentioning)
     assert alice.mentioned_in(everyone)
     assert not alice.mentioned_in(neither)
@@ -99,5 +94,6 @@ async def test_the_bot_can_edit_itself() -> None:
     assert body["username"] == "renamed"
     assert body["banner"] is None
     assert str(body["avatar"]).startswith("data:image/png;base64,")
-    assert edited.name == "renamed"
+    assert edited is me
+    assert me.name == "renamed"
     assert repr(edited) == f"<ClientUser id={BOT} name='renamed'>"

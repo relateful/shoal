@@ -22,6 +22,7 @@ from shoal.app_commands.errors import TransformerError
 from shoal.app_commands.models import AnyChoice, Choice, RangeSpec
 from shoal.client.interaction import Interaction
 from shoal.core.snowflake import Snowflake
+from shoal.models.base import unset_if_none
 from shoal.models.channel import (
     CategoryChannel,
     ForumChannel,
@@ -31,7 +32,7 @@ from shoal.models.channel import (
     TextChannel,
     VoiceChannel,
     channel_from_payload,
-    resolve_guild_channel,
+    resolve_cached_channel,
 )
 from shoal.models.member import Member
 from shoal.models.role import Role
@@ -68,6 +69,10 @@ _PEOPLE: Final[frozenset[type]] = frozenset({Member, User, Role})
 """The classes a user, role or mentionable option converts to."""
 
 
+NO_DESCRIPTION: Final = "…"
+"""The description of a command or option that has none."""
+
+
 class _Required:
     __slots__ = ()
 
@@ -92,7 +97,7 @@ class Parameter:
     type: ApplicationCommandOptionType
     display_name: str = ""
     """The option's name in Discord (`@rename`); the parameter name when not renamed."""
-    description: str = "No description given"
+    description: str = NO_DESCRIPTION
     default: object = REQUIRED
     choices: list[AnyChoice] = field(default_factory=list[AnyChoice])
     channel_types: list[ChannelType] = field(default_factory=list[ChannelType])
@@ -130,8 +135,8 @@ class Parameter:
             channel_types=self.channel_types or UNSET,
             min_value=self.min_value if self.min_value is not None and not string else UNSET,
             max_value=self.max_value if self.max_value is not None and not string else UNSET,
-            min_length=self.min_length if self.min_length is not None else UNSET,
-            max_length=self.max_length if self.max_length is not None else UNSET,
+            min_length=unset_if_none(self.min_length),
+            max_length=unset_if_none(self.max_length),
             autocomplete=True if self.autocomplete is not None else UNSET,
         )
 
@@ -204,7 +209,7 @@ class Parameter:
 
     def _channel(self, interaction: Interaction, value: OptionValue, resolved: ResolvedData | None) -> object:
         channel_id = Snowflake(str(value))
-        channel = resolve_guild_channel(interaction.state, channel_id)
+        channel = resolve_cached_channel(interaction.state, channel_id)
         if channel is None:
             channels = resolved.channels if resolved is not None else UNSET
             partial = None if isinstance(channels, UnsetType) else channels.get(channel_id)
@@ -324,6 +329,7 @@ def _choice(name: str, label: str, value: object) -> AnyChoice:
     if isinstance(value, bool) or not isinstance(value, str | int | float):
         msg = f"parameter {name!r}: {value!r} cannot be a choice; use str, int or float values"
         raise TypeError(msg)
+    # One branch per type, so each makes a `Choice[str]`, `Choice[int]` or `Choice[float]`.
     if isinstance(value, str):
         return Choice(name=label, value=value)
     if isinstance(value, int):

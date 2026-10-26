@@ -1,17 +1,31 @@
 import asyncio
 from datetime import UTC, datetime
 
-from shoal.core.codec import decode_json, encode_json
 from shoal.core.snowflake import Snowflake
 from shoal.models.base import Object
 from shoal.models.channel import PartialMessageable, TextChannel
 from shoal.models.embed import Embed
 from shoal.models.member import Member
 from shoal.models.message import Message, PartialMessage
+from shoal.models.sending import edit
 from shoal.models.user import User
+from shoal.payloads import AttachmentRequest, MessageCreate, MessageFlags, MessageType
 from shoal.payloads import Message as MessagePayload
-from shoal.payloads import MessageCreate, MessageFlags, MessageType
-from tests.support.models import ALICE, BOB, BOT, GENERAL, GUILD, MODS, ROW_VIEW, THREAD, World, message, user
+from shoal.rest.files import File
+from tests.support.models import (
+    ALICE,
+    BOB,
+    BOT,
+    GENERAL,
+    GUILD,
+    MODS,
+    ROW_VIEW,
+    THREAD,
+    World,
+    decoded,
+    message,
+    user,
+)
 
 REACTION: dict[str, object] = {
     "count": 1,
@@ -24,11 +38,11 @@ REACTION: dict[str, object] = {
 
 
 def from_gateway(data: object) -> MessageCreate:
-    return decode_json(encode_json(data), MessageCreate)
+    return decoded(data, MessageCreate)
 
 
 def from_rest(data: object) -> MessagePayload:
-    return decode_json(encode_json(data), MessagePayload)
+    return decoded(data, MessagePayload)
 
 
 async def test_a_gateway_message_knows_its_guild_and_author_as_a_member() -> None:
@@ -156,6 +170,32 @@ async def test_edit_keeps_the_flags_it_must_repeat() -> None:
     assert body["flags"] == int(flags.with_flags(suppress_embeds=True))
     assert edited.content == "edited"
     assert world.views.stored == [(ROW_VIEW, 5)]
+
+
+async def test_edit_attachments_are_the_ones_to_keep() -> None:
+    world = await World.started()
+    kept: dict[str, object] = {
+        "id": "70",
+        "filename": "a.png",
+        "size": 1,
+        "url": "https://cdn.example/a.png",
+        "proxy_url": "https://media.example/a.png",
+    }
+    found = Message(
+        world.state, from_rest(message(5, attachments=[kept, kept | {"id": "71"}])), guild_id=GUILD
+    )
+    world.transport.queue(200, message(5))
+    await found.edit(attachments=found.attachments[:1])
+    assert world.last_body()["attachments"] == [{"id": "70"}]
+    world.transport.queue(200, message(5))
+    await found.edit(attachments=[])
+    assert world.last_body()["attachments"] == []
+    world.transport.queue(200, message(5))
+    await found.edit(content="left alone")
+    assert "attachments" not in world.last_body()
+    changes = edit(attachments=[found.attachments[0], File("b.txt", b"b")])
+    assert changes.attachments == [AttachmentRequest(id=found.attachments[0].id)]
+    assert [file.filename for file in changes.files] == ["b.txt"]
 
 
 async def test_delete_now_or_later() -> None:

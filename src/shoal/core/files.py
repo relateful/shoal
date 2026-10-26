@@ -16,6 +16,9 @@ _PRIVATE_DIRECTORY_MODE: Final = 0o700
 def write_private(path: Path, data: bytes) -> None:
     """Replace `path` with `data` atomically, creating it (and its directory) owner-only.
 
+    Owner-only applies on POSIX systems. Windows ignores the mode: the file takes the directory's
+    access rules, so keep it in a directory only the bot's user can read.
+
     Blocks; call it through `asyncio.to_thread`.
     """
     path.parent.mkdir(mode=_PRIVATE_DIRECTORY_MODE, parents=True, exist_ok=True)
@@ -40,7 +43,10 @@ def write_private(path: Path, data: bytes) -> None:
 
 
 def _sync_directory(directory: Path) -> None:
-    """Make the rename itself durable on POSIX. Windows refuses to open a directory, and does not need to."""
+    """Make the rename itself durable on POSIX. Windows refuses to open a directory, and does not need to.
+
+    Blocks; call it through `asyncio.to_thread`.
+    """
     try:
         descriptor = os.open(directory, os.O_RDONLY)
     except PermissionError:

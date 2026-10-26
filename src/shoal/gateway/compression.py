@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 class Decompressor(Protocol):
     """Turns websocket binary frames back into complete gateway messages."""
 
+    __slots__ = ()
+
     def feed(self, data: bytes) -> bytes | None:
         """Add one frame; return the decompressed message once complete, else `None`."""
         ...
@@ -51,6 +53,8 @@ class ZlibStreamDecompressor(Decompressor):
 
 
 class _ZstdStream(Protocol):
+    __slots__ = ()
+
     def decompress(self, data: bytes) -> bytes: ...
 
 
@@ -100,7 +104,8 @@ class ZstdStreamDecompressor(Decompressor):
 
     @override
     def feed(self, data: bytes) -> bytes | None:
-        return self._stream.decompress(data)
+        # A frame that completes no output yields b"", which is not a message.
+        return self._stream.decompress(data) or None
 
 
 def create_decompressor(compression: TransportCompression | None) -> Decompressor | None:

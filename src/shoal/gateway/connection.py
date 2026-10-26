@@ -33,6 +33,8 @@ class WebSocketMessage:
 class GatewayConnection(Protocol):
     """An open websocket to the gateway."""
 
+    __slots__ = ()
+
     async def receive(self) -> WebSocketMessage:
         """Wait for the next frame. Returns a `CLOSED` message once the socket is gone."""
         ...
@@ -48,6 +50,8 @@ class GatewayConnection(Protocol):
 
 class GatewayConnector(Protocol):
     """Opens gateway connections."""
+
+    __slots__ = ()
 
     async def connect(self, url: str) -> GatewayConnection:
         """Open a websocket to `url`. Raises `OSError` when the connection cannot be made."""

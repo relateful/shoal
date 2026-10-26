@@ -8,13 +8,12 @@ Discord: https://docs.discord.com/developers/resources/channel#channel-object
 """
 
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, NamedTuple, Self, override
 
 from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
-from shoal.models.base import MISSING, Hashable, MissingType
+from shoal.models.base import MISSING, Hashable, MissingType, given, unset_if_none
 from shoal.models.messageable import Before, Messageable
 from shoal.models.permissions import channel_permissions, guild_permissions
 from shoal.models.sending import EmbedLike, outgoing
@@ -114,7 +113,7 @@ class GuildChannel(Hashable):
     @property
     def category(self) -> "CategoryChannel | None":
         """The category it is in, when cached."""
-        category = resolve_guild_channel(self._state, self.category_id) if self.category_id else None
+        category = resolve_cached_channel(self._state, self.category_id) if self.category_id else None
         return category if isinstance(category, CategoryChannel) else None
 
     @property
@@ -206,9 +205,7 @@ class GuildChannel(Hashable):
             await self._state.rest.channels.delete_permissions(self.id, target.id, reason=reason)
             return
         kind = OverwriteType.ROLE if isinstance(target, Role) else OverwriteType.MEMBER
-        params = EditChannelPermissionsParams(
-            allow=allow if allow is not None else UNSET, deny=deny if deny is not None else UNSET, type=kind
-        )
+        params = EditChannelPermissionsParams(allow=unset_if_none(allow), deny=unset_if_none(deny), type=kind)
         await self._state.rest.channels.edit_permissions(self.id, target.id, params, reason=reason)
 
     async def edit(
@@ -233,10 +230,6 @@ class GuildChannel(Hashable):
 
         Discord: https://docs.discord.com/developers/resources/channel#modify-channel
         """
-
-        def given[T](value: T | MissingType) -> T | UnsetType:
-            return UNSET if isinstance(value, MissingType) else value
-
         params = EditGuildChannelParams(
             name=given(name),
             position=given(position),
@@ -364,7 +357,7 @@ class _GuildMessageable(GuildChannel, Messageable):
 
         Discord: https://docs.discord.com/developers/resources/message#bulk-delete-messages
         """
-        too_old = Snowflake.from_datetime(datetime.now(UTC) - BULK_DELETE_MAX_AGE)
+        too_old = Snowflake.from_datetime(self._state.now() - BULK_DELETE_MAX_AGE)
         deleted: list[Message] = []
         batch: list[Message] = []
         async for message in self.history(limit=limit, before=before, after=after):
@@ -848,8 +841,8 @@ def channel_from_payload(state: State, data: Channel) -> "AnyGuildChannel | Thre
     return _GUILD_KINDS.get(data.type, GuildChannel)(state, data)
 
 
-def resolve_guild_channel(state: State, channel_id: int) -> "AnyGuildChannel | Thread | DMChannel | None":
-    """The cached channel or thread with this ID."""
+def resolve_cached_channel(state: State, channel_id: int) -> "AnyGuildChannel | Thread | DMChannel | None":
+    """The cached channel, thread or DM channel with this ID."""
     data = state.cache.peek(state.cache.channels, Snowflake(channel_id))
     return channel_from_payload(state, data) if data is not None else None
 
@@ -858,7 +851,7 @@ def resolve_channel(state: State, channel_id: int, guild_id: int | None) -> Mess
     """The cached channel a message is in, or a `PartialMessageable` when it is not cached."""
     from shoal.models.thread import Thread
 
-    channel = resolve_guild_channel(state, channel_id)
+    channel = resolve_cached_channel(state, channel_id)
     if isinstance(channel, TextChannel | VoiceChannel | Thread | DMChannel):
         return channel
     return PartialMessageable(state, channel_id, guild_id)

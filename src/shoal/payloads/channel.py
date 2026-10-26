@@ -374,7 +374,7 @@ class EditThreadParams(Payload):
     """At most 5."""
 
 
-class SetVoiceStatusParams(Payload):
+class EditVoiceStatusParams(Payload):
     """JSON body of Set Voice Channel Status.
 
     Discord: https://docs.discord.com/developers/resources/channel#set-voice-channel-status

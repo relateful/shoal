@@ -1,35 +1,70 @@
 import asyncio
+import inspect
 import logging
 from collections.abc import Callable, Sequence
+from datetime import datetime
+from pathlib import Path
 from typing import ClassVar, override
 
 import msgspec
 import pytest
 
+from shoal.cache.entry import Source
+from shoal.cache.guild import CachedGuild
+from shoal.cache.store import CacheStore
 from shoal.client import client as client_module
-from shoal.client.client import Client, ClientError, Listener
+from shoal.client.client import Client, ClientError, ClientOptions, Listener
 from shoal.client.interaction import Interaction
 from shoal.core.codec import encode_json
 from shoal.core.dispatch import DispatchEvent, DispatchHandler
+from shoal.core.metrics import InMemoryMetrics
+from shoal.core.replies import REPLY_WRITTEN
+from shoal.core.snowflake import Snowflake
+from shoal.gateway.session import MemorySessionStore
+from shoal.gateway.shard import ShardOptions
+from shoal.gateway.sharding import LocalIdentifyLimiter
 from shoal.models.activity import Game
 from shoal.models.channel import PartialMessageable, TextChannel
+from shoal.models.state import GatewayRequiredError, MemberRequestRateLimitedError
 from shoal.payloads import (
     ActivityType,
+    ApplicationDeauthorized,
     DeferredMessageResponse,
     Intents,
     MessageResponse,
+    RequestGuildMembers,
     StatusType,
     UnknownInteraction,
     UpdatePresence,
+    WebhookEventBody,
+    WebhookEventPayload,
+    WebhookEventType,
     parse_interaction,
 )
 from shoal.rest.client import RestClient, Token
+from shoal.rest.errors import UnauthorizedError
 from shoal.rest.files import File
 from tests.support.calls import call_unchecked
-from tests.support.client import INTENTS, Recorder, feed, logged_in, started
+from tests.support.client import INTENTS, Recorder, feed, logged_in, queue_login, receive_test_guild, started
 from tests.support.endpoint import post, url_of
-from tests.support.interactions import PersistentView, command, payload
-from tests.support.models import ALICE, APPLICATION, BOT, EMOJI, GENERAL, GUILD, channel, guild_create, user
+from tests.support.fakes import FakeTransport, settle
+from tests.support.interactions import PersistentView, command, component, payload
+from tests.support.models import (
+    ALICE,
+    APPLICATION,
+    BOB,
+    BOT,
+    EMOJI,
+    GENERAL,
+    GUILD,
+    channel,
+    decoded,
+    guild_create,
+    member,
+    message,
+    user,
+)
+from tests.support.rest import make_client
 from tests.support.signing import PUBLIC
 
 
@@ -43,6 +78,35 @@ async def test_login_learns_who_the_bot_is() -> None:
         "/applications/@me",
         f"/applications/{APPLICATION}/emojis",
     ]
+
+
+async def test_a_failed_login_closes_its_rest_client_and_a_second_login_is_refused() -> None:
+    transport = FakeTransport()
+    made: list[RestClient] = []
+
+    def rest(token: Token) -> RestClient:
+        made.append(make_client(transport, token=token))
+        return made[-1]
+
+    client = Client(intents=INTENTS, rest=rest)
+    transport.queue(401, {"message": "401: Unauthorized", "code": 0})
+    with pytest.raises(UnauthorizedError):
+        await client.login("wrong")
+    assert transport.closed
+    assert client.user is None
+    logged, _ = await logged_in()
+    with pytest.raises(ClientError, match="already logged in"):
+        await logged.login("again")
+
+
+async def test_the_bots_user_follows_user_update() -> None:
+    client, _ = await started()
+    me = client.user
+    assert me is not None
+    await feed(client, "USER_UPDATE", user(BOT, "renamed") | {"verified": True})
+    assert client.user is me
+    assert me.name == "renamed"
+    assert me.verified
 
 
 async def test_setup_hook_runs_after_login() -> None:
@@ -216,7 +280,7 @@ async def test_resumed_is_reported() -> None:
     assert events.seen == [("shard_resumed", (3,)), ("resumed", ())]
 
 
-async def test_cache_lookups_like_discord_py() -> None:
+async def test_cache_lookups() -> None:
     client, _ = await started()
     assert [guild.id for guild in client.guilds] == [GUILD]
     guild = client.get_guild(GUILD)
@@ -294,10 +358,14 @@ async def test_only_persistent_views_can_be_added_without_a_message() -> None:
 class FakeShard:
     def __init__(self) -> None:
         self.presences: list[UpdatePresence] = []
+        self.member_requests: list[RequestGuildMembers] = []
         self.latency: float | None = 0.1
 
     async def update_presence(self, presence: UpdatePresence) -> None:
         self.presences.append(presence)
+
+    async def request_guild_members(self, request: RequestGuildMembers) -> None:
+        self.member_requests.append(request)
 
 
 class FakeManager:
@@ -313,7 +381,7 @@ class FakeManager:
         presence: UpdatePresence,
         **options: object,
     ) -> None:
-        del options
+        self.options = options
         self.token, self.dispatch, self.shard_count, self.shard_ids = token, dispatch, shard_count, shard_ids
         self.presence = presence
         self.shards = {shard_id: FakeShard() for shard_id in shard_ids}
@@ -326,6 +394,10 @@ class FakeManager:
     async def close(self) -> None:
         self.closed = True
 
+    def shard_for_guild(self, guild_id: int) -> FakeShard | None:
+        del guild_id
+        return self.shards[0]
+
 
 GATEWAY_BOT = {
     "url": "wss://gateway.discord.gg",
@@ -334,11 +406,80 @@ GATEWAY_BOT = {
 }
 
 
+async def test_connect_passes_the_clients_gateway_options_to_every_shard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    transport = FakeTransport()
+    metrics = InMemoryMetrics()
+    store = MemorySessionStore()
+    limiter = LocalIdentifyLimiter(16)
+    client = Client(
+        intents=INTENTS,
+        rest=lambda token: make_client(transport, token=token),
+        metrics=metrics,
+        session_store=store,
+        identify_limiter=limiter,
+        large_threshold=100,
+        compression=None,
+    )
+    queue_login(transport)
+    await client.login("token")
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect("token")
+    options = FakeManager.made[-1].options
+    assert options["metrics"] is metrics
+    assert options["session_store"] is store
+    assert options["identify_limiter"] is limiter
+    assert (options["large_threshold"], options["compression"]) == (100, None)
+    await client.close()
+
+
+async def test_guilds_left_while_offline_are_forgotten_once_every_shard_is_ready() -> None:
+    cache = CacheStore()
+    left = Snowflake(GUILD + 1000)
+    previous = decoded(guild_create() | {"id": str(left)}, CachedGuild)
+    await cache.put(cache.guilds, left, previous, Source.GATEWAY, scope=left, shard=0)
+    transport = FakeTransport()
+    client = Client(intents=INTENTS, cache=cache, rest=lambda token: make_client(transport, token=token))
+    queue_login(transport)
+    await client.login("token")
+    await receive_test_guild(client)
+    assert client.get_guild(left) is None
+    assert client.get_guild(GUILD) is not None
+
+
+async def test_the_cache_snapshot_is_saved_after_the_shards_close_and_loaded_before_they_connect(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    snapshot = tmp_path / "cache.msgpack"
+
+    async def run_once() -> Client:
+        transport = FakeTransport()
+        client = Client(
+            intents=INTENTS, rest=lambda token: make_client(transport, token=token), cache_snapshot=snapshot
+        )
+        queue_login(transport)
+        await client.login("token")
+        transport.queue(200, GATEWAY_BOT)
+        await client.connect("token")
+        return client
+
+    first = await run_once()
+    await receive_test_guild(first)
+    await first.close()
+    assert snapshot.exists()
+    second = await run_once()
+    assert second.get_guild(GUILD) is not None
+    await second.close()
+
+
 async def test_connect_runs_every_recommended_shard(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(client_module, "ShardManager", FakeManager)
     client, transport = await logged_in()
     transport.queue(200, GATEWAY_BOT)
-    await client.connect("token")
+    await client.connect()
     manager = FakeManager.made[-1]
     assert (manager.shard_count, list(manager.shard_ids), manager.token) == (2, [0, 1], "token")
     assert manager.dispatch == client.feed
@@ -455,3 +596,221 @@ async def test_an_endpoint_serves_the_clients_interactions() -> None:
         status, body = await post(url_of(server), command("ping"))
     assert status == 200
     assert msgspec.json.decode(body) == {"type": 4, "data": {"content": "over http"}}
+
+
+async def test_code_after_an_http_answer_runs_once_discord_has_the_reply() -> None:
+    client, transport = await started()
+    view = PersistentView(persistent=False)
+    reply_written: list[bool] = []
+
+    async def handler(interaction: Interaction) -> bool:
+        await interaction.response.send_message("vote", view=view)
+        written = REPLY_WRITTEN.get()
+        reply_written.append(written is not None and written.done())
+        return True
+
+    client.add_interaction_handler(handler)
+    transport.queue(200, message(4321))
+    async with client.endpoint(PUBLIC, port=0) as server:
+        status, _ = await post(url_of(server), command("ping"))
+        await settle()
+    assert status == 200
+    assert reply_written == [True]
+    # The view is kept for the message the reply created, which only a fetch can tell.
+    assert transport.requests[-1].url.endswith("/messages/@original")
+    elsewhere = await client.process_interaction(payload(component("persistent:ok", message_id=1)))
+    here = await client.process_interaction(payload(component("persistent:ok", message_id=4321)))
+    assert view.received == [(here, "persistent:ok")]
+    assert not elsewhere.response.is_done()
+
+
+async def test_a_handler_answering_inline_does_not_hold_up_the_http_reply() -> None:
+    client, _ = await started()
+
+    async def handler(interaction: Interaction) -> bool:
+        await interaction.response.send_message("inline")
+        return True
+
+    client.add_interaction_handler(handler)
+    async with client.endpoint(PUBLIC, port=0) as server, asyncio.timeout(5):
+        status, body = await post(url_of(server), command("ping"))
+    assert status == 200
+    assert msgspec.json.decode(body) == {"type": 4, "data": {"content": "inline"}}
+
+
+async def test_a_subclass_handles_events_with_its_own_methods() -> None:
+    seen: list[str] = []
+
+    class Bot(Client):
+        async def on_custom(self, value: str) -> None:
+            seen.append(f"method {value}")
+
+    bot, _ = await logged_in(Bot)
+    bot.dispatch("custom", "a")
+    await settle()
+
+    @bot.event
+    async def on_custom(value: str) -> None:
+        seen.append(f"replaced {value}")
+
+    bot.dispatch("custom", "b")
+    bot.dispatch("error", "c")
+    await settle()
+    assert seen == ["method a", "replaced b"]
+
+
+def test_client_options_name_every_keyword_of_the_client() -> None:
+    parameters = inspect.signature(Client.__init__).parameters
+    keywords = {
+        name for name, parameter in parameters.items() if parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    }
+    # Its own keys and, inherited, the shards' connection settings (`**options`).
+    assert ClientOptions.__optional_keys__ == (keywords - {"intents"}) | ShardOptions.__optional_keys__
+
+
+async def test_webhook_events_are_emitted_with_their_data() -> None:
+    client, _ = await started()
+    events = Recorder(client, "application_deauthorized", "something_new")
+    event: dict[str, object] = {
+        "type": "APPLICATION_DEAUTHORIZED",
+        "timestamp": "2024-10-18T14:42:53.064834",
+        "data": {"user": user(ALICE, "alice")},
+    }
+    body = {"version": 1, "application_id": str(APPLICATION), "type": 1, "event": event}
+    payload = decoded(body, WebhookEventPayload)
+    await client.handle_webhook_event(payload)
+    newer = msgspec.structs.replace(
+        payload,
+        event=WebhookEventBody(type=WebhookEventType("SOMETHING_NEW"), timestamp=datetime(2024, 1, 1)),  # noqa: DTZ001
+    )
+    await client.handle_webhook_event(newer)
+    ping: WebhookEventPayload = msgspec.structs.replace(payload, event=msgspec.UNSET)
+    await client.handle_webhook_event(ping)
+    await settle()
+    [gone] = events.args("application_deauthorized")
+    assert isinstance(gone, ApplicationDeauthorized)
+    assert gone.user.id == ALICE
+    assert events.args("something_new") == (newer,)
+
+
+async def test_the_clients_endpoint_receives_webhook_events() -> None:
+    client, _ = await started()
+    events = Recorder(client, "application_deauthorized")
+    async with client.endpoint(PUBLIC, port=0) as server:
+        event = {
+            "version": 1,
+            "application_id": str(APPLICATION),
+            "type": 1,
+            "event": {
+                "type": "APPLICATION_DEAUTHORIZED",
+                "timestamp": "2024-10-18T14:42:53.064834",
+                "data": {"user": user(ALICE, "alice")},
+            },
+        }
+        status, _ = await post(url_of(server, "/events"), event)
+        await settle()
+    assert status == 204
+    [gone] = events.args("application_deauthorized")
+    assert isinstance(gone, ApplicationDeauthorized)
+
+
+async def connected(monkeypatch: pytest.MonkeyPatch) -> tuple[Client, FakeShard]:
+    """A logged-in client connected through a fake manager, with the test guild received."""
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await logged_in()
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    await receive_test_guild(client)
+    return client, FakeManager.made[-1].shards[0]
+
+
+def chunk_of(request: RequestGuildMembers, index: int, count: int, *user_ids: int) -> dict[str, object]:
+    assert isinstance(request.nonce, str)
+    members = [member(user_id, f"user{user_id}") for user_id in user_ids]
+    return {
+        "guild_id": str(GUILD),
+        "members": members,
+        "chunk_index": index,
+        "chunk_count": count,
+        "nonce": request.nonce,
+    }
+
+
+async def test_chunking_a_guild_returns_every_member_and_shares_one_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, shard = await connected(monkeypatch)
+    guild = client.get_guild(GUILD)
+    assert guild is not None
+    first = asyncio.create_task(guild.chunk())
+    second = asyncio.create_task(guild.chunk())
+    await settle()
+    [request] = shard.member_requests
+    assert (request.query, request.limit, request.presences) == ("", 0, False)
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(request, 0, 2, ALICE))
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(request, 1, 2, BOB))
+    assert [found.id for found in await first] == [ALICE, BOB]
+    assert [found.id for found in await second] == [ALICE, BOB]
+    # Members cached before but not in the list left meanwhile.
+    assert {found.id for found in guild.members} == {ALICE, BOB}
+
+
+async def test_querying_members_by_name_or_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, shard = await connected(monkeypatch)
+    guild = client.get_guild(GUILD)
+    assert guild is not None
+    by_name = asyncio.create_task(guild.query_members("al", limit=500))
+    await settle()
+    request = shard.member_requests[-1]
+    assert (request.query, request.limit) == ("al", 100)
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(request, 0, 1, ALICE))
+    assert [found.id for found in await by_name] == [ALICE]
+    by_id = asyncio.create_task(guild.query_members(user_ids=[BOB]))
+    await settle()
+    request = shard.member_requests[-1]
+    assert request.user_ids == [BOB]
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(request, 0, 1, BOB))
+    assert [found.id for found in await by_id] == [BOB]
+    with pytest.raises(ValueError, match="either"):
+        await guild.query_members()
+    with pytest.raises(ValueError, match="either"):
+        await guild.query_members("a", user_ids=[1])
+    with pytest.raises(ValueError, match="every member"):
+        await guild.query_members("")
+    with pytest.raises(ValueError, match="at least one"):
+        await guild.query_members(user_ids=[])
+
+
+async def test_a_rate_limited_member_request_fails_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, shard = await connected(monkeypatch)
+    guild = client.get_guild(GUILD)
+    assert guild is not None
+    waiting = asyncio.create_task(guild.chunk())
+    await settle()
+    [request] = shard.member_requests
+    limited = {"opcode": 8, "retry_after": 12.5, "meta": {"guild_id": str(GUILD), "nonce": request.nonce}}
+    await feed(client, "RATE_LIMITED", limited)
+    with pytest.raises(MemberRequestRateLimitedError) as refused:
+        await waiting
+    assert refused.value.retry_after == 12.5
+
+
+async def test_member_requests_need_their_intents_a_gateway_and_an_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    offline, _ = await started()
+    guild = offline.get_guild(GUILD)
+    assert guild is not None
+    with pytest.raises(GatewayRequiredError):
+        await guild.query_members("a")
+    client, _ = await connected(monkeypatch)
+    online = client.get_guild(GUILD)
+    assert online is not None
+    client.intents = Intents.default()
+    with pytest.raises(ClientError, match="Server Members"):
+        await online.chunk()
+    with pytest.raises(ClientError, match="Presence"):
+        await online.query_members("a", presences=True)
+    monkeypatch.setattr(client_module, "MEMBER_QUERY_TIMEOUT", 0.01)
+    with pytest.raises(TimeoutError):
+        await online.query_members("nobody")

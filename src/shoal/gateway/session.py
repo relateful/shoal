@@ -44,6 +44,8 @@ class GatewaySession(msgspec.Struct, frozen=True, kw_only=True):
 class SessionStore(Protocol):
     """Persists sessions between process restarts."""
 
+    __slots__ = ()
+
     async def load(self, shard_id: int, shard_count: int) -> GatewaySession | None:
         """Return the saved session for this shard layout, or `None`."""
         ...
@@ -94,7 +96,8 @@ class FileSessionStore(SessionStore):
         clock: Time source.
 
     A session file holds the session id, which with the bot token can resume the session. Files are
-    created readable by the bot's user only (on POSIX systems), and written atomically.
+    created readable by the bot's user only on POSIX systems; on Windows they take the directory's
+    access rules, so give the store a directory only the bot's user can read. Writes are atomic.
     """
 
     __slots__ = ("_clock", "_directory", "_max_age")

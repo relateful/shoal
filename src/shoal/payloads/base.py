@@ -64,9 +64,9 @@ class Payload(msgspec.Struct, metaclass=_PayloadMeta):
     Payloads hold data only: no methods that call Discord, no references to a client. Unknown fields
     Discord adds later are ignored on decode, so new API fields never break a running bot.
 
-    A payload that holds a credential names it in `REDACTED_FIELDS`, and its repr shows
-    `<redacted>` in its place, so logging the object or capturing it in an error tracker never
-    leaks the secret.
+    A payload that holds a credential (or a user's email address) names it in `REDACTED_FIELDS`, and
+    its repr shows `<redacted>` in its place, so logging the object or capturing it in an error
+    tracker never leaks it.
     """
 
     REDACTED_FIELDS: ClassVar[frozenset[str]] = frozenset()

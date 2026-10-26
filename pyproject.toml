@@ -120,6 +120,7 @@ known-first-party = ["shoal"]
 "src/shoal/models/**" = ["PLC0415"]
 "src/shoal/client/**" = ["PLC0415"]
 "src/shoal/ui/**" = ["PLC0415"]
+"src/shoal/commands/**" = ["PLC0415"]
 # `tree.get_command(name, type=...)`: the command type, as Discord names it.
 "src/shoal/app_commands/tree.py" = ["A002"]
 
@@ -155,6 +156,10 @@ reportImportCycles = "none"
 
 [[tool.pyright.executionEnvironments]]
 root = "src/shoal/ui"
+reportImportCycles = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "src/shoal/commands"
 reportImportCycles = "none"
 
 [tool.mypy]
@@ -203,9 +208,10 @@ root_package = "shoal"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | endpoint) < models < emojis < client < (ui | app_commands)"
+name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | endpoint) < models < emojis < client < (ui | app_commands) < commands"
 type = "layers"
 layers = [
+    "shoal.commands",
     "shoal.ui | shoal.app_commands",
     "shoal.client",
     "shoal.emojis",

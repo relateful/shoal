@@ -36,7 +36,7 @@ class GatewaySendLimiter:
         self._limit: int = limit
         self._window: float = window
         self._reserved: int = reserved
-        self._sent: deque[float] = deque()
+        self._sent: deque[float] = deque()  # bounded by the window: at most `limit` sends in it
 
     async def acquire(self, *, priority: bool = False) -> None:
         """Wait until an event may be sent, then count it. Heartbeats pass `priority=True`."""

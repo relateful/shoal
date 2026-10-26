@@ -1,9 +1,19 @@
 # Architecture
 
-Shoal is a set of layers. Lower layers never import higher ones, and the layers in the top row never
-import each other. `import-linter` enforces this in CI.
+Shoal is a set of layers. Lower layers never import higher ones, and the transport layers (the
+middle row) never import each other. `import-linter` enforces this in CI.
 
 ```
+                               commands
+                                   |
+                         ui    app_commands
+                            \    /
+                             client
+                               |
+                             emojis
+                               |
+                             models
+                               |
 rest   gateway   cache   ipc   metrics   diagnostics   endpoint
    \       |        |      |       |           |           /
                               payloads
@@ -22,6 +32,12 @@ rest   gateway   cache   ipc   metrics   diagnostics   endpoint
 | `metrics` | core, prometheus-client | exporters |
 | `diagnostics` | core | event loop health |
 | `endpoint` | core, payloads, aiohttp, cryptography | receives interactions over HTTP, for bots without a gateway |
+| `models` | the layers below | `Guild`, `Member`, `Message` and the rest: objects with methods, reading the cache and calling REST |
+| `emojis` | models | the application's emojis: a registry used across the bot, and a sync from a folder |
+| `client` | the layers below | `Client`: connects shards, keeps the cache, turns events into models, routes interactions |
+| `ui` | client | views, buttons, selects and modals |
+| `app_commands` | client | slash commands, context menus, the command tree and its checks |
+| `commands` | ui, app_commands | prefix and hybrid commands: `Bot`, cogs, converters, extensions, help |
 
 Because the top-row layers share only `core` and `payloads`, any of them can move to another process:
 

@@ -1,11 +1,10 @@
 from datetime import UTC, datetime
 
-from shoal.core.codec import decode_json, encode_json
 from shoal.models.base import Object
 from shoal.models.channel import TextChannel
 from shoal.models.thread import Thread
 from shoal.payloads import Channel, ChannelType, Permissions
-from tests.support.models import ALICE, BOB, GENERAL, GUILD, THREAD, World, channel
+from tests.support.models import ALICE, BOB, GENERAL, GUILD, THREAD, World, channel, decoded
 
 
 async def thread(world: World) -> Thread:
@@ -41,7 +40,7 @@ async def test_threads_read_their_payload() -> None:
 
 async def test_a_bare_thread_payload_has_safe_defaults() -> None:
     world = await World.started()
-    bare = Thread(world.state, decode_json(encode_json({"id": "1", "type": 12}), Channel))
+    bare = Thread(world.state, decoded({"id": "1", "type": 12}, Channel))
     assert bare.archive_timestamp is None
     assert bare.auto_archive_duration == 1440
     assert bare.parent is None

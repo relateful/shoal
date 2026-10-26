@@ -1,6 +1,6 @@
 """Views, buttons, selects and modals.
 
-    from shoal import ui
+    from shoal import ButtonStyle, ui
 
     class Confirm(ui.View):
         @ui.button(label="Confirm", style=ButtonStyle.SUCCESS)

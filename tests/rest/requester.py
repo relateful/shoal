@@ -34,7 +34,7 @@ def test_form_payloads_send_set_fields_as_text() -> None:
     }
 
 
-def test_files_are_named_and_described_unless_attachments_are_given() -> None:
+def test_files_are_named_and_described_unless_the_caller_described_them() -> None:
     files = [File("a.png", b"a", description="first"), File("b.txt", b"b", spoiler=True)]
     params, named = with_attachments(CreateMessageParams(content="hi"), files)
     assert list(named) == ["files[0]", "files[1]"]
@@ -45,6 +45,9 @@ def test_files_are_named_and_described_unless_attachments_are_given() -> None:
     keep = [AttachmentRequest(id="12345"), AttachmentRequest(id=0)]
     params, _ = with_attachments(CreateMessageParams(attachments=keep), files[:1])
     assert params.attachments == keep
+    # A file the caller's list leaves out still gets its entry, so its upload is not dropped.
+    params, _ = with_attachments(CreateMessageParams(attachments=keep), files)
+    assert params.attachments == [*keep, AttachmentRequest(id=1, filename="SPOILER_b.txt")]
 
 
 def test_no_files_leaves_the_params_alone() -> None:

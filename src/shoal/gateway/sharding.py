@@ -4,12 +4,49 @@ Discord: https://docs.discord.com/developers/events/gateway#sharding
 """
 
 import asyncio
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Protocol, final, override
 
 from shoal.core.clock import Clock, SystemClock
-from shoal.payloads.gateway import IDENTIFY_WINDOW
+from shoal.core.errors import ShoalError
+from shoal.payloads.gateway import IDENTIFY_WINDOW, SessionStartLimit
+
+_log = logging.getLogger("shoal.gateway")
+
+
+class SessionStartsExhaustedError(ShoalError):
+    """More sessions are needed than the bot may start in a day."""
+
+
+async def wait_for_session_starts(
+    limit: SessionStartLimit, needed: int, *, clock: Clock | None = None
+) -> None:
+    """Wait until the day's session starts cover `needed` new sessions.
+
+    Discord ends every session and resets the bot's token when the daily limit is used up, so
+    starting shards past it is never worth it; waiting for the reset is.
+
+    Raises:
+        SessionStartsExhaustedError: `needed` is more than the whole day's allowance.
+
+    Discord: https://docs.discord.com/developers/events/gateway#session-start-limit-object
+    """
+    if limit.remaining >= needed:
+        return
+    if needed > limit.total:
+        msg = f"{needed} shards need a session each, but the bot may start only {limit.total} a day"
+        raise SessionStartsExhaustedError(msg)
+    wait = limit.reset_after / 1000
+    _log.error(
+        "only %d of %d session starts are left today and %d shards need one; waiting %.0fs for the reset",
+        limit.remaining,
+        limit.total,
+        needed,
+        wait,
+    )
+    await (clock or SystemClock()).sleep(wait)
 
 
 def shard_for_guild(guild_id: int, shard_count: int) -> int:
@@ -40,6 +77,8 @@ class IdentifyLimiter(Protocol):
     Replace the local one with a shared implementation when shards of one bot run in several
     processes, so they never exceed `max_concurrency` together.
     """
+
+    __slots__ = ()
 
     def slot(self, shard_id: int) -> AbstractAsyncContextManager[None]:
         """An async context manager held while the shard identifies."""

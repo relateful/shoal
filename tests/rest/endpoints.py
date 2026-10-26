@@ -4,6 +4,7 @@ from shoal.payloads.api import DOCS_BASE_URL
 from shoal.rest import endpoints, resources
 from shoal.rest.client import RestClient
 from shoal.rest.requester import Resource
+from shoal.rest.route import SECRET_PARAMETERS, TOKEN_PARAMETERS
 from tests.rest.resources import (
     application,
     application_commands,
@@ -71,6 +72,19 @@ def test_interaction_routes_skip_the_global_rate_limit() -> None:
     assert len(interaction_routes) == 8
     assert not any(route.global_limit for route in interaction_routes)
     assert all(route.global_limit for route in endpoints.ALL_ROUTES if route not in interaction_routes)
+
+
+def test_only_interaction_and_webhook_token_routes_skip_the_bot_token() -> None:
+    assert TOKEN_PARAMETERS <= SECRET_PARAMETERS
+    by_token = {route.key for route in endpoints.ALL_ROUTES if route.token_authenticated}
+    assert by_token == {
+        route.key
+        for route in endpoints.ALL_ROUTES
+        if {"interaction_token", "webhook_token"} & set(route.parameters)
+    }
+    assert endpoints.EXECUTE_WEBHOOK.key in by_token
+    assert endpoints.GET_ORIGINAL_INTERACTION_RESPONSE.key in by_token
+    assert endpoints.GET_WEBHOOK.key not in by_token
 
 
 async def test_every_endpoint_has_a_checked_call() -> None:

@@ -21,6 +21,10 @@ SECRET_PARAMETERS: Final = frozenset({"interaction_token", "invite_code", "templ
 joins its guild, a template code copies one. They never appear in logs, error messages or metric
 labels; `CompiledRoute.display` keeps them as placeholders."""
 
+TOKEN_PARAMETERS: Final = frozenset({"interaction_token", "webhook_token"})
+"""Path parameters that authorise the request themselves: those routes need no bot token, and a 401
+on them says the interaction or webhook token is wrong, not the bot's."""
+
 _DOT_SEGMENTS: Final = frozenset({"", ".", ".."})
 """Values that URL normalisation would remove or collapse, sending the request to another route."""
 
@@ -86,6 +90,16 @@ class Route:
     def key(self) -> str:
         """The route's identity before Discord tells us its bucket hash: `METHOD /template`."""
         return f"{self.method} {self.path}"
+
+    @property
+    def token_authenticated(self) -> bool:
+        """Whether a token in the path authorises the request, rather than the bot's token.
+
+        Interaction and webhook tokens do.
+
+        Discord: https://docs.discord.com/developers/resources/webhook#execute-webhook
+        """
+        return bool(self.parameters & TOKEN_PARAMETERS)
 
     def compile(self, **values: int | str) -> "CompiledRoute":
         """Fill in the path parameters.

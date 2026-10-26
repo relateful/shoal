@@ -22,7 +22,7 @@ from shoal.payloads.guild import (
     EditOnboardingParams,
     EditRoleParams,
     EditWelcomeScreenParams,
-    EditWidgetParams,
+    EditWidgetSettingsParams,
     GetPruneCountParams,
     Guild,
     GuildMember,
@@ -187,8 +187,8 @@ class Guilds(Resource):
         """
         return await self.request(GET_GUILD_WIDGET_SETTINGS.compile(guild_id=guild_id), GuildWidgetSettings)
 
-    async def edit_widget(
-        self, guild_id: int, params: EditWidgetParams, *, reason: str | None = None
+    async def edit_widget_settings(
+        self, guild_id: int, params: EditWidgetSettingsParams, *, reason: str | None = None
     ) -> GuildWidgetSettings:
         """Turn the widget on or off, or change its invite channel. Needs Manage Guild.
 

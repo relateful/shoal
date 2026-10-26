@@ -13,6 +13,7 @@ from shoal.payloads import ChannelType, SelectDefaultValue, SelectDefaultValueTy
 from shoal.ui.select import ChannelSelect, MentionableSelect, RoleSelect, Select, UserSelect, select
 from shoal.ui.view import View
 from tests.support.client import started
+from tests.support.fakes import settle
 from tests.support.interactions import common, payload
 from tests.support.models import ALICE, BOB, GENERAL, MODS, channel, member, role, user
 
@@ -105,6 +106,7 @@ async def test_choices_resolve_into_models() -> None:
     await client.process_interaction(payload(chosen("r", 6, [str(MODS)], resolved)))
     await client.process_interaction(payload(chosen("m", 7, [str(BOB), str(MODS)], resolved)))
     await client.process_interaction(payload(chosen("c", 8, [str(GENERAL)], resolved)))
+    await settle()
     assert [type(found) for found in users.values] == [Member, User]
     assert [found.id for found in roles.values] == [MODS]
     assert isinstance(roles.values[0], Role)

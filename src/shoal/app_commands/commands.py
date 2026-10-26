@@ -14,6 +14,7 @@
 Discord: https://docs.discord.com/developers/interactions/application-commands
 """
 
+import copy
 import dataclasses
 import inspect
 import re
@@ -21,13 +22,19 @@ import types
 import typing
 from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import ClassVar, Final, Self, cast, override
+from typing import ClassVar, Final, Self, cast, final, override
 
 from msgspec import UNSET, UnsetType
 
 from shoal.app_commands.errors import CheckFailureError, NoPrivateMessageError, TransformerError
 from shoal.app_commands.models import AnyChoice
-from shoal.app_commands.parameters import REQUIRED, AutocompleteCallback, Parameter, parameter_from_annotation
+from shoal.app_commands.parameters import (
+    NO_DESCRIPTION,
+    REQUIRED,
+    AutocompleteCallback,
+    Parameter,
+    parameter_from_annotation,
+)
 from shoal.client.interaction import Interaction
 from shoal.models.member import Member
 from shoal.models.message import Message
@@ -48,8 +55,8 @@ from shoal.payloads.permissions import Permissions
 
 type Check = Callable[[Interaction], bool | Awaitable[bool]]
 """A predicate run before the command: return `False` (or raise `CheckFailureError`) to refuse."""
-type ErrorHandler = Callable[[Interaction, Exception], Awaitable[None]]
-"""Handles an error a command raised."""
+type ErrorHandler = Callable[[Interaction, Exception], Awaitable[bool | None]]
+"""Handles an error a command raised; returning `True` marks it handled, so no later handler sees it."""
 type CommandCallback = Callable[..., Awaitable[None]]
 """`async def name(interaction, ...)`, or `async def name(self, interaction, ...)` in a group."""
 type ContextMenuCallback = Callable[..., Awaitable[None]]
@@ -57,8 +64,6 @@ type ContextMenuCallback = Callable[..., Awaitable[None]]
 type Suggester = Callable[..., Awaitable[Sequence[AnyChoice]]]
 """An autocomplete callback: `(interaction, current)`, or `(self, interaction, current)` in a group."""
 
-NO_DESCRIPTION: Final = "…"
-"""The description of a command or option that has none."""
 _NAME: Final = re.compile(rf"^[-_'\w]{{1,{COMMAND_NAME_MAX_LENGTH}}}$")
 """What Discord accepts as a command or option name (ignoring the scripts it adds to `\\w`).
 
@@ -93,6 +98,68 @@ def _pending(function: object) -> _Pending:
     created = _Pending()
     setattr(function, _PENDING, created)
     return created
+
+
+def carry_decorators(source: object, target: object) -> None:
+    """Hand the settings decorators recorded on function `source` to `target`, which becomes the command.
+
+    For wrappers: a hybrid command builds its slash callback from the decorated prefix callback.
+    """
+    found = getattr(source, _PENDING, None)
+    if isinstance(found, _Pending):
+        setattr(target, _PENDING, found)
+
+
+def apply_group_decorators(source: object, group: "Group") -> None:
+    """Apply the group settings decorators recorded on function `source` to `group`.
+
+    These are `@guild_only`, `@default_permissions`, `@guilds`, `@check` and the context decorators.
+    """
+    found = getattr(source, _PENDING, None)
+    if not isinstance(found, _Pending):
+        return
+    group.checks.extend(found.checks)
+    group.guild_only = group.guild_only or found.guild_only
+    group.nsfw = group.nsfw or found.nsfw
+    if found.default_permissions is not None:
+        group.default_permissions = found.default_permissions
+    group.guild_ids.extend(found.guild_ids)
+    if found.contexts is not None:
+        group.allowed_contexts = list(found.contexts)
+    if found.installs is not None:
+        group.allowed_installs = list(found.installs)
+
+
+def copy_settings(source: "AppCommand", target: "AppCommand") -> None:
+    """Give `target` the settings of `source`, as when a command is rebuilt for a copy.
+
+    These are the checks, permissions, contexts, guilds, NSFW flag, extras and error handler.
+    """
+    target.checks = list(source.checks)
+    target.guild_only = source.guild_only
+    target.nsfw = source.nsfw
+    target.default_permissions = source.default_permissions
+    target.guild_ids = list(source.guild_ids)
+    target.allowed_contexts = None if source.allowed_contexts is None else list(source.allowed_contexts)
+    target.allowed_installs = None if source.allowed_installs is None else list(source.allowed_installs)
+    target.extras = dict(source.extras)
+    if source.error_handler is not None:
+        target.error(source.error_handler)
+
+
+@final
+class CooldownCheck:
+    """A check that records a use; it runs after every other check, so a refused use costs nothing."""
+
+    __slots__ = ("_predicate",)
+
+    def __init__(self, predicate: Check) -> None:
+        """Wrap the cooldown's `predicate`."""
+        self._predicate: Check = predicate
+
+    def __call__(self, interaction: Interaction) -> bool | Awaitable[bool]:
+        """Run the predicate."""
+        return self._predicate(interaction)
 
 
 def _check_name(name: str) -> str:
@@ -218,7 +285,8 @@ class _CommandBase:
         """
         if self.guild_only and interaction.guild_id is None:
             raise NoPrivateMessageError
-        for predicate in self.checks:
+        # Cooldowns last, whatever the decorator order: a use another check refuses is not counted.
+        for predicate in sorted(self.checks, key=lambda found: isinstance(found, CooldownCheck)):
             result = predicate(interaction)
             passed = await result if inspect.isawaitable(result) else result
             if not passed:
@@ -281,13 +349,13 @@ class Command(_CommandBase):
         parameter = _require(self, name)
 
         def decorator(function: F) -> F:
-            parameter.autocomplete = cast("AutocompleteCallback", function)
+            parameter.autocomplete = cast("AutocompleteCallback", function)  # F is bound to it
             return function
 
         return decorator
 
-    def bound(self, binding: "Group") -> "Command":
-        """A copy of the command belonging to a group instance, called with it as `self`.
+    def bound(self, binding: object) -> "Command":
+        """A copy of the command belonging to a group or cog instance, called with it as `self`.
 
         Autocompletes defined on the group's class are bound to it too.
         """
@@ -356,7 +424,7 @@ class Command(_CommandBase):
 
     @override
     def __repr__(self) -> str:
-        return f"<Command name={self.qualified_name!r} parameters={len(self.parameters)}>"
+        return f"<{type(self).__name__} name={self.qualified_name!r} parameters={len(self.parameters)}>"
 
 
 def _require(command: Command, name: str) -> Parameter:
@@ -367,14 +435,14 @@ def _require(command: Command, name: str) -> Parameter:
     return parameter
 
 
-def _bind_suggester(callback: AutocompleteCallback | None, binding: "Group") -> AutocompleteCallback | None:
-    """`callback` bound to the group instance when the group's class defines it, as is."""
+def _bind_suggester(callback: AutocompleteCallback | None, binding: object) -> AutocompleteCallback | None:
+    """`callback` bound to the group or cog instance when its class defines it, as is."""
     defined_here = callback is not None and any(
         member is callback for cls in type(binding).__mro__ for member in vars(cls).values()
     )
     if callback is None or not defined_here:
         return callback
-    return cast("AutocompleteCallback", types.MethodType(callback, binding))
+    return cast("AutocompleteCallback", types.MethodType(callback, binding))  # MethodType is untyped
 
 
 def _parameters(
@@ -543,6 +611,32 @@ class Group(_CommandBase):
         self._children[command.name] = command
         return self
 
+    def bound(self, binding: object) -> Self:
+        """A copy of the group belonging to a cog instance; its subcommands are called with it as `self`.
+
+        Subcommands defined on the group's own class stay bound to the copied group, so a group
+        created in a cog's body gets its own commands per cog instance.
+        """
+        copied = copy.copy(self)
+        copied.checks = list(self.checks)
+        copied.guild_ids = list(self.guild_ids)
+        copied.extras = dict(self.extras)
+        copied.parent = None
+        copied._children = {}  # noqa: SLF001 - the copy is this class's own
+        replaced: dict[int, Command | Group] = {}
+        for child in self._children.values():
+            if isinstance(child, Group):
+                own: Command | Group = child.bound(binding)
+            else:
+                own = child.bound(copied if child.binding is self else binding)
+            copied.add_command(own)
+            replaced[id(child)] = own
+        # Attributes naming a subcommand (`self.show`) name the copy's own.
+        for attribute, value in vars(copied).items():
+            if id(value) in replaced:
+                setattr(copied, attribute, replaced[id(value)])
+        return copied
+
     def remove_command(self, name: str) -> "Command | Group | None":
         """Remove and return the subcommand or subgroup called `name`."""
         removed = self._children.pop(name, None)
@@ -642,7 +736,7 @@ class ContextMenu(_CommandBase):
 
     @override
     def __repr__(self) -> str:
-        return f"<ContextMenu name={self.name!r} type={self.type.name}>"
+        return f"<{type(self).__name__} name={self.name!r} type={self.type.name}>"
 
 
 def _context_menu_type(callback: ContextMenuCallback) -> ApplicationCommandType:

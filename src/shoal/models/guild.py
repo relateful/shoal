@@ -20,12 +20,13 @@ from msgspec import UNSET, UnsetType
 from shoal.cache.guild import CachedGuild
 from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
-from shoal.models.base import MISSING, Hashable, MissingType
+from shoal.models.base import MISSING, Hashable, MissingType, given, unset_if_none
 from shoal.models.defaults import DEFAULT_BAN_MESSAGE_SECONDS
 from shoal.models.state import State
 from shoal.payloads.api import image_data
 from shoal.payloads.channel import ChannelType, CreateChannelParams, PartialOverwrite
 from shoal.payloads.emoji import CreateEmojiParams
+from shoal.payloads.gateway_events import MEMBER_QUERY_MAX_RESULTS
 from shoal.payloads.guild import (
     LIST_BANS_MAX_LIMIT,
     LIST_MEMBERS_MAX_LIMIT,
@@ -69,7 +70,6 @@ if TYPE_CHECKING:
     from shoal.models.member import Member
     from shoal.models.role import Role
     from shoal.models.thread import Thread
-    from shoal.models.user import User
 
 
 class Guild(Hashable):
@@ -203,6 +203,67 @@ class Guild(Hashable):
             return self._data.joined_at
         return None
 
+    async def chunk(self, *, presences: bool = False) -> "list[Member]":
+        """Fetch every member over the gateway and return them, caching them as they arrive.
+
+        Members cached earlier who are not in the list (they left while the bot was not told) are
+        dropped from the cache. Needs the Server Members intent, and a connected client. Concurrent
+        calls share one request. With `presences`, their presences come too (Presence intent).
+
+        Raises:
+            GatewayRequiredError: The guild's shard is not connected here.
+            MemberRequestRateLimitedError: Discord refused the request for now.
+            TimeoutError: The members did not all arrive in time.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#request-guild-members
+        """
+        from shoal.models.member import Member
+
+        found = await self._state.member_requests.request_members(
+            self.id, query="", limit=0, user_ids=None, presences=presences
+        )
+        return [Member(self._state, data, self.id) for data in found if not isinstance(data.user, UnsetType)]
+
+    async def query_members(
+        self,
+        query: str | None = None,
+        *,
+        limit: int = 5,
+        user_ids: Sequence[int] | None = None,
+        presences: bool = False,
+    ) -> "list[Member]":
+        """Members whose username starts with `query`, or the members `user_ids` names, over the gateway.
+
+        Discord returns at most 100; `limit` (default 5) applies to `query`.
+
+        Raises:
+            ValueError: Neither or both of `query` and `user_ids`, an empty `query`, or no `user_ids`.
+            GatewayRequiredError: The guild's shard is not connected here.
+            MemberRequestRateLimitedError: Discord refused the request for now.
+            TimeoutError: The answer did not arrive in time.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#request-guild-members
+        """
+        from shoal.models.member import Member
+
+        if (query is None) == (user_ids is None):
+            msg = "pass either query or user_ids"
+            raise ValueError(msg)
+        if query == "":
+            msg = "an empty query asks for every member: use guild.chunk()"
+            raise ValueError(msg)
+        if user_ids is not None and not user_ids:
+            msg = "user_ids needs at least one ID"
+            raise ValueError(msg)
+        found = await self._state.member_requests.request_members(
+            self.id,
+            query=query,
+            limit=min(MEMBER_QUERY_MAX_RESULTS, limit or 5),
+            user_ids=None if user_ids is None else list(user_ids),
+            presences=presences,
+        )
+        return [Member(self._state, data, self.id) for data in found if not isinstance(data.user, UnsetType)]
+
     @property
     def members(self) -> "list[Member]":
         """Every cached member. Complete only with the Guild Members intent and after chunking."""
@@ -301,11 +362,11 @@ class Guild(Hashable):
         return sorted(roles, key=Role.sort_key)
 
     def get_role(self, role_id: int, /) -> "Role | None":
-        """The cached role with this ID."""
+        """The cached role with this ID, if it is one of this guild's."""
         from shoal.models.role import Role
 
-        data = self._state.cache.peek(self._state.cache.roles, Snowflake(role_id))
-        return Role(self._state, data, self.id) if data is not None else None
+        role = Role.from_cache(self._state, role_id)
+        return role if role is not None and role.guild_id == self.id else None
 
     @property
     def default_role(self) -> "Role | None":
@@ -346,9 +407,9 @@ class Guild(Hashable):
 
         chosen = colour if not isinstance(colour, MissingType) else color
         params = CreateRoleParams(
-            name=UNSET if isinstance(name, MissingType) else name,
-            permissions=UNSET if isinstance(permissions, MissingType) else permissions,
-            color=UNSET if isinstance(chosen, MissingType) else chosen,
+            name=given(name),
+            permissions=given(permissions),
+            color=given(chosen),
             hoist=hoist,
             mentionable=mentionable,
         )
@@ -407,17 +468,17 @@ class Guild(Hashable):
 
     def get_channel(self, channel_id: int, /) -> "AnyGuildChannel | None":
         """The cached channel with this ID (threads aside)."""
-        from shoal.models.channel import GuildChannel, resolve_guild_channel
+        from shoal.models.channel import GuildChannel, resolve_cached_channel
 
-        channel = resolve_guild_channel(self._state, channel_id)
+        channel = resolve_cached_channel(self._state, channel_id)
         return channel if isinstance(channel, GuildChannel) and channel.guild_id == self.id else None
 
     def get_thread(self, thread_id: int, /) -> "Thread | None":
         """The cached active thread with this ID."""
-        from shoal.models.channel import resolve_guild_channel
+        from shoal.models.channel import resolve_cached_channel
         from shoal.models.thread import Thread
 
-        thread = resolve_guild_channel(self._state, thread_id)
+        thread = resolve_cached_channel(self._state, thread_id)
         return thread if isinstance(thread, Thread) and thread.guild_id == self.id else None
 
     def get_channel_or_thread(self, channel_id: int, /) -> "AnyGuildChannel | Thread | None":
@@ -500,11 +561,11 @@ class Guild(Hashable):
             name=name,
             type=ChannelType.GUILD_TEXT,
             parent_id=_id_or_unset(category),
-            position=_or_unset(position),
+            position=unset_if_none(position),
             permission_overwrites=list(overwrites) if overwrites else UNSET,
-            topic=_or_unset(topic),
-            nsfw=_or_unset(nsfw),
-            rate_limit_per_user=_or_unset(slowmode_delay),
+            topic=unset_if_none(topic),
+            nsfw=unset_if_none(nsfw),
+            rate_limit_per_user=unset_if_none(slowmode_delay),
         )
         return await self._create_channel(TextChannel, params, reason)
 
@@ -530,11 +591,11 @@ class Guild(Hashable):
             name=name,
             type=ChannelType.GUILD_VOICE,
             parent_id=_id_or_unset(category),
-            position=_or_unset(position),
+            position=unset_if_none(position),
             permission_overwrites=list(overwrites) if overwrites else UNSET,
-            bitrate=_or_unset(bitrate),
-            user_limit=_or_unset(user_limit),
-            rtc_region=_or_unset(rtc_region),
+            bitrate=unset_if_none(bitrate),
+            user_limit=unset_if_none(user_limit),
+            rtc_region=unset_if_none(rtc_region),
         )
         return await self._create_channel(VoiceChannel, params, reason)
 
@@ -555,7 +616,7 @@ class Guild(Hashable):
         params = CreateChannelParams(
             name=name,
             type=ChannelType.GUILD_CATEGORY,
-            position=_or_unset(position),
+            position=unset_if_none(position),
             permission_overwrites=list(overwrites) if overwrites else UNSET,
         )
         return await self._create_channel(CategoryChannel, params, reason)
@@ -751,14 +812,14 @@ class Guild(Hashable):
             return UNSET if isinstance(value, MissingType) else None if value is None else image_data(value)
 
         params = EditGuildParams(
-            name=UNSET if isinstance(name, MissingType) else name,
-            description=UNSET if isinstance(description, MissingType) else description,
+            name=given(name),
+            description=given(description),
             icon=image(icon),
             banner=image(banner),
-            verification_level=UNSET if isinstance(verification_level, MissingType) else verification_level,
+            verification_level=given(verification_level),
             system_channel_id=channel(system_channel),
             rules_channel_id=channel(rules_channel),
-            preferred_locale=UNSET if isinstance(preferred_locale, MissingType) else preferred_locale,
+            preferred_locale=given(preferred_locale),
         )
         return Guild(self._state, await self._state.rest.guilds.edit(self.id, params, reason=reason))
 
@@ -769,12 +830,6 @@ class Guild(Hashable):
         """
         await self._state.rest.guilds.leave(self.id)
 
-    def get_user(self, user_id: int, /) -> "User | None":
-        """The cached user with this ID (whether or not they are a member)."""
-        from shoal.models.user import User
-
-        return User.from_cache(self._state, user_id)
-
     @override
     def __str__(self) -> str:
         return self.name
@@ -782,10 +837,6 @@ class Guild(Hashable):
     @override
     def __repr__(self) -> str:
         return f"<Guild id={int(self.id)} name={self.name!r}>"
-
-
-def _or_unset[T](value: T | None) -> T | UnsetType:
-    return UNSET if value is None else value
 
 
 def _id_or_unset(value: Hashable | None) -> Snowflake | UnsetType:

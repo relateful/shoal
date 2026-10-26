@@ -8,6 +8,10 @@ CLIENT_CONNECT_TIMEOUT: Final = 10.0
 CLIENT_RECONNECT_BACKOFF_CAP: Final = 30.0
 """The longest backoff, in seconds, between a client's reconnection attempts."""
 
+CLIENT_STABLE_CONNECTION: Final = 60.0
+"""Seconds a subscription must last before losing it resets the client's backoff. Shorter ones count
+as failures, so a worker the server keeps dropping as too slow does not reconnect at full speed."""
+
 HANDSHAKE_MAX_FRAME_SIZE: Final = 64 * 1024
 """The largest hello accepted from a client that has not authenticated yet, in bytes."""
 

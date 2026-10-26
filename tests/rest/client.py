@@ -17,7 +17,7 @@ from shoal.payloads import (
 )
 from shoal.rest import endpoints
 from shoal.rest.client import RestClient, Token, TokenType
-from shoal.rest.defaults import DEFAULT_USER_AGENT, SEARCH_INDEX_RETRY_DELAY
+from shoal.rest.defaults import DEFAULT_USER_AGENT, MAX_RETRIES, SEARCH_INDEX_RETRY_DELAY
 from shoal.rest.errors import (
     ClientClosedError,
     ForbiddenError,
@@ -27,6 +27,7 @@ from shoal.rest.errors import (
     TokenInvalidatedError,
     UnauthorizedError,
 )
+from shoal.rest.ratelimit import LocalRateLimiter
 from shoal.rest.transport import TransportError
 from tests.support.fakes import FakeClock, FakeTransport
 from tests.support.json_payloads import GUILD, MESSAGE, USER
@@ -107,11 +108,60 @@ async def test_rate_limited_requests_are_retried() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("body_global", "header"),
+    [(True, {}), (False, {"x-ratelimit-global": "true"})],
+    ids=["body", "header"],
+)
+async def test_a_429_marked_global_in_the_body_or_the_header_pauses_every_route(
+    body_global: bool, header: dict[str, str], caplog: pytest.LogCaptureFixture
+) -> None:
+    transport = FakeTransport()
+    transport.queue(429, {"message": "slow", "retry_after": 0.5, "global": body_global}, header)
+    transport.queue(200, USER)
+    with caplog.at_level(logging.WARNING, logger="shoal.rest.ratelimit"):
+        await make_client(transport).users.get(1)
+    assert "global rate limit hit" in caplog.text
+
+
+@pytest.mark.parametrize(("retry_after", "waited"), [("3600", "3600.00s"), ("soon", None)])
+async def test_a_429_without_a_json_body_waits_for_the_retry_after_header(
+    retry_after: str, waited: str | None
+) -> None:
+    # Cloudflare answers a ban with an HTML page, not Discord's JSON body.
+    transport = FakeTransport()
+    transport.queue(429, b"<html>Error 1015</html>", {"retry-after": retry_after})
+    transport.queue(200, USER)
+    client = make_client(transport)
+    if waited is None:
+        # An unreadable header waits a second and retries.
+        assert (await client.users.get(1)).id == 1
+        return
+    with pytest.raises(RateLimitedError, match=waited):
+        await client.users.get(1)
+
+
 async def test_long_rate_limits_raise_instead_of_waiting() -> None:
     transport = FakeTransport()
     transport.queue(429, {"message": "slow", "retry_after": 3600, "global": False})
     with pytest.raises(RateLimitedError):
         await make_client(transport).users.get(1)
+
+
+async def test_a_bucket_empty_for_longer_than_allowed_refuses_before_sending() -> None:
+    transport = FakeTransport()
+    limits = {
+        "x-ratelimit-limit": "1",
+        "x-ratelimit-remaining": "0",
+        "x-ratelimit-reset-after": "3600",
+        "x-ratelimit-bucket": "users",
+    }
+    transport.queue(200, USER, limits)
+    client = make_client(transport)
+    await client.users.get(1)
+    with pytest.raises(RateLimitedError, match="before sending"):
+        await client.users.get(1)
+    assert len(transport.requests) == 1
 
 
 async def test_idempotent_requests_retry_server_errors_but_posts_do_not() -> None:
@@ -184,6 +234,21 @@ async def test_bot_401_stops_all_further_requests() -> None:
     with pytest.raises(TokenInvalidatedError):
         await client.users.get_me()
     assert len(transport.requests) == 1
+
+
+async def test_a_bot_401_does_not_lock_a_client_told_not_to() -> None:
+    transport = FakeTransport()
+    transport.queue(401, {"code": 0, "message": "401: Unauthorized"})
+    transport.queue(200, USER)
+    client = RestClient(
+        Token.bot("secret"),
+        transport=transport,
+        refuse_after_unauthorized=False,
+        rate_limiter=LocalRateLimiter(clock=FakeClock(), global_per_second=None),
+    )
+    with pytest.raises(UnauthorizedError):
+        await client.users.get_me()
+    assert (await client.users.get_me()).id == 1
 
 
 async def test_bearer_401_does_not_lock_the_client() -> None:
@@ -294,3 +359,35 @@ async def test_without_a_token_no_authorization_is_sent() -> None:
     client = RestClient(None, transport=transport)
     await client.webhooks.delete_with_token(1, "secret-token")
     assert "Authorization" not in transport.requests[0].headers
+
+
+async def test_a_rejected_interaction_token_does_not_lock_the_client() -> None:
+    transport = FakeTransport()
+    transport.queue(401, {"code": 50027, "message": "Invalid Webhook Token"})
+    transport.queue(200, USER)
+    client = make_client(transport)
+    with pytest.raises(UnauthorizedError):
+        await client.interactions.get_original(7, "expired-token")
+    assert (await client.users.get_me()).id == 1
+    token_route, bot_route = transport.requests
+    assert "Authorization" not in token_route.headers
+    assert bot_route.headers["Authorization"] == "Bot secret"
+
+
+async def test_requests_waiting_when_the_token_is_rejected_are_never_sent() -> None:
+    transport = FakeTransport()
+    transport.queue(401, {"code": 0, "message": "401: Unauthorized"})
+    client = make_client(transport)
+    results = await asyncio.gather(*(client.users.get_me() for _ in range(5)), return_exceptions=True)
+    assert len(transport.requests) == 1
+    assert isinstance(results[0], UnauthorizedError)
+    assert all(isinstance(result, TokenInvalidatedError) for result in results[1:])
+
+
+async def test_rate_limit_retries_stop_at_the_limit() -> None:
+    transport = FakeTransport()
+    for _ in range(MAX_RETRIES + 2):
+        transport.queue(429, {"message": "slow down", "retry_after": 0.1, "global": False})
+    with pytest.raises(RateLimitedError):
+        await make_client(transport).users.get_me()
+    assert len(transport.requests) == MAX_RETRIES + 1

@@ -10,6 +10,9 @@ from typing import Final
 from shoal._version import __version__
 from shoal.payloads.api import USER_AGENT_FORMAT
 
+BUCKET_PRUNE_INTERVAL: Final = 60.0
+"""Seconds between scans for idle rate limit buckets, once there are enough to prune."""
+
 BUCKET_PRUNE_THRESHOLD: Final = 1024
 """Rate limit buckets kept before idle ones are pruned."""
 

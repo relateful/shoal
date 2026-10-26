@@ -7,6 +7,7 @@ import pytest
 from shoal.core.dispatch import DispatchEvent
 from shoal.gateway.connection import GatewayConnection, GatewayConnector
 from shoal.gateway.manager import ShardManager, cluster_shard_ids
+from shoal.gateway.session import MemorySessionStore
 from shoal.gateway.shard import GatewayFatalError, ShardState
 from shoal.payloads import Intents
 from tests.support.fakes import FakeConnection, FakeConnector, ManualClock, gateway_message, settle
@@ -179,3 +180,30 @@ async def test_soundboard_requests_go_to_each_guilds_shard() -> None:
         await manager.request_soundboard_sounds([0])
     await manager.close()
     await asyncio.wait_for(task, timeout=2)
+
+
+async def test_a_cancelled_manager_saves_every_session() -> None:
+    async def dispatch(event: DispatchEvent) -> None:
+        del event
+
+    clock = ManualClock()
+    store = MemorySessionStore()
+    manager = ShardManager(
+        token="t",
+        intents=Intents.none(),
+        dispatch=dispatch,
+        shard_count=1,
+        connector=FakeConnector(connection_for(0, 1)),
+        compression=None,
+        clock=clock,
+        session_store=store,
+    )
+    task = asyncio.create_task(manager.run())
+    await settle()
+    await store.delete(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    saved = await store.load(0, 1)
+    assert saved is not None
+    assert saved.session_id == "s0"

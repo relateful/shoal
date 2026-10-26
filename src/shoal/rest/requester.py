@@ -248,11 +248,11 @@ def with_attachments[P: msgspec.Struct](
 ) -> tuple[P, dict[str, File]]:
     """Name `files` `files[0]`, `files[1]`… and describe them in `params.attachments`.
 
-    When creating, an unset `attachments` is filled in with one entry per file, carrying its name
-    and alt text. When editing (`edit=True`), `attachments` lists every attachment the message keeps:
-    left unset, Discord keeps the existing ones and adds the files, but alt text cannot be sent; when
-    the caller sets it, the new files are added to the caller's list so they are not dropped. An
-    entry the caller already wrote for a file's index is left as it is, in both cases.
+    An unset `attachments` is filled in with one entry per file, carrying its name and alt text,
+    except when editing (`edit=True`): there `attachments` lists every attachment the message keeps,
+    so left unset Discord keeps the existing ones and adds the files (without alt text). A list the
+    caller set gets an entry for each file it leaves out, so no upload is dropped; an entry the
+    caller already wrote for a file's index is left as it is.
 
     Discord: https://docs.discord.com/developers/reference#editing-message-attachments
     """
@@ -265,8 +265,6 @@ def with_attachments[P: msgspec.Struct](
             "list[object]", current
         )  # isinstance narrows to list[Unknown]; the items are checked below
         given: list[AttachmentRequest] = [item for item in items if isinstance(item, AttachmentRequest)]
-        if not edit:
-            return params, named
     elif edit:
         return params, named
     else:

@@ -1,12 +1,16 @@
 """Injectable time, so rate limiters, heartbeats and cache TTLs are testable without sleeping."""
 
 import asyncio
+import contextlib
 import time
+from collections.abc import Awaitable
 from typing import Protocol, final, override
 
 
 class Clock(Protocol):
     """A source of time and a way to wait."""
+
+    __slots__ = ()
 
     def monotonic(self) -> float:
         """Seconds on a clock that never goes backwards, for measuring intervals."""
@@ -56,3 +60,19 @@ async def sleep_unless(clock: Clock, seconds: float, stop: asyncio.Event) -> Non
         stopped.cancel()
     if sleeper.done() and not sleeper.cancelled() and sleeper.exception() is not None:
         await sleeper  # a failing clock is an error to raise now, not a warning at shutdown
+
+
+async def within[T](clock: Clock, seconds: float, work: Awaitable[T]) -> T:
+    """`work`'s result, or `TimeoutError` (with `work` cancelled) once `seconds` pass on `clock`."""
+    task = asyncio.ensure_future(work)
+    sleeper = asyncio.ensure_future(clock.sleep(seconds))
+    try:
+        await asyncio.wait({task, sleeper}, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        sleeper.cancel()
+    if not task.done():
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        raise TimeoutError
+    return task.result()

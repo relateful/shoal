@@ -3,13 +3,12 @@
 Discord: https://docs.discord.com/developers/resources/emoji
 """
 
-import base64
 from typing import Final
 
 from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
-from shoal.payloads.api import ImageData
+from shoal.payloads.api import ImageData, data_uri
 from shoal.payloads.base import Payload
 from shoal.payloads.user import User
 
@@ -43,7 +42,7 @@ def emoji_data(image: bytes) -> ImageData:
     if content_type is None:
         msg = "an emoji image must be a JPEG, PNG, GIF, WebP or AVIF"
         raise ValueError(msg)
-    return f"data:{content_type};base64,{base64.b64encode(image).decode()}"
+    return data_uri(content_type, image)
 
 
 def emoji_content_type(image: bytes) -> str | None:

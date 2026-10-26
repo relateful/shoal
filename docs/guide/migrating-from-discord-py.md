@@ -1,14 +1,21 @@
 # Migrating from discord.py
 
-Shoal keeps discord.py's names wherever they are good, so most concepts carry over directly. The
-high-level bot API (models with methods, `commands.Bot`, cogs, hybrid commands, views) is not built
-yet; this page covers what exists and is updated as the rest lands.
+Shoal keeps discord.py's names wherever they are good, so most bots change their imports and little
+else. [Writing a bot](bot.md) shows the whole bot API.
 
 ## Same idea, same name
 
 | discord.py | Shoal |
 | --- | --- |
-| `discord.Intents.default()` | `shoal.payloads.Intents.default()` |
+| `discord.Client(intents=...)` | `shoal.Client(intents=...)` |
+| `commands.Bot("!", intents=...)`, `@bot.command()`, `@bot.hybrid_command()` | the same, from `shoal.commands` |
+| `commands.Cog`, `@commands.Cog.listener()`, `bot.load_extension` | the same, from `shoal.commands` |
+| `app_commands.CommandTree(client)`, `@tree.command()`, `tree.sync()` | the same, from `shoal.app_commands` |
+| `discord.ui.View`, `@ui.button`, `ui.Modal`, `ui.TextInput` | the same, from `shoal.ui` |
+| `interaction.response.send_message(..., ephemeral=True)`, `followup.send` | the same |
+| `client.wait_for("message", check=..., timeout=...)` | the same |
+| `await guild.chunk()`, `await guild.query_members(...)` | the same; `chunk` also drops cached members who left |
+| `discord.Intents.default()` | `shoal.Intents.default()` |
 | `discord.Permissions(manage_guild=True)` | `shoal.payloads.Permissions(manage_guild=True)` |
 | `perms.manage_guild` | `perms.manage_guild` |
 | `discord.utils.snowflake_time(id)` | `Snowflake(id).created_at` |

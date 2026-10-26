@@ -4,9 +4,11 @@ from pathlib import Path
 import msgspec
 import pytest
 
+from shoal.cache import updater
 from shoal.cache.store import CacheStore
 from shoal.cache.updater import CacheUpdater
 from shoal.core.dispatch import DispatchEvent
+from shoal.core.metrics import EVENTS_DROPPED, InMemoryMetrics, Metrics
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import DISPATCH_PAYLOADS, Intents
 from tests.support.fakes import FakeClock
@@ -148,9 +150,11 @@ def ready() -> Json:
 
 
 class Harness:
-    def __init__(self, intents: Intents | None = None) -> None:
+    def __init__(self, intents: Intents | None = None, metrics: Metrics | None = None) -> None:
         self.store = CacheStore(clock=FakeClock())
-        self.updater = CacheUpdater(self.store, intents=intents or Intents(guild_presences=True))
+        self.updater = CacheUpdater(
+            self.store, intents=intents or Intents(guild_presences=True), metrics=metrics
+        )
 
     async def send(self, name: str, data: object, *, shard: int = 0, sequence: int | None = None) -> None:
         raw = msgspec.Raw(msgspec.json.encode(data))
@@ -205,17 +209,34 @@ async def test_guild_create_fills_every_kind() -> None:
     assert await store.get_presence(GUILD_ID, 2) is not None
 
 
+async def test_guild_create_channels_without_a_guild_id_get_the_guilds() -> None:
+    harness = Harness()
+    await harness.send("READY", ready())
+    bare = {key: value for key, value in channel(41).items() if key != "guild_id"}
+    await harness.send("GUILD_CREATE", guild_create(channels=[bare]))
+    cached = await harness.store.get_channel(41)
+    assert cached is not None
+    assert cached.guild_id == GUILD_ID
+
+
 async def test_unavailable_guild_create_keeps_cached_data() -> None:
     harness = await Harness().started()
     await harness.send("GUILD_CREATE", {"id": str(GUILD_ID), "unavailable": True})
     assert await harness.store.get_channel(40) is not None
 
 
-async def test_undecodable_events_are_logged_not_raised(caplog: pytest.LogCaptureFixture) -> None:
-    harness = await Harness().started()
+async def test_undecodable_events_are_logged_and_counted_not_raised(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    metrics = InMemoryMetrics()
+    harness = await Harness(metrics=metrics).started()
     with caplog.at_level(logging.ERROR, logger="shoal.cache"):
         await harness.send("GUILD_CREATE", {"id": str(GUILD_ID)})
     assert "could not decode GUILD_CREATE" in caplog.text
+    assert (
+        metrics.counters[InMemoryMetrics.key(EVENTS_DROPPED, {"stage": "cache", "event": "GUILD_CREATE"})]
+        == 1
+    )
     assert await harness.store.get_channel(40) is not None
 
 
@@ -299,6 +320,29 @@ async def test_member_events() -> None:
     assert await harness.store.get_voice_state(GUILD_ID, 2) is None
 
 
+async def test_a_member_update_keeps_an_omitted_timeout_and_clears_a_null_one() -> None:
+    harness = await Harness().started()
+    update: Json = {
+        "guild_id": str(GUILD_ID),
+        "roles": [],
+        "user": user(3),
+        "avatar": None,
+        "banner": None,
+        "joined_at": None,
+    }
+    await harness.send(
+        "GUILD_MEMBER_UPDATE", update | {"communication_disabled_until": "2030-01-01T00:00:00+00:00"}
+    )
+    await harness.send("GUILD_MEMBER_UPDATE", update)
+    kept = await harness.store.get_member(GUILD_ID, 3)
+    assert kept is not None
+    assert kept.communication_disabled_until is not None
+    await harness.send("GUILD_MEMBER_UPDATE", update | {"communication_disabled_until": None})
+    cleared = await harness.store.get_member(GUILD_ID, 3)
+    assert cleared is not None
+    assert cleared.communication_disabled_until is None
+
+
 async def test_member_update_for_an_uncached_member_is_cached() -> None:
     harness = await Harness().started()
     update: Json = {
@@ -339,6 +383,9 @@ async def test_message_events() -> None:
     assert edited is not None
     assert edited.content == "edited"
     await harness.send("MESSAGE_CREATE", message(101))
+    channel = await harness.store.get_channel(40)
+    assert channel is not None
+    assert channel.last_message_id == 101
     await harness.send("MESSAGE_DELETE_BULK", {"ids": ["100", "101"], "channel_id": "40"})
     assert await harness.store.get_message(100) is None
     await harness.send("MESSAGE_CREATE", message(102))
@@ -434,6 +481,9 @@ async def test_voice_presence_and_user_events() -> None:
     cached = await harness.store.get_presence(GUILD_ID, 2)
     assert cached is not None
     assert cached.status == "dnd"
+    # Offline is not kept: an absent presence already reads as offline.
+    await harness.send("PRESENCE_UPDATE", presence(2, "offline") | {"guild_id": str(GUILD_ID)})
+    assert await harness.store.get_presence(GUILD_ID, 2) is None
     await harness.send("USER_UPDATE", user(SELF_ID, "renamed"))
     me = await harness.store.get_user(SELF_ID)
     assert me is not None
@@ -504,13 +554,17 @@ async def test_guilds_unavailable_at_startup_survive_the_sweep(tmp_path: Path) -
     assert await restarted.store.get_channel(40, fresh_only=True) is not None
 
 
-async def test_deleting_a_role_removes_it_from_members() -> None:
+async def test_deleting_a_role_removes_it_from_members(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A small batch, so the pass over the guild's members yields to the loop on the way.
+    monkeypatch.setattr(updater, "YIELD_EVERY", 2)
     harness = await Harness().started()
-    await harness.send("GUILD_MEMBER_ADD", member(3) | {"guild_id": str(GUILD_ID), "roles": ["20"]})
+    for user_id in range(3, 8):
+        await harness.send("GUILD_MEMBER_ADD", member(user_id) | {"guild_id": str(GUILD_ID), "roles": ["20"]})
     await harness.send("GUILD_ROLE_DELETE", {"guild_id": str(GUILD_ID), "role_id": "20"})
-    cached = await harness.store.get_member(GUILD_ID, 3)
-    assert cached is not None
-    assert cached.roles == []
+    for user_id in range(3, 8):
+        cached = await harness.store.get_member(GUILD_ID, user_id)
+        assert cached is not None
+        assert cached.roles == []
 
 
 async def test_deleting_a_channel_removes_its_threads_and_messages() -> None:
@@ -867,3 +921,105 @@ async def test_forgetting_a_guild_forgets_its_newer_kinds() -> None:
     assert await store.get_stage_instance(71) is None
     assert await store.get_scheduled_event(72) is None
     assert await store.get_soundboard_sound(73) is None
+
+
+async def test_a_worker_without_ready_knows_its_own_reactions_once_told() -> None:
+    told_store, later_store = CacheStore(clock=FakeClock()), CacheStore(clock=FakeClock())
+    told = CacheUpdater(told_store, self_id=SELF_ID)
+    later = CacheUpdater(later_store)
+    later.identify(SELF_ID)
+    emoji: Json = {"emoji": {"id": None, "name": "x"}, "burst": False, "type": 0}
+    use: Json = {"channel_id": "40", "message_id": "100", "user_id": str(SELF_ID)} | emoji
+    for updater_under_test, store in ((told, told_store), (later, later_store)):
+        for name, data in (("MESSAGE_CREATE", message(100)), ("MESSAGE_REACTION_ADD", use)):
+            raw = msgspec.Raw(msgspec.json.encode(data))
+            await updater_under_test.apply(DispatchEvent(0, name, None, raw))
+        cached = await store.get_message(100)
+        assert cached is not None
+        assert isinstance(cached.reactions, list)
+        assert cached.reactions[0].me
+
+
+async def test_messages_cache_their_authors_membership_but_not_webhooks_as_users() -> None:
+    harness = await Harness().started()
+    membership = {k: v for k, v in member(5, nick="chatter").items() if k != "user"}
+    await harness.send("MESSAGE_CREATE", message(200) | {"author": user(5), "member": membership})
+    cached = await harness.store.get_member(GUILD_ID, 5)
+    assert cached is not None
+    assert cached.nick == "chatter"
+    await harness.send("MESSAGE_CREATE", message(201) | {"author": user(6), "webhook_id": "6"})
+    assert await harness.store.get_user(6) is None
+    assert await harness.store.get_message(201) is not None
+
+
+async def test_archiving_a_thread_forgets_its_messages() -> None:
+    harness = await Harness().started()
+    await harness.send("THREAD_CREATE", channel(50, kind=11, parent=40))
+    await harness.send("MESSAGE_CREATE", message(300) | {"channel_id": "50"})
+    archived = channel(50, kind=11, parent=40) | {"thread_metadata": {
+        "archived": True, "auto_archive_duration": 60, "archive_timestamp": "2024-01-01T00:00:00+00:00",
+        "locked": False,
+    }}  # fmt: skip
+    await harness.send("THREAD_UPDATE", archived)
+    assert await harness.store.get_channel(50) is None
+    assert await harness.store.get_message(300) is None
+
+
+async def test_a_thread_list_sync_keeps_the_bots_memberships() -> None:
+    harness = await Harness().started()
+    mine = {"id": "51", "user_id": str(SELF_ID), "join_timestamp": "2024-01-01T00:00:00+00:00", "flags": 0}
+    sync = {"guild_id": str(GUILD_ID), "threads": [channel(51, kind=11, parent=40)], "members": [mine]}
+    await harness.send("THREAD_LIST_SYNC", sync)
+    thread = await harness.store.get_channel(51)
+    assert thread is not None
+    assert not isinstance(thread.member, msgspec.UnsetType)
+    assert thread.member.user_id == SELF_ID
+
+
+async def test_a_full_member_list_drops_members_who_left_while_unseen() -> None:
+    harness = await Harness().started()
+    for user_id in (3, 4):
+        await harness.send("GUILD_MEMBER_ADD", member(user_id) | {"guild_id": str(GUILD_ID)})
+    harness.updater.expect_member_list("all")
+
+    def chunk(index: int, user_ids: list[int], nonce: str = "all") -> Json:
+        members = [member(user_id) for user_id in user_ids]
+        return {
+            "guild_id": str(GUILD_ID),
+            "members": members,
+            "chunk_index": index,
+            "chunk_count": 2,
+            "nonce": nonce,
+        }
+
+    # Another request's chunks (a query) are not a full list and drop nothing.
+    await harness.send(
+        "GUILD_MEMBERS_CHUNK", chunk(1, [3], nonce="query") | {"chunk_count": 1, "chunk_index": 0}
+    )
+    assert await harness.store.get_member(GUILD_ID, 4) is not None
+    await harness.send("GUILD_MEMBERS_CHUNK", chunk(0, [3]))
+    await harness.send("GUILD_MEMBERS_CHUNK", chunk(1, [5]))
+    assert await harness.store.get_member(GUILD_ID, 4) is None
+    assert await harness.store.get_member(GUILD_ID, 3) is not None
+    assert await harness.store.get_member(GUILD_ID, 5) is not None
+    # Once answered, the nonce is forgotten: a repeat drops nothing.
+    await harness.send("GUILD_MEMBER_ADD", member(6) | {"guild_id": str(GUILD_ID)})
+    await harness.send("GUILD_MEMBERS_CHUNK", chunk(0, [3]))
+    await harness.send("GUILD_MEMBERS_CHUNK", chunk(1, [5]))
+    assert await harness.store.get_member(GUILD_ID, 6) is not None
+
+
+async def test_an_abandoned_member_list_is_forgotten() -> None:
+    harness = await Harness().started()
+    await harness.send("GUILD_MEMBER_ADD", member(4) | {"guild_id": str(GUILD_ID)})
+    harness.updater.expect_member_list("gone")
+    harness.updater.forget_member_list("gone")
+    one: Json = {
+        "guild_id": str(GUILD_ID),
+        "members": [],
+        "chunk_index": 0,
+        "chunk_count": 1,
+        "nonce": "gone",
+    }
+    await harness.send("GUILD_MEMBERS_CHUNK", one)
+    assert await harness.store.get_member(GUILD_ID, 4) is not None

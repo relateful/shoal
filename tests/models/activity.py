@@ -2,7 +2,7 @@ from shoal.models.activity import Competing, CustomActivity, Game, Listening, St
 from shoal.payloads import ActivityType, BotActivity
 
 
-def test_activities_are_built_like_discord_py() -> None:
+def test_activities_are_built_from_keywords() -> None:
     assert Game("chess") == BotActivity(name="chess", type=ActivityType.PLAYING)
     assert Streaming("live", url="https://twitch.tv/x") == BotActivity(
         name="live", type=ActivityType.STREAMING, url="https://twitch.tv/x"

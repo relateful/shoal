@@ -7,18 +7,16 @@
 Discord: https://docs.discord.com/developers/resources/message#message-object
 """
 
-import asyncio
-import contextlib
 import logging
 from collections.abc import AsyncIterator, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Final, override
 
+import msgspec
 from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
-from shoal.core.tasks import spawn
-from shoal.models.base import MISSING, Hashable, MissingType
+from shoal.models.base import MISSING, Hashable, MissingType, unset_if_none
 from shoal.models.embed import Embed
 from shoal.models.emoji import EmojiLike, partial_emoji
 from shoal.models.sending import EmbedLike, edit
@@ -34,13 +32,13 @@ from shoal.payloads.message import (
     MessageFlags,
     MessageReference,
     MessageType,
+    ReactionCountDetails,
     ReactionType,
 )
 from shoal.payloads.message import Message as MessagePayload
 from shoal.payloads.message import Reaction as ReactionPayload
 from shoal.payloads.poll import Poll, PollCreateRequest
 from shoal.payloads.sticker import StickerItem
-from shoal.rest.errors import NotFoundError
 from shoal.rest.files import File
 from shoal.rest.resources.message import ReactionEmoji
 
@@ -124,7 +122,7 @@ class PartialMessage(Hashable):
         return MessageReference(
             message_id=self._id,
             channel_id=self._channel_id,
-            guild_id=self._guild_id if self._guild_id is not None else UNSET,
+            guild_id=unset_if_none(self._guild_id),
             fail_if_not_exists=fail_if_not_exists,
         )
 
@@ -183,7 +181,7 @@ class PartialMessage(Hashable):
         content: object = MISSING,
         embed: EmbedLike | MissingType | None = MISSING,
         embeds: Sequence[EmbedLike] | MissingType = MISSING,
-        attachments: Sequence[File] | MissingType = MISSING,
+        attachments: Sequence[File | Attachment] | MissingType = MISSING,
         allowed_mentions: AllowedMentions | MissingType | None = MISSING,
         view: ComponentView | MissingType | None = MISSING,
         suppress: bool | MissingType = MISSING,
@@ -191,7 +189,8 @@ class PartialMessage(Hashable):
     ) -> "Message":
         """Edit the message. Leave a keyword out to keep that part; pass `None` to remove it.
 
-        `attachments` are files to add. Only the bot's own messages can change content; on others
+        `attachments` is every attachment to keep, as `message.attachments` lists them, and new
+        `File`s; `[]` removes them all. Only the bot's own messages can change content; on others
         only `suppress` (hiding link embeds) works.
 
         Discord: https://docs.discord.com/developers/resources/message#edit-message
@@ -234,12 +233,10 @@ class PartialMessage(Hashable):
     def delete_later(self, delay: float, *, reason: str | None = None) -> None:
         """Delete the message after `delay` seconds without waiting; a message already gone is fine."""
 
-        async def later() -> None:
-            await asyncio.sleep(delay)
-            with contextlib.suppress(NotFoundError):
-                await self.delete(reason=reason)
+        async def delete() -> None:
+            await self.delete(reason=reason)
 
-        _ = spawn(later(), name=f"shoal-delete-{int(self._id)}")
+        self._state.delete_later(delay, delete, name=f"shoal-delete-{int(self._id)}")
 
     async def pin(self, *, reason: str | None = None) -> None:
         """Pin the message.
@@ -540,6 +537,17 @@ class Reaction:
         if emoji.id is None and emoji.name is not None:
             return emoji.name
         return PartialEmoji(id=emoji.id, name=emoji.name, animated=emoji.animated)
+
+    def cleared(self) -> "Reaction":
+        """The reaction once its last use is removed: every count 0, no longer the bot's."""
+        data = msgspec.structs.replace(
+            self._data,
+            count=0,
+            count_details=ReactionCountDetails(burst=0, normal=0),
+            me=False,
+            me_burst=False,
+        )
+        return Reaction(self._state, self._message, data)
 
     @property
     def count(self) -> int:

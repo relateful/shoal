@@ -40,6 +40,12 @@ src/shoal/
   metrics/       exporters (Prometheus)
   diagnostics/   event loop health
   endpoint/      interactions over HTTP, for bots without a gateway
+  models/        objects with methods (Guild, Member, Message, ...) over a cache and a REST client
+  emojis/        the application's emojis: a registry used across the bot, and a sync from a folder
+  client/        Client: events as models, interactions, views and modals waiting for answers
+  ui/            views, buttons, selects and modals
+  app_commands/  slash commands, context menus, the command tree and its checks
+  commands/      prefix and hybrid commands, Bot, cogs, converters, extensions, help
 tests/           mirrors src/shoal/: tests/rest/route.py tests src/shoal/rest/route.py
 scripts/         maintenance scripts (docs checker, export generator, constant sorter)
 docs/            guides and the home page; the API reference is generated from docstrings
@@ -47,8 +53,11 @@ theme/           the docs site's own theme: templates, styles and scripts, no th
 ```
 
 `core` depends on nothing but the standard library and msgspec. `payloads` depends on `core`. The
-remaining layers depend on `core` and `payloads` and **never on each other**, so each can run in its
-own process. `import-linter` enforces this.
+transport layers (`rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`) depend on
+`core` and `payloads` and **never on each other**, so each can run in its own process. Above them
+the bot layers stack in this order, each using only those below it: `models`, `emojis`, `client`,
+then `ui` and `app_commands` (beside each other), then `commands`. `import-linter` enforces this, and
+`tests/conventions.py` checks that every package is named here and in the contract.
 
 ## Where things go
 
@@ -143,8 +152,10 @@ Payloads mirror Discord's JSON exactly and hold data only.
   because they have no fixed shape at all: a guild template's snapshot (placeholder integer IDs)
   and an identity profile's `metadata` (the game's own data). Aliases may rename `JSONObject`, but
   no other alias may wrap `Any`. Tests use it for JSON fixtures.
-- A payload holding a credential (a token, an OAuth2 access token, a lobby secret) names it in
-  `REDACTED_FIELDS`, so its repr never shows it. Path parameters that grant access (tokens, invite
+- A payload holding a credential (a token, an OAuth2 access token, a lobby secret) or an email
+  address names it in `REDACTED_FIELDS`, so its repr never shows it; any other struct with such a
+  field writes its own `__repr__`. A conventions test fails on a field named `*token`, `*secret`,
+  `*password` or `*email` that a repr would show. Path parameters that grant access (tokens, invite
   and template codes) are in `rest.route.SECRET_PARAMETERS`, which keeps them out of logs.
 - A value whose type depends on another field, like an audit log change's `old_value` and
   `new_value`, is `msgspec.Raw`: the caller decodes it into the type the other field names.
@@ -177,8 +188,15 @@ So that anything can be found without searching:
 - Nothing blocks the event loop: file I/O goes through `asyncio.to_thread`, and CPU-heavy work does
   not run on the loop.
 - Nothing fails silently: anything dropped, retried or rate limited is logged and counted in a metric.
-- Everything that schedules or measures a delay takes a `Clock`, so tests never sleep for real. The one
-  exception is `LoopMonitor`, whose job is to measure the real event loop.
+- Absent values: payloads use msgspec's `UNSET` for a field Discord left out (`None` is Discord's
+  `null`). Model `edit(...)` keywords default to `MISSING`, "leave as it is", so `None` can mean
+  "clear it"; `models.base.given` turns `MISSING` into `UNSET` for the request. Model `create(...)`
+  keywords default to `None`, since there is nothing to keep.
+- Everything that schedules or measures a delay takes a `Clock`, so tests never sleep for real: wait
+  with `clock.sleep`, bound a wait with `core.clock.within`, tell the time with `clock.wall()` (models:
+  `state.now()`). Two exceptions: `LoopMonitor`, whose job is to measure the real event loop, and the
+  connect and handshake timeouts of the network adapters (`gateway.connection`, `ipc`), which wait on
+  real sockets. `tests/conventions.py` enforces it.
 - Every queue, cache and buffer is bounded: by an explicit limit, or by mirroring state Discord
   bounds (a guild's members, channels and roles). Anything that grows with traffic (messages, users
   seen as message authors, IPC queues) has a limit.
@@ -194,6 +212,7 @@ So that anything can be found without searching:
 
 ## Commits
 
-Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes are the layers (`core`,
-`payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`) plus `docs`, `ci` and
-`build`. Update `CHANGELOG.md` under "Unreleased".
+Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes are the packages
+(`core`, `payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`,
+`models`, `emojis`, `client`, `ui`, `app_commands`, `commands`) plus `docs`, `ci` and `build`. Update
+`CHANGELOG.md` under "Unreleased".

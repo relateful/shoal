@@ -24,44 +24,63 @@ import asyncio
 import contextlib
 import inspect
 import logging
+import secrets
 import signal
 from collections.abc import Awaitable, Callable, Iterable, Sequence
-from typing import TYPE_CHECKING, Final, final
+from pathlib import Path
+from typing import TYPE_CHECKING, Final, Unpack, final
 
-from msgspec import UnsetType
+from msgspec import UNSET, UnsetType
 
 from shoal.cache.store import CacheStore
 from shoal.cache.updater import CacheUpdater
-from shoal.client.defaults import GUILD_READY_TIMEOUT
+from shoal.client.defaults import (
+    GUILD_READY_TIMEOUT,
+    MEMBER_LIST_MEMBERS_PER_SECOND,
+    MEMBER_LIST_MIN_TIMEOUT,
+    MEMBER_QUERY_TIMEOUT,
+)
 from shoal.client.events import EventTranslator
-from shoal.client.interaction import Interaction, InteractionPayload, Responder
+from shoal.client.interaction import Interaction, InteractionPayload, Responder, is_answerable
 from shoal.client.views import DispatchableView, ViewStore
+from shoal.core.clock import Clock, SystemClock, within
+from shoal.core.codec import decode_json
 from shoal.core.dispatch import DispatchEvent
 from shoal.core.errors import ShoalError
+from shoal.core.metrics import Metrics, NoopMetrics
+from shoal.core.replies import REPLY_WRITTEN
 from shoal.core.snowflake import Snowflake
 from shoal.core.tasks import spawn
 from shoal.emojis.registry import AppEmojis
 from shoal.gateway.manager import ShardManager
-from shoal.gateway.sharding import LocalIdentifyLimiter
+from shoal.gateway.session import SessionStore
+from shoal.gateway.shard import ShardOptions
+from shoal.gateway.sharding import IdentifyLimiter, LocalIdentifyLimiter, wait_for_session_starts
 from shoal.models.channel import (
     AnyGuildChannel,
-    MessageableChannel,
+    DMChannel,
     PartialMessageable,
     channel_from_payload,
-    resolve_guild_channel,
+    resolve_cached_channel,
 )
 from shoal.models.emoji import Emoji
 from shoal.models.guild import Guild
 from shoal.models.member import Member
-from shoal.models.state import State
+from shoal.models.state import GatewayRequiredError, MemberRequestRateLimitedError, State
 from shoal.models.user import ClientUser, User
 from shoal.payloads.gateway import Intents
-from shoal.payloads.gateway_events import BotActivity, Ready, StatusType, UpdatePresence
-from shoal.payloads.guild import UnavailableGuild
+from shoal.payloads.gateway_events import (
+    BotActivity,
+    GuildMembersChunk,
+    RateLimited,
+    Ready,
+    RequestGuildMembers,
+    StatusType,
+    UpdatePresence,
+)
+from shoal.payloads.guild import GuildMember, UnavailableGuild
 from shoal.payloads.interactions import (
     INTERACTION_RESPONSE_DEADLINE,
-    ApplicationCommandInteraction,
-    AutocompleteInteraction,
     ComponentInteraction,
     ModalSubmitInteraction,
     UnknownInteraction,
@@ -70,6 +89,8 @@ from shoal.payloads.interactions import (
 from shoal.payloads.interactions import Interaction as ReceivedInteraction
 from shoal.payloads.interactions import InteractionResponse as ResponsePayload
 from shoal.payloads.stage_instance import StageInstance
+from shoal.payloads.user import User as UserPayload
+from shoal.payloads.webhook_events import WEBHOOK_EVENT_PAYLOADS, WebhookEventPayload
 from shoal.rest.client import RestClient, Token
 from shoal.rest.files import File
 
@@ -92,12 +113,44 @@ class ClientError(ShoalError):
 
 
 @final
+class _MemberRequest:
+    """One Request Guild Members waiting for its chunks."""
+
+    __slots__ = ("done", "guild_id", "members")
+
+    def __init__(self, guild_id: int, done: asyncio.Future[list[GuildMember]]) -> None:
+        self.guild_id: int = guild_id
+        self.members: list[GuildMember] = []
+        self.done: asyncio.Future[list[GuildMember]] = done
+
+
+@final
 class _Waiter:
     __slots__ = ("check", "future")
 
     def __init__(self, check: Callable[..., bool] | None, future: asyncio.Future[tuple[object, ...]]) -> None:
         self.check: Callable[..., bool] | None = check
         self.future: asyncio.Future[tuple[object, ...]] = future
+
+
+class ClientOptions(ShardOptions, total=False):
+    """Every `Client` keyword but `intents`, for subclasses that pass them through (`commands.Bot`).
+
+    Each key is the `Client` argument of the same name, with the same default.
+    """
+
+    cache: CacheStore | None
+    shard_count: int | None
+    shard_ids: Sequence[int] | None
+    activity: BotActivity | None
+    status: StatusType
+    rest: Callable[[Token], RestClient] | None
+    app_emojis: AppEmojis | None
+    metrics: Metrics | None
+    session_store: SessionStore | None
+    cache_snapshot: str | Path | None
+    identify_limiter: IdentifyLimiter | None
+    clock: Clock | None
 
 
 class Client:
@@ -112,9 +165,21 @@ class Client:
         shard_ids: The shards this process runs, for clusters; by default all of them.
         activity: The bot's activity on connect.
         status: The bot's status on connect.
-        rest: Options for the REST client other than the token, such as `base_url` for a REST proxy.
+        rest: Builds the REST client from the token, to set its other options:
+            `rest=lambda token: RestClient(token, base_url=PROXY)` for a REST proxy.
         app_emojis: The registry of the application's emojis, to declare names and fallbacks
             with an `AppEmojis` subclass; by default an empty `AppEmojis`.
+        metrics: Receives what the shards, the REST client (unless `rest` builds its own), the
+            default cache and the HTTP endpoint measure.
+        session_store: Where shard sessions are saved, so a restart resumes instead of identifying.
+        cache_snapshot: A file for the cache: loaded before connecting and written after the shards
+            close, so a restart answers from a warm cache (see the caching guide).
+        identify_limiter: Shared by the shards; pass one every cluster shares (`shoal.ipc`) so
+            clusters together keep to `max_concurrency`. By default a local one.
+        clock: Time source for the client's timers, the shards, the default REST client and cache, and
+            the models (`delete_after`, typing). Tests pass a fake one.
+        options: How every shard connects (`ShardOptions`): `gateway_url`, `compression`,
+            `large_threshold`, `capabilities`, `event_delay_warning`, `resume_window`.
 
     Subclass it and override `setup_hook` to run code (sync commands, add persistent views) after
     logging in and before connecting.
@@ -126,21 +191,30 @@ class Client:
     __slots__ = (
         "_app_emojis",
         "_cache",
+        "_cache_snapshot",
+        "_clock",
         "_closed",
         "_expected_shards",
         "_handlers",
+        "_identify_limiter",
         "_interaction_handlers",
         "_listeners",
         "_make_rest",
         "_manager",
+        "_member_lists",
+        "_member_requests",
+        "_metrics",
         "_pending_guilds",
         "_presence",
         "_ready",
         "_ready_shards",
         "_ready_timers",
+        "_session_store",
         "_shard_count",
         "_shard_ids",
+        "_shard_options",
         "_state",
+        "_token",
         "_translator",
         "_updater",
         "_user",
@@ -160,21 +234,41 @@ class Client:
         status: StatusType = StatusType.ONLINE,
         rest: Callable[[Token], RestClient] | None = None,
         app_emojis: AppEmojis | None = None,
+        metrics: Metrics | None = None,
+        session_store: SessionStore | None = None,
+        cache_snapshot: str | Path | None = None,
+        identify_limiter: IdentifyLimiter | None = None,
+        clock: Clock | None = None,
+        **options: Unpack[ShardOptions],
     ) -> None:
         """Create a client; see the class docstring for the arguments. Call `run` or `start`."""
         self.intents: Intents = intents
         # Not `or`: a registry is empty, so falsy, until it loads at login.
         self._app_emojis: AppEmojis = app_emojis if app_emojis is not None else AppEmojis()
-        self._cache: CacheStore = cache or CacheStore()
-        self._updater: CacheUpdater = CacheUpdater(self._cache, intents=intents)
+        self._metrics: Metrics = metrics or NoopMetrics()
+        self._clock: Clock = clock or SystemClock()
+        self._session_store: SessionStore | None = session_store
+        self._cache_snapshot: Path | None = Path(cache_snapshot) if cache_snapshot is not None else None
+        self._identify_limiter: IdentifyLimiter | None = identify_limiter
+        self._shard_options: ShardOptions = options
+        self._cache: CacheStore = cache or CacheStore(metrics=self._metrics, clock=self._clock)
+        self._updater: CacheUpdater = CacheUpdater(self._cache, intents=intents, metrics=self._metrics)
         self._views: ViewStore = ViewStore()
-        self._make_rest: Callable[[Token], RestClient] = rest or RestClient
+        self._make_rest: Callable[[Token], RestClient] = rest or (
+            lambda token: RestClient(token, metrics=self._metrics, clock=self._clock)
+        )
         self._shard_count: int | None = shard_count
         self._shard_ids: list[int] | None = list(shard_ids) if shard_ids is not None else None
         self._presence: UpdatePresence = UpdatePresence(
             since=None, activities=[activity] if activity is not None else [], status=status, afk=False
         )
         self._state: State | None = None
+        self._member_requests: dict[str, _MemberRequest] = {}
+        """Member requests waiting for chunks, by nonce."""
+        self._member_lists: dict[int, _MemberRequest] = {}
+        """Requests for every member, by guild: concurrent `guild.chunk()` calls share one."""
+        self._token: str = ""
+        """The bot token `login` used, for `connect`; never logged."""
         self._translator: EventTranslator | None = None
         self._manager: ShardManager | None = None
         self._user: ClientUser | None = None
@@ -230,14 +324,27 @@ class Client:
 
         Raises:
             UnauthorizedError: The token is wrong.
+            ClientError: The client is already logged in.
         """
+        if self._state is not None:
+            msg = "the client is already logged in"
+            raise ClientError(msg)
         rest = self._make_rest(Token.bot(token))
-        state = State(rest=rest, cache=self._cache, views=self._views)
-        me = await rest.users.get_me()
-        application = await rest.applications.get_me()
-        state.identify(user_id=me.id, application_id=application.id)
-        await self._app_emojis.load(state, application.id)
+        state = State(
+            rest=rest, cache=self._cache, views=self._views, clock=self._clock, member_requests=self
+        )
+        try:
+            me = await rest.users.get_me()
+            application = await rest.applications.get_me()
+            state.identify(user_id=me.id, application_id=application.id)
+            self._updater.identify(me.id)
+            await self._app_emojis.load(state, application.id)
+        except BaseException:
+            # Nothing else holds the REST client yet, so `close` could not release it.
+            await rest.close()
+            raise
         self._state = state
+        self._token = token
         self._user = ClientUser(state, me)
         self._translator = EventTranslator(state, self._updater, self.dispatch)
         await self.setup_hook()
@@ -245,8 +352,8 @@ class Client:
     async def setup_hook(self) -> None:
         """Runs once after `login` and before connecting; override it to sync commands or add views."""
 
-    async def connect(self, token: str) -> None:
-        """Connect the shards and process events until `close`.
+    async def connect(self, token: str | None = None) -> None:
+        """Connect the shards and process events until `close`, with the token `login` used.
 
         Raises:
             ClientError: Before `login`.
@@ -257,15 +364,24 @@ class Client:
         gateway = await rest.gateway.get_bot()
         shard_count = self._shard_count or gateway.shards
         shard_ids = self._shard_ids if self._shard_ids is not None else list(range(shard_count))
+        await wait_for_session_starts(gateway.session_start_limit, len(shard_ids))
+        if self._cache_snapshot is not None:
+            # Before any shard connects: entries written meanwhile would lose to older ones.
+            await self._cache.load_snapshot(self._cache_snapshot, shard_count=shard_count)
         self._expected_shards = set(shard_ids)
         self._manager = ShardManager(
-            token=token,
+            token=token if token is not None else self._token,
             intents=self.intents,
             dispatch=self.feed,
             shard_count=shard_count,
             shard_ids=shard_ids,
-            identify_limiter=LocalIdentifyLimiter(gateway.session_start_limit.max_concurrency),
+            identify_limiter=self._identify_limiter
+            or LocalIdentifyLimiter(gateway.session_start_limit.max_concurrency),
+            session_store=self._session_store,
             presence=self._presence,
+            metrics=self._metrics,
+            clock=self._clock,
+            **self._shard_options,
         )
         await self._manager.run()
 
@@ -283,6 +399,9 @@ class Client:
             timer.cancel()
         if self._manager is not None:
             await self._manager.close()
+            if self._cache_snapshot is not None:
+                # After the shards: the snapshot then ends at the event their saved sessions resume from.
+                await self._cache.save_snapshot(self._cache_snapshot, shard_count=self._manager.shard_count)
         if self._state is not None:
             await self._state.rest.close()
 
@@ -323,7 +442,8 @@ class Client:
     def event[F: Listener](self, function: F, /) -> F:
         """Make `function` the handler for the event its name says (`on_message`), replacing any earlier one.
 
-        Handlers added with `listen` or `add_listener` run as well.
+        It also replaces a subclass's own `on_message` method. Handlers added with `listen` or
+        `add_listener` run as well.
 
         Raises:
             TypeError: `function` is not a coroutine function, or its name does not start with `on_`.
@@ -379,7 +499,7 @@ class Client:
             if matched:
                 waiter.future.set_result(args)
                 self._waiters[event].remove(waiter)
-        handler = self._handlers.get(event)
+        handler = self._handlers.get(event) or self._method_for(event)
         handlers = (
             [handler, *self._listeners.get(event, [])]
             if handler is not None
@@ -387,6 +507,17 @@ class Client:
         )
         for handler in handlers:
             _ = spawn(self._run_handler(event, handler, args), name=f"shoal-event-{event}")
+
+    def _method_for(self, event: str) -> Listener | None:
+        """A subclass's `on_<event>` method, which handles the event unless `event` replaced it.
+
+        Methods `Client` itself defines (`on_error`) are hooks, not event handlers.
+        """
+        name = f"on_{event}"
+        if hasattr(Client, name):
+            return None
+        method = getattr(self, name, None)
+        return method if inspect.iscoroutinefunction(method) else None
 
     async def _run_handler(self, event: str, handler: Listener, args: tuple[object, ...]) -> None:
         try:
@@ -415,8 +546,18 @@ class Client:
             TimeoutError: `timeout` seconds passed first.
         """
         future: asyncio.Future[tuple[object, ...]] = asyncio.get_running_loop().create_future()
-        self._waiters.setdefault(event.removeprefix("on_"), []).append(_Waiter(check, future))
-        args = await asyncio.wait_for(future, timeout)
+        name = event.removeprefix("on_")
+        waiter = _Waiter(check, future)
+        self._waiters.setdefault(name, []).append(waiter)
+        try:
+            args = await future if timeout is None else await within(self._clock, timeout, future)
+        finally:
+            # Timed out or cancelled: an event that never comes must not keep the waiter.
+            waiting = self._waiters.get(name, [])
+            if waiter in waiting:
+                waiting.remove(waiter)
+            if not waiting:
+                self._waiters.pop(name, None)
         if not args:
             return None
         return args[0] if len(args) == 1 else args
@@ -434,6 +575,11 @@ class Client:
             msg = "the client is not logged in; call login() before feeding events"
             raise ClientError(msg)
         self.dispatch("socket_event_type", event.name)
+        if event.name == "USER_UPDATE" and self._user is not None:
+            # Sent only for the bot's own user.
+            self._user.refresh(event.decode(UserPayload))
+        if event.name == "RATE_LIMITED" and self._member_requests:
+            self._member_request_refused(event.decode(RateLimited))
         if event.name == "READY":
             await self._handle_ready(event)
         elif event.name == "RESUMED":
@@ -446,6 +592,9 @@ class Client:
             await translator.translate(event)
             if event.name == "GUILD_CREATE":
                 self._guild_arrived(event)
+            elif event.name == "GUILD_MEMBERS_CHUNK" and self._member_requests:
+                # After the cache took the chunk, so the members are there when the request ends.
+                self._member_chunk(event.decode(GuildMembersChunk))
 
     def _ready_event(self) -> asyncio.Event:
         if self._ready is None:
@@ -491,7 +640,7 @@ class Client:
             return
 
         async def expire() -> None:
-            await asyncio.sleep(GUILD_READY_TIMEOUT)
+            await self._clock.sleep(GUILD_READY_TIMEOUT)
             missing = len(self._pending_guilds.get(shard_id, ()))
             _log.info(
                 "shard %d: %d guilds did not arrive in time; continuing without them", shard_id, missing
@@ -510,9 +659,98 @@ class Client:
         self._ready_shards.add(shard_id)
         self.dispatch("shard_ready", shard_id)
         expected = self._expected_shards
-        if (expected is None or expected <= self._ready_shards) and not self.is_ready():
+        if expected is not None and not expected <= self._ready_shards:
+            return
+        # Every shard has its guilds again: what is still stale is a guild the bot left meanwhile.
+        _ = spawn(self._sweep_stale(), name="shoal-cache-sweep")
+        if not self.is_ready():
             self._ready_event().set()
             self.dispatch("ready")
+
+    async def _sweep_stale(self) -> None:
+        await self._cache.sweep_stale()
+
+    async def request_members(
+        self,
+        guild_id: int,
+        /,
+        *,
+        query: str | None,
+        limit: int,
+        user_ids: Sequence[int] | None,
+        presences: bool,
+    ) -> list[GuildMember]:
+        """Send a Request Guild Members on the guild's shard and gather its chunks.
+
+        `guild.chunk()` and `guild.query_members()` call this.
+
+        Raises:
+            ClientError: The intent the request needs is missing.
+            GatewayRequiredError: The guild's shard is not connected here.
+            MemberRequestRateLimitedError: Discord refused the request for now.
+            TimeoutError: The chunks did not all arrive in time.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#request-guild-members
+        """
+        full = query == "" and limit == 0
+        if full and not self.intents.guild_members:
+            msg = "fetching every member needs the Server Members intent (guild_members)"
+            raise ClientError(msg)
+        if presences and not self.intents.guild_presences:
+            msg = "members' presences need the Presence intent (guild_presences)"
+            raise ClientError(msg)
+        timeout = self._member_request_timeout(guild_id) if full else MEMBER_QUERY_TIMEOUT
+        shared = self._member_lists.get(guild_id) if full else None
+        if shared is not None:
+            return await within(self._clock, timeout, asyncio.shield(shared.done))
+        shard = self._manager.shard_for_guild(guild_id) if self._manager is not None else None
+        if shard is None:
+            what = "requesting members"
+            raise GatewayRequiredError(what)
+        nonce = secrets.token_hex(16)
+        request = _MemberRequest(guild_id, asyncio.get_running_loop().create_future())
+        self._member_requests[nonce] = request
+        if full:
+            self._member_lists[guild_id] = request
+            self._updater.expect_member_list(nonce)
+        try:
+            await shard.request_guild_members(
+                RequestGuildMembers(
+                    guild_id=Snowflake(guild_id),
+                    query=UNSET if query is None else query,
+                    limit=limit,
+                    presences=presences,
+                    user_ids=UNSET if user_ids is None else [Snowflake(user) for user in user_ids],
+                    nonce=nonce,
+                )
+            )
+            return await within(self._clock, timeout, asyncio.shield(request.done))
+        finally:
+            self._member_requests.pop(nonce, None)
+            if self._member_lists.get(guild_id) is request:
+                del self._member_lists[guild_id]
+            self._updater.forget_member_list(nonce)
+
+    def _member_request_timeout(self, guild_id: int) -> float:
+        cached = self.cache.peek(self.cache.guilds, Snowflake(guild_id))
+        members = cached.member_count if cached is not None and isinstance(cached.member_count, int) else 0
+        return max(MEMBER_LIST_MIN_TIMEOUT, members / MEMBER_LIST_MEMBERS_PER_SECOND)
+
+    def _member_chunk(self, chunk: GuildMembersChunk) -> None:
+        request = self._member_requests.get(chunk.nonce) if isinstance(chunk.nonce, str) else None
+        if request is None or request.done.done():
+            return
+        request.members.extend(chunk.members)
+        if chunk.chunk_index + 1 >= chunk.chunk_count:
+            request.done.set_result(request.members)
+
+    def _member_request_refused(self, limited: RateLimited) -> None:
+        meta = limited.guild_members_metadata()
+        if meta is None or not isinstance(meta.nonce, str):
+            return
+        request = self._member_requests.get(meta.nonce)
+        if request is not None and not request.done.done():
+            request.done.set_exception(MemberRequestRateLimitedError(request.guild_id, limited.retry_after))
 
     def add_interaction_handler(self, handler: InteractionHandler) -> None:
         """Give `handler` every command and autocomplete interaction first (a `CommandTree` does)."""
@@ -520,13 +758,7 @@ class Client:
 
     async def _handle_interaction(self, event: DispatchEvent) -> None:
         parsed = parse_interaction(event.data)
-        if isinstance(parsed, UnknownInteraction) or not isinstance(
-            parsed,
-            ApplicationCommandInteraction
-            | ComponentInteraction
-            | AutocompleteInteraction
-            | ModalSubmitInteraction,
-        ):
+        if not is_answerable(parsed):
             _log.warning("received an interaction of a type this version of Shoal does not know")
             return
         await self.process_interaction(parsed)
@@ -543,16 +775,11 @@ class Client:
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#responding-to-an-interaction
         """
-        if not isinstance(
-            data,
-            ApplicationCommandInteraction
-            | ComponentInteraction
-            | AutocompleteInteraction
-            | ModalSubmitInteraction,
-        ):
+        if not is_answerable(data):
             return None
         rest = self.state.rest
         answered: asyncio.Future[ResponsePayload | None] = asyncio.get_running_loop().create_future()
+        written = REPLY_WRITTEN.get()
 
         async def respond(response: ResponsePayload, files: Sequence[File]) -> None:
             if files or answered.done():
@@ -561,12 +788,22 @@ class Client:
                     answered.set_result(None)
                 return
             answered.set_result(response)
+            if written is not None:
+                # Whatever the caller does next (a follow-up, an edit) needs the reply to exist.
+                await asyncio.shield(written)
 
-        await self.process_interaction(data, responder=respond)
+        # In its own task: a handler that answers inline waits for the reply, which is only written
+        # once this returns.
+        async def route() -> None:
+            await self.process_interaction(data, responder=respond)
+
+        _ = spawn(route(), name=f"shoal-http-interaction-{data.id}")
         try:
-            async with asyncio.timeout(INTERACTION_RESPONSE_DEADLINE):
-                return await answered
+            return await within(self._clock, INTERACTION_RESPONSE_DEADLINE, answered)
         except TimeoutError:
+            if answered.done() and not answered.cancelled():
+                # Answered just as the deadline passed, before this task resumed: still the reply.
+                return answered.result()
             # The timeout cancelled `answered`, so a later response goes through the callback endpoint.
             _log.warning(
                 "interaction %s was not answered within %.0fs; defer when the work takes longer",
@@ -582,10 +819,13 @@ class Client:
         host: str | None = None,
         port: int | None = None,
         path: str | None = None,
+        events_path: str | None = None,
     ) -> "Endpoint":
         """An `Endpoint` answering interactions over HTTP through this client.
 
-        `async with client.endpoint(public_key):` serves until the block ends.
+        `async with client.endpoint(public_key):` serves until the block ends. It also receives the
+        app's webhook events on `events_path` (set it as the Webhook Events URL), emitted as events
+        (`handle_webhook_event`).
 
         For bots without a gateway connection: log in, then serve. Needs `shoal[interactions]`.
 
@@ -601,7 +841,33 @@ class Client:
             host=host if host is not None else defaults.HOST,
             port=port if port is not None else defaults.PORT,
             path=path if path is not None else defaults.PATH,
+            events=self.handle_webhook_event,
+            events_path=events_path if events_path is not None else defaults.EVENTS_PATH,
+            metrics=self._metrics,
+            clock=self._clock,
         )
+
+    async def handle_webhook_event(self, payload: WebhookEventPayload) -> None:
+        """Emit a webhook event as `on_<event type in lower case>` with its data, for `Endpoint`.
+
+        `on_application_authorized(ApplicationAuthorized)`, `on_entitlement_create(Entitlement)` (the
+        same event the gateway emits), `on_lobby_message_create(WebhookLobbyMessage)`, ... An event
+        type Shoal does not know yet is emitted with the whole `WebhookEventPayload`.
+
+        Raises:
+            PayloadDecodeError: The data does not match its documented type.
+
+        Discord: https://docs.discord.com/developers/events/webhook-events#event-types
+        """
+        event = payload.event
+        if isinstance(event, UnsetType):
+            return
+        name = str(event.type).lower()
+        kind = WEBHOOK_EVENT_PAYLOADS.get(event.type)
+        if kind is None or isinstance(event.data, UnsetType):
+            self.dispatch(name, payload)
+            return
+        self.dispatch(name, decode_json(event.data, kind))
 
     async def process_interaction(
         self, data: InteractionPayload, *, responder: Responder | None = None
@@ -681,9 +947,9 @@ class Client:
         """The cached user with this ID."""
         return User.from_cache(self.state, user_id)
 
-    def get_channel(self, channel_id: int, /) -> "AnyGuildChannel | Thread | MessageableChannel | None":
-        """The cached channel or thread with this ID."""
-        return resolve_guild_channel(self.state, channel_id)
+    def get_channel(self, channel_id: int, /) -> "AnyGuildChannel | Thread | DMChannel | None":
+        """The cached channel, thread or DM channel with this ID."""
+        return resolve_cached_channel(self.state, channel_id)
 
     def get_partial_messageable(
         self, channel_id: int, /, *, guild_id: int | None = None
@@ -723,7 +989,7 @@ class Client:
         """
         return Guild(self.state, await self.rest.guilds.get(guild_id, with_counts=with_counts))
 
-    async def fetch_channel(self, channel_id: int, /) -> "AnyGuildChannel | Thread | MessageableChannel":
+    async def fetch_channel(self, channel_id: int, /) -> "AnyGuildChannel | Thread | DMChannel":
         """Get a channel or thread from Discord.
 
         Discord: https://docs.discord.com/developers/resources/channel#get-channel

@@ -9,7 +9,7 @@ Discord: https://docs.discord.com/developers/interactions/overview#configuring-a
 """
 
 from shoal.endpoint import defaults
-from shoal.endpoint.server import Endpoint, EndpointHandler
+from shoal.endpoint.server import Endpoint, EndpointHandler, WebhookEventHandler
 from shoal.endpoint.signature import SignatureVerifier
 
-__all__ = ["Endpoint", "EndpointHandler", "SignatureVerifier", "defaults"]
+__all__ = ["Endpoint", "EndpointHandler", "SignatureVerifier", "WebhookEventHandler", "defaults"]

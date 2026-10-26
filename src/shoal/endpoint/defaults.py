@@ -2,6 +2,9 @@
 
 from typing import Final
 
+EVENTS_PATH: Final = "/events"
+"""The URL path Discord posts webhook events to (the app's Webhook Events URL)."""
+
 HANDLER_TIMEOUT: Final = 10.0
 """Seconds a handler may run before the server gives up on it and replies 500. Discord has failed the
 interaction long before this; the limit stops a hung handler holding a connection, and shutdown, open."""

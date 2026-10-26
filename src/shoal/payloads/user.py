@@ -100,6 +100,8 @@ class User(Payload):
     Discord: https://docs.discord.com/developers/resources/user#user-object
     """
 
+    REDACTED_FIELDS = frozenset({"email"})
+
     id: Snowflake
     username: str
     discriminator: str
@@ -244,7 +246,7 @@ class CreateGroupDMParams(Payload):
     """Nicknames by user ID."""
 
 
-class EditRoleConnectionParams(Payload):
+class EditCurrentRoleConnectionParams(Payload):
     """JSON body of Update Current User Application Role Connection.
 
     Discord: https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection-json-params

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, override
 from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
-from shoal.models.base import MISSING, Hashable, MissingType
+from shoal.models.base import MISSING, Hashable, MissingType, given
 from shoal.models.messageable import Messageable
 from shoal.models.permissions import thread_permissions
 from shoal.models.state import State
@@ -99,9 +99,9 @@ class Thread(Hashable, Messageable):
     @property
     def parent(self) -> "TextChannel | ForumChannel | None":
         """The channel the thread was started in, when cached."""
-        from shoal.models.channel import ForumChannel, TextChannel, resolve_guild_channel
+        from shoal.models.channel import ForumChannel, TextChannel, resolve_cached_channel
 
-        parent = resolve_guild_channel(self._state, self.parent_id) if self.parent_id else None
+        parent = resolve_cached_channel(self._state, self.parent_id) if self.parent_id else None
         return parent if isinstance(parent, TextChannel | ForumChannel) else None
 
     @property
@@ -252,10 +252,6 @@ class Thread(Hashable, Messageable):
 
         Discord: https://docs.discord.com/developers/resources/channel#modify-channel-json-params-thread
         """
-
-        def given[T](value: T | MissingType) -> T | UnsetType:
-            return UNSET if isinstance(value, MissingType) else value
-
         params = EditThreadParams(
             name=given(name),
             archived=given(archived),
@@ -280,4 +276,5 @@ class Thread(Hashable, Messageable):
 
     @override
     def __repr__(self) -> str:
-        return f"<Thread id={int(self.id)} name={self.name!r} parent_id={self.parent_id}>"
+        parent = None if self.parent_id is None else int(self.parent_id)
+        return f"<Thread id={int(self.id)} name={self.name!r} parent_id={parent}>"

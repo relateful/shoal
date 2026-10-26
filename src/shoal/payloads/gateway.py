@@ -22,6 +22,7 @@ GATEWAY_CLOSE_CODES: Final = range(4000, 5000)
 Discord: https://docs.discord.com/developers/topics/opcodes-and-status-codes#gateway-gateway-close-event-codes
 """
 
+
 GATEWAY_SEND_LIMIT: Final = 120
 """Gateway events a connection may send per window; exceeding it disconnects the shard.
 

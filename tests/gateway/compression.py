@@ -29,6 +29,10 @@ def test_zstd_stream_shares_one_context_across_messages() -> None:
     for message in (b'{"op":10}', b'{"op":11,"d":null}'):
         frame = compressor.compress(message) + compressor.flush(zstandard.COMPRESSOBJ_FLUSH_BLOCK)
         assert decompressor.feed(frame) == message
+    # The frame header alone completes nothing yet.
+    header = compressor.compress(b'{"op":1}') + compressor.flush(zstandard.COMPRESSOBJ_FLUSH_BLOCK)
+    assert decompressor.feed(header[:3]) is None
+    assert decompressor.feed(header[3:]) == b'{"op":1}'
 
 
 def test_create_decompressor() -> None:

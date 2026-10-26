@@ -15,6 +15,7 @@ theme:
 nav:
   - Home: index.md
   - Guide:
+      - Writing a bot: guide/bot.md
       - Architecture: guide/architecture.md
       - Commands and interactions: guide/interactions.md
       - Caching and restarts: guide/caching.md

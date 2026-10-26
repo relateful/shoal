@@ -8,7 +8,12 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, ClassVar, Final
 
 from shoal.client.interaction import Interaction
-from shoal.payloads.components import LEGACY_MESSAGE_MAX_ACTION_ROWS, ActionRowChild, Label
+from shoal.payloads.components import (
+    COMPONENT_CUSTOM_ID_MAX_LENGTH,
+    LEGACY_MESSAGE_MAX_ACTION_ROWS,
+    ActionRowChild,
+    Label,
+)
 from shoal.payloads.interactions import ResolvedData
 
 if TYPE_CHECKING:
@@ -16,6 +21,17 @@ if TYPE_CHECKING:
 
 ITEM_FACTORY: Final = "__shoal_item__"
 """The attribute `@ui.button` and `@ui.select` leave on a view method: a function making its item."""
+
+
+def check_length(item: object, field: str, value: str | None, maximum: int) -> None:
+    """Refuse `value` when it is longer than Discord allows for `field`.
+
+    Raises:
+        ValueError: It is longer than `maximum` characters.
+    """
+    if value is not None and len(value) > maximum:
+        msg = f"{item!r}: {field} is {len(value)} characters; Discord allows at most {maximum}"
+        raise ValueError(msg)
 
 
 def random_custom_id() -> str:
@@ -87,6 +103,16 @@ class Item:
     def to_component(self) -> ActionRowChild | Label:
         """The item as Discord takes it: a component of an action row, or a label in a modal."""
         raise NotImplementedError
+
+    def validate(self) -> None:
+        """Refuse what Discord would refuse; views and modals call it before sending.
+
+        Raises:
+            ValueError: A text is too long, or a number is out of Discord's range.
+        """
+        if not 1 <= len(self._custom_id) <= COMPONENT_CUSTOM_ID_MAX_LENGTH:
+            msg = f"{self!r}: custom_id must be 1 to {COMPONENT_CUSTOM_ID_MAX_LENGTH} characters"
+            raise ValueError(msg)
 
     def is_dispatchable(self) -> bool:
         """Whether the item sends interactions (a link button does not)."""

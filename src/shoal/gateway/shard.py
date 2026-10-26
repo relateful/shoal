@@ -13,7 +13,7 @@ import platform
 import random
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
-from typing import final
+from typing import TypedDict, final
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import msgspec
@@ -21,11 +21,12 @@ from msgspec import UNSET
 
 from shoal._version import __version__
 from shoal.core.backoff import backoff_delay
-from shoal.core.clock import Clock, SystemClock, sleep_unless
+from shoal.core.clock import Clock, SystemClock, sleep_unless, within
 from shoal.core.codec import PayloadDecodeError, decode_json, encode_json
 from shoal.core.dispatch import DispatchEvent, DispatchHandler
 from shoal.core.errors import ShoalError
 from shoal.core.metrics import (
+    EVENTS_DROPPED,
     GATEWAY_EVENT_DELAY_SECONDS,
     GATEWAY_EVENTS,
     GATEWAY_LATENCY_SECONDS,
@@ -35,7 +36,7 @@ from shoal.core.metrics import (
     NoopMetrics,
 )
 from shoal.core.snowflake import Snowflake
-from shoal.core.tasks import cancel_and_wait
+from shoal.core.tasks import cancel_and_wait, spawn
 from shoal.gateway.compression import Decompressor, create_decompressor, require_decompressor
 from shoal.gateway.connection import (
     AiohttpGatewayConnector,
@@ -47,6 +48,7 @@ from shoal.gateway.defaults import (
     DELAY_TRACKED_EVENTS,
     EVENT_DELAY_WARNING,
     EVENT_DELAY_WARNING_COOLDOWN,
+    GATEWAY_DOMAIN,
     HELLO_TIMEOUT,
     INVALID_SESSION_DELAY,
     RECONNECT_BACKOFF_CAP,
@@ -128,7 +130,24 @@ class _Next(Enum):
     RESUME_REQUESTED = auto()
     """Discord asked for the reconnect; it is routine, not a failure to back off from."""
     IDENTIFY = auto()
+    """The session is gone because the connection failed (a close code that ends it)."""
+    IDENTIFY_REQUESTED = auto()
+    """Discord ended the session with Invalid Session; the 1-5 s it asks for was already waited."""
     STOP = auto()
+
+
+class ShardOptions(TypedDict, total=False):
+    """How each shard connects; `ShardManager` and `Client` pass these to every shard.
+
+    Each key is the `Shard` argument of the same name, with the same default.
+    """
+
+    gateway_url: str
+    compression: TransportCompression | None
+    large_threshold: int
+    capabilities: GatewayCapabilities | None
+    event_delay_warning: float | None
+    resume_window: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +207,7 @@ class Shard:
         "_gateway_url",
         "_identify_limiter",
         "_intents",
+        "_invalid_sessions",
         "_labels",
         "_large_threshold",
         "_last_delay_warning",
@@ -200,6 +220,7 @@ class Shard:
         "_reading",
         "_resume_url",
         "_resume_window",
+        "_saving",
         "_sequence",
         "_session_id",
         "_shard_count",
@@ -268,6 +289,8 @@ class Shard:
         self._state: ShardState = ShardState.IDLE
         self._session_id: str | None = None
         self._resume_url: str | None = None
+        self._invalid_sessions: int = 0
+        """Sessions Discord invalidated in a row without one becoming ready."""
         self._sequence: int | None = None
         self._connection: GatewayConnection | None = None
         self._limiter: GatewaySendLimiter | None = None
@@ -275,6 +298,7 @@ class Shard:
         self._closing: bool = False
         self._stopped: asyncio.Event = asyncio.Event()
         self._store_lock: asyncio.Lock = asyncio.Lock()
+        self._saving: bool = False
         self._reading: bool = False
         """Whether the receive loop is waiting on the socket, i.e. has processed everything sent so far."""
 
@@ -360,16 +384,25 @@ class Shard:
                     self._disconnected_at = self._clock.monotonic()
                 if outcome is _Next.STOP:
                     break
-                if outcome is _Next.IDENTIFY:
+                if outcome in {_Next.IDENTIFY, _Next.IDENTIFY_REQUESTED}:
                     await self._forget_session()
                 elif ready_for is None and outcome is _Next.RESUME:
                     self._resume_attempt_failed()
                 mode = "resume" if self._session_id is not None else "identify"
                 self._metrics.increment(GATEWAY_RECONNECTS, {**self._labels, "mode": mode})
-                # An Invalid Session that needs a new identify has already waited 1-5 s.
-                requested = outcome in {_Next.RESUME_REQUESTED, _Next.IDENTIFY}
+                # An Invalid Session that needs a new identify has already waited 1-5 s; another in a
+                # row means identifies keep failing (a shared limiter over its limit, a session-start
+                # budget running out), so back off rather than spend a session start every few
+                # seconds. A close code that ends the session is a failure like any other: each
+                # identify it causes spends a session start.
+                requested = outcome is _Next.RESUME_REQUESTED or (
+                    outcome is _Next.IDENTIFY_REQUESTED and self._invalid_sessions <= 1
+                )
                 stable = ready_for is not None and ready_for >= STABLE_CONNECTION
-                failures = 0 if requested or stable else failures + 1
+                if outcome is _Next.IDENTIFY_REQUESTED and self._invalid_sessions > 1:
+                    failures = self._invalid_sessions - 1
+                else:
+                    failures = 0 if requested or stable else failures + 1
                 if failures:
                     await self._pause(
                         backoff_delay(failures, cap=RECONNECT_BACKOFF_CAP, random_source=self._random_source)
@@ -506,6 +539,8 @@ class Shard:
                 await self._stop_heartbeat(heartbeat)
             self._connection = None
             self._limiter = None
+            # A latency measured on a connection that is gone says nothing about the next one.
+            self._monitor = None
             # Frees the socket on every path; a socket that is already closed ignores it.
             try:
                 await connection.close(RESUMABLE_CLOSE_CODE)
@@ -515,8 +550,7 @@ class Shard:
     async def _hello(self, connection: GatewayConnection, decompressor: Decompressor | None) -> Hello | _Next:
         """Wait for Hello. Returns what to do instead when it does not arrive."""
         try:
-            async with asyncio.timeout(HELLO_TIMEOUT):
-                first = await self._receive(connection, decompressor)
+            first = await within(self._clock, HELLO_TIMEOUT, self._receive(connection, decompressor))
         except TimeoutError:
             _log.warning("shard %d: no Hello within %.0fs; reconnecting", self._shard_id, HELLO_TIMEOUT)
             return _Next.RESUME
@@ -573,6 +607,11 @@ class Shard:
                 monitor.acknowledged(self._clock.monotonic())
                 if monitor.latency is not None:
                     self._metrics.set(GATEWAY_LATENCY_SECONDS, monitor.latency, self._labels)
+                # Saved with each beat, so even a crash (no `close`) leaves a session to resume. One
+                # save at a time: with a slow store, beats must not queue saves behind each other.
+                if not self._saving:
+                    self._saving = True
+                    _ = spawn(self._persist_in_background(), name=f"shoal-shard-{self._shard_id}-save")
             case GatewayOpcode.RECONNECT:
                 _log.info("shard %d: Discord asked us to reconnect", self._shard_id)
                 await connection.close(RESUMABLE_CLOSE_CODE)
@@ -583,8 +622,9 @@ class Shard:
                 await connection.close(RESUMABLE_CLOSE_CODE)
                 if resumable:
                     return _Next.RESUME_REQUESTED
+                self._invalid_sessions += 1
                 await self._pause(self._random_source.uniform(*INVALID_SESSION_DELAY))
-                return _Next.IDENTIFY
+                return _Next.IDENTIFY_REQUESTED
             case _:
                 _log.debug("shard %d: ignoring opcode %s", self._shard_id, payload.op)
         return None
@@ -595,6 +635,7 @@ class Shard:
         name = payload.t or ""
         if name == "READY":
             ready = decode_json(payload.d, Ready)
+            self._invalid_sessions = 0
             self._session_id = ready.session_id
             self._resume_url = ready.resume_gateway_url
             self._state = ShardState.READY
@@ -609,7 +650,9 @@ class Shard:
         elif name == "RATE_LIMITED":
             self._log_rate_limited(payload.d)
         self._metrics.increment(GATEWAY_EVENTS, {**self._labels, "event": name})
-        if name in DELAY_TRACKED_EVENTS:
+        # Events replayed while resuming were created during the outage: their age is the outage's
+        # length, not a delay in delivering them.
+        if name in DELAY_TRACKED_EVENTS and self._state is not ShardState.RESUMING:
             self._track_delay(name, payload.d)
         try:
             await self._dispatch(DispatchEvent(self._shard_id, name, payload.s, payload.d))
@@ -662,16 +705,20 @@ class Shard:
     async def _heartbeat(
         self, connection: GatewayConnection, monitor: HeartbeatMonitor, limiter: GatewaySendLimiter
     ) -> None:
-        await self._clock.sleep(monitor.first_delay(self._random_source.random()))
-        while True:
-            # Unread ACKs may be waiting while the receive loop is busy (identifying, or a slow
-            # dispatch handler), so only a reader that has caught up can prove the link is dead.
-            if monitor.is_zombie() and self._reading:
-                _log.warning("shard %d: heartbeat not acknowledged; reconnecting", self._shard_id)
-                await connection.close(RESUMABLE_CLOSE_CODE)
-                return
-            await self._beat(connection, monitor, limiter)
-            await self._clock.sleep(monitor.interval)
+        try:
+            await self._clock.sleep(monitor.first_delay(self._random_source.random()))
+            while True:
+                # Unread ACKs may be waiting while the receive loop is busy (identifying, or a slow
+                # dispatch handler), so only a reader that has caught up can prove the link is dead.
+                if monitor.is_zombie() and self._reading:
+                    _log.warning("shard %d: heartbeat not acknowledged; reconnecting", self._shard_id)
+                    await connection.close(RESUMABLE_CLOSE_CODE)
+                    return
+                await self._beat(connection, monitor, limiter)
+                await self._clock.sleep(monitor.interval)
+        except Exception:  # noqa: BLE001 - without heartbeats Discord drops the link; reconnect now
+            _log.warning("shard %d: heartbeat failed; reconnecting", self._shard_id, exc_info=True)
+            await connection.close(RESUMABLE_CLOSE_CODE)
 
     async def _beat(
         self, connection: GatewayConnection, monitor: HeartbeatMonitor, limiter: GatewaySendLimiter
@@ -712,6 +759,7 @@ class Shard:
                 return decode_json(data, GatewayPayload)
             except PayloadDecodeError:
                 _log.exception("shard %d: undecodable gateway payload dropped", self._shard_id)
+                self._metrics.increment(EVENTS_DROPPED, {"stage": "gateway", "event": "unknown"})
 
     def _after_close(self, code: int | None) -> _Next:
         if self._closing:
@@ -765,9 +813,14 @@ class Shard:
         self._disconnected_at = self._clock.monotonic() - age
 
     def _trusted_resume_url(self, url: str) -> bool:
-        """`wss://`, or the same scheme and host as the configured gateway (a local proxy)."""
+        """A `wss://` URL on Discord's gateway hosts, or the configured gateway's own scheme and host.
+
+        The token is sent to it, so a session file must not be able to point it anywhere else.
+        """
         parts, configured = urlsplit(url), urlsplit(self._gateway_url)
-        return parts.scheme == "wss" or (parts.scheme, parts.netloc) == (configured.scheme, configured.netloc)
+        host = parts.hostname or ""
+        discord = parts.scheme == "wss" and (host == GATEWAY_DOMAIN or host.endswith(f".{GATEWAY_DOMAIN}"))
+        return discord or (parts.scheme, parts.netloc) == (configured.scheme, configured.netloc)
 
     def _stop_requested(self) -> bool:
         """`close` was called. A method, so type checkers do not narrow the flag across awaits."""
@@ -797,6 +850,12 @@ class Shard:
                 await self._store.delete(self._shard_id)
             except Exception:  # noqa: BLE001 - a stale file only costs one failed resume
                 _log.exception("shard %d: could not delete the saved session", self._shard_id)
+
+    async def _persist_in_background(self) -> None:
+        try:
+            await self._persist()
+        finally:
+            self._saving = False
 
     async def _persist(self) -> None:
         """Save the current session.

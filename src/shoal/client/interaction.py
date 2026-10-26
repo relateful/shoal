@@ -13,17 +13,14 @@ first one.
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding
 """
 
-import asyncio
-import contextlib
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Final, final, override
+from typing import TYPE_CHECKING, Final, TypeGuard, final, override
 
 from msgspec import UNSET, UnsetType
 
 from shoal.core.errors import ShoalError
 from shoal.core.snowflake import Snowflake
-from shoal.core.tasks import spawn
 from shoal.models.base import MISSING, Hashable, MissingType
 from shoal.models.channel import (
     DMChannel,
@@ -45,6 +42,7 @@ from shoal.payloads.application import InteractionType
 from shoal.payloads.application_commands import ApplicationCommandOptionChoice
 from shoal.payloads.interactions import (
     INTERACTION_TOKEN_LIFETIME,
+    INTERACTION_TYPES,
     ApplicationCommandInteraction,
     AutocompleteChoices,
     AutocompleteInteraction,
@@ -60,11 +58,10 @@ from shoal.payloads.interactions import (
     UpdateMessageResponse,
 )
 from shoal.payloads.interactions import InteractionResponse as ResponsePayload
-from shoal.payloads.message import AllowedMentions, MessageFlags
+from shoal.payloads.message import AllowedMentions, Attachment, MessageFlags
 from shoal.payloads.monetization import Entitlement
 from shoal.payloads.permissions import Permissions
 from shoal.payloads.poll import PollCreateRequest
-from shoal.rest.errors import NotFoundError
 from shoal.rest.files import File
 
 if TYPE_CHECKING:
@@ -75,6 +72,18 @@ type InteractionPayload = (
     ApplicationCommandInteraction | ComponentInteraction | AutocompleteInteraction | ModalSubmitInteraction
 )
 """Every interaction a bot answers (`PING` is answered by the HTTP server itself)."""
+
+
+def is_answerable(data: object) -> TypeGuard[InteractionPayload]:
+    """Whether `data` is an interaction a bot answers: not a `PING`, nor of a type Shoal does not know."""
+    return isinstance(
+        data,
+        ApplicationCommandInteraction
+        | ComponentInteraction
+        | AutocompleteInteraction
+        | ModalSubmitInteraction,
+    )
+
 
 type Responder = Callable[[ResponsePayload, Sequence[File]], Awaitable[None]]
 """Sends the first response: through the callback endpoint, or back through an HTTP reply."""
@@ -143,13 +152,7 @@ class Interaction(Hashable):
     @property
     def type(self) -> InteractionType:
         """Command, component, autocomplete or modal submission."""
-        if isinstance(self._data, ApplicationCommandInteraction):
-            return InteractionType.APPLICATION_COMMAND
-        if isinstance(self._data, ComponentInteraction):
-            return InteractionType.MESSAGE_COMPONENT
-        if isinstance(self._data, AutocompleteInteraction):
-            return InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE
-        return InteractionType.MODAL_SUBMIT
+        return INTERACTION_TYPES[type(self._data)]
 
     @property
     def token(self) -> str:
@@ -250,7 +253,7 @@ class Interaction(Hashable):
 
     def is_expired(self) -> bool:
         """Whether its token has stopped working."""
-        return datetime.now(self.expires_at.tzinfo) >= self.expires_at
+        return self._state.now() >= self.expires_at
 
     async def original_response(self) -> Message:
         """The first response message.
@@ -266,7 +269,7 @@ class Interaction(Hashable):
         content: object = MISSING,
         embed: EmbedLike | MissingType | None = MISSING,
         embeds: Sequence[EmbedLike] | MissingType = MISSING,
-        attachments: Sequence[File] | MissingType = MISSING,
+        attachments: Sequence[File | Attachment] | MissingType = MISSING,
         allowed_mentions: AllowedMentions | MissingType | None = MISSING,
         view: ComponentView | MissingType | None = MISSING,
     ) -> Message:
@@ -309,13 +312,14 @@ class InteractionResponse:
     Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#responding-to-an-interaction
     """
 
-    __slots__ = ("_parent", "_responder", "_type")
+    __slots__ = ("_parent", "_responder", "_sending", "_type")
 
     def __init__(self, parent: Interaction, responder: Responder | None) -> None:
         """The response of `parent`; use `interaction.response`."""
         self._parent: Interaction = parent
         self._responder: Responder | None = responder
         self._type: type[ResponsePayload] | None = None
+        self._sending: bool = False
 
     def is_done(self) -> bool:
         """Whether the interaction has been answered."""
@@ -326,25 +330,45 @@ class InteractionResponse:
         """How it was answered, once it was."""
         return self._type
 
-    async def _send(self, response: ResponsePayload, files: Sequence[File] = ()) -> None:
-        if self._type is not None:
+    async def _send(
+        self, response: ResponsePayload, files: Sequence[File] = (), *, created: bool = False
+    ) -> Snowflake | None:
+        """Send `response`; with `created`, return the ID of the message it created.
+
+        The interaction counts as answered only once Discord accepted it, so a failed response can be
+        retried; a second response while one is in flight is refused.
+        """
+        if self._type is not None or self._sending:
             raise InteractionRespondedError(self._parent)
-        self._type = type(response)
         parent = self._parent
+        rest = parent.state.rest
+        self._sending = True
+        try:
+            if self._responder is not None:
+                await self._responder(response, files)
+                callback = None
+            else:
+                callback = await rest.interactions.respond(
+                    parent.id, parent.token, response, files=files, with_response=created
+                )
+        finally:
+            self._sending = False
+        self._type = type(response)
+        if not created:
+            return None
         if self._responder is not None:
-            await self._responder(response, files)
-            return
-        await parent.state.rest.interactions.respond(parent.id, parent.token, response, files=files)
+            # An HTTP reply carries nothing back; the reply is written by now, so ask for it.
+            return (await rest.interactions.get_original(parent.application_id, parent.token)).id
+        if callback is None or isinstance(callback.resource, UnsetType):
+            return None
+        message = callback.resource.message
+        return None if isinstance(message, UnsetType) else message.id
 
     def _delete_later(self, delay: float) -> None:
         parent = self._parent
-
-        async def later() -> None:
-            await asyncio.sleep(delay)
-            with contextlib.suppress(NotFoundError):
-                await parent.delete_original_response()
-
-        _ = spawn(later(), name=f"shoal-delete-response-{int(parent.id)}")
+        parent.state.delete_later(
+            delay, parent.delete_original_response, name=f"shoal-delete-response-{int(parent.id)}"
+        )
 
     async def send_message(
         self,
@@ -384,24 +408,33 @@ class InteractionResponse:
             ephemeral=ephemeral,
             poll=poll,
         )
-        await self._send(MessageResponse(data=message.interaction_message()), message.files)
-        state = self._parent.state
-        if view is not None and view.is_dispatchable():
-            state.views.store(view, message_id=None)
+        dispatchable = view is not None and view.is_dispatchable()
+        sent = await self._send(
+            MessageResponse(data=message.interaction_message()), message.files, created=dispatchable
+        )
+        if view is not None and dispatchable:
+            self._parent.state.views.store(view, message_id=sent)
         if delete_after is not None:
             self._delete_later(delete_after)
 
     async def defer(self, *, ephemeral: bool = False, thinking: bool = False) -> None:
         """Answer later, then fill it in with `edit_original_response` or `followup.send`.
 
-        Commands and modals show "thinking"; components show nothing, unless `thinking` is set.
+        Commands, and modals opened by a command, show "thinking"; components and modals opened
+        from a message show nothing, unless `thinking` is set.
 
         Raises:
             InteractionRespondedError: The interaction was already answered.
+            TypeError: It is an autocomplete, which can only be answered with choices.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-response-object-interaction-callback-type
         """
-        if self._parent.type in _COMPONENT_TYPES and not thinking:
+        if self._parent.type is InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE:
+            msg = "an autocomplete cannot be deferred; answer it with response.autocomplete(choices)"
+            raise TypeError(msg)
+        # Only an interaction on a message can defer an update of it; a modal opened by a command
+        # has none, and Discord refuses DEFERRED_UPDATE_MESSAGE for it.
+        if self._parent.type in _COMPONENT_TYPES and self._parent.message is not None and not thinking:
             await self._send(DeferredUpdateResponse())
             return
         flags = MessageFlags(ephemeral=True) if ephemeral else UNSET
@@ -413,7 +446,7 @@ class InteractionResponse:
         content: object = MISSING,
         embed: EmbedLike | MissingType | None = MISSING,
         embeds: Sequence[EmbedLike] | MissingType = MISSING,
-        attachments: Sequence[File] | MissingType = MISSING,
+        attachments: Sequence[File | Attachment] | MissingType = MISSING,
         view: ComponentView | MissingType | None = MISSING,
         allowed_mentions: AllowedMentions | MissingType | None = MISSING,
         delete_after: float | None = None,
@@ -545,7 +578,7 @@ class Followup:
         content: object = MISSING,
         embed: EmbedLike | MissingType | None = MISSING,
         embeds: Sequence[EmbedLike] | MissingType = MISSING,
-        attachments: Sequence[File] | MissingType = MISSING,
+        attachments: Sequence[File | Attachment] | MissingType = MISSING,
         view: ComponentView | MissingType | None = MISSING,
         allowed_mentions: AllowedMentions | MissingType | None = MISSING,
     ) -> Message:

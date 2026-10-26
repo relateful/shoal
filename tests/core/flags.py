@@ -33,8 +33,12 @@ def test_operators_keep_the_subclass() -> None:
     assert combined.without(Sample.first) == Sample(third=True)
 
 
-def test_invert_stays_within_known_bits() -> None:
-    assert ~Sample(first=True) == Sample(third=True)
+def test_invert_keeps_bits_shoal_does_not_know() -> None:
+    inverted = ~Sample(first=True)
+    assert inverted.third
+    assert not inverted.first
+    newer = Sample(1 | 8)
+    assert newer & ~Sample(first=True) == Sample(8)
 
 
 def test_unknown_bits_are_kept_and_reported() -> None:

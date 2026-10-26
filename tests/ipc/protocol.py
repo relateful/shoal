@@ -65,3 +65,9 @@ def test_garbage_is_a_decode_error() -> None:
         decode_server_message(b"\xc1")
     with pytest.raises(PayloadDecodeError):
         decode_client_message(msgspec.msgpack.encode(["accepted", 1]))
+
+
+def test_an_event_frame_repr_leaves_out_the_data() -> None:
+    frame = EventFrame(0, "INTERACTION_CREATE", 1, b'{"token":"secret"}')
+    assert "secret" not in repr(frame)
+    assert "18 bytes" in repr(frame)

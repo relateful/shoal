@@ -1,7 +1,7 @@
 import pytest
 
 from shoal import app_commands
-from shoal.app_commands.checks import Cooldown, by_channel, by_guild, by_user
+from shoal.app_commands.checks import by_channel, by_guild, by_user
 from shoal.app_commands.errors import (
     BotMissingPermissionsError,
     CommandOnCooldownError,
@@ -100,19 +100,6 @@ async def test_role_checks_refuse_outside_guilds() -> None:
     assert isinstance(error, NoPrivateMessageError)
 
 
-async def test_cooldown_refuses_until_the_window_passes() -> None:
-    client, _ = await started()
-    interaction = await client.process_interaction(payload(command("x")))
-    now = [0.0]
-    cooldown = Cooldown(2, 10.0, clock=lambda: now[0])
-    assert cooldown.retry_after(interaction) == 0.0
-    now[0] = 4.0
-    assert cooldown.retry_after(interaction) == 0.0
-    assert cooldown.retry_after(interaction) == 6.0
-    now[0] = 10.5
-    assert cooldown.retry_after(interaction) == 0.0
-
-
 async def test_cooldowns_count_per_key() -> None:
     client, _ = await started()
     in_guild = await client.process_interaction(payload(command("x")))
@@ -121,13 +108,6 @@ async def test_cooldowns_count_per_key() -> None:
     assert by_guild(in_guild) == GUILD
     assert by_guild(in_dm) == ALICE
     assert by_channel(in_guild) == GENERAL
-
-
-def test_a_cooldown_needs_a_positive_rate_and_window() -> None:
-    with pytest.raises(ValueError, match="rate >= 1"):
-        Cooldown(0, 1.0)
-    with pytest.raises(ValueError, match="per > 0"):
-        Cooldown(1, 0.0)
 
 
 async def test_the_cooldown_decorator_refuses_a_second_use() -> None:
@@ -140,13 +120,12 @@ async def test_the_cooldown_decorator_refuses_a_second_use() -> None:
     assert 59.0 < error.retry_after <= 60.0
 
 
-async def test_a_full_cooldown_forgets_expired_keys() -> None:
+async def test_a_use_refused_by_another_check_does_not_count_against_the_cooldown() -> None:
     client, _ = await started()
-    now = [0.0]
-    cooldown = Cooldown(1, 1.0, key=lambda interaction: interaction.id, clock=lambda: now[0])
-    for index in range(1024):
-        cooldown.retry_after(await client.process_interaction(payload(command("x", interaction_id=index))))
-    now[0] = 5.0
-    latest = await client.process_interaction(payload(command("x", interaction_id=5000)))
-    assert cooldown.retry_after(latest) == 0.0
-    assert cooldown.tracked == 1
+    tree = CommandTree(client)
+    cooled = app_commands.checks.cooldown(1, 60.0)(app_commands.command()(guarded))
+    # Applied after the cooldown, yet it runs first: the refused use costs no cooldown slot.
+    tree.add_command(app_commands.checks.has_role(MODS)(cooled))
+    [refused] = await run(client, tree, with_roles())
+    assert isinstance(refused, MissingRoleError)
+    assert await run(client, tree, with_roles(MODS)) == []

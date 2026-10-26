@@ -153,6 +153,21 @@ class CommandTree:
         """Remove and return the command called `name`, globally or from `guild`."""
         return self._scope(guild).pop((name, type), None)
 
+    def discard(self, command: AppCommand, /) -> None:
+        """Remove `command` from every scope it was added to: globally and from each guild."""
+        key = _key(command)
+        for scope in (self._global, *self._guilds.values()):
+            if scope.get(key) is command:
+                del scope[key]
+
+    def get_all_commands(self) -> list[AppCommand]:
+        """Every command and context menu, global or in any guild, each once."""
+        found: dict[int, AppCommand] = {}
+        for scope in (self._global, *self._guilds.values()):
+            for command in scope.values():
+                found.setdefault(id(command), command)
+        return list(found.values())
+
     def get_command(
         self,
         name: str,
@@ -355,7 +370,10 @@ class CommandTree:
     async def _report(
         self, interaction: Interaction, command: Command | ContextMenu | None, error: Exception
     ) -> None:
-        """Hand `error` to the command's handler, its groups' handlers, then the tree's."""
+        """Hand `error` to the command's handler, its groups' handlers, then the tree's.
+
+        A handler returning `True` handled it: the ones after it, the tree's included, are skipped.
+        """
         handlers: list[ErrorHandler] = []
         if command is not None and command.error_handler is not None:
             handlers.append(command.error_handler)
@@ -366,7 +384,8 @@ class CommandTree:
             parent = parent.parent
         try:
             for handler in handlers:
-                await handler(interaction, error)
+                if await handler(interaction, error) is True:
+                    return
             await self.on_error(interaction, error)
         except Exception:  # noqa: BLE001 - a failing handler must not end the command's task
             _log.exception("an error handler raised while handling %r", error)

@@ -5,12 +5,14 @@ from typing import override
 import pytest
 
 from shoal.client.interaction import Interaction
-from shoal.payloads import ActionRow, ButtonStyle
+from shoal.payloads import ActionRow, ButtonStyle, SelectOption
 from shoal.ui.button import Button, button
+from shoal.ui.item import Item
 from shoal.ui.select import Select, select
 from shoal.ui.text_input import TextInput
 from shoal.ui.view import View
 from tests.support.client import started
+from tests.support.fakes import settle
 from tests.support.interactions import component, payload
 
 
@@ -32,11 +34,6 @@ class Counter(View):
         self.pressed.extend(chosen.values)
 
 
-async def settle() -> None:
-    for _ in range(10):
-        await asyncio.sleep(0)
-
-
 def test_decorated_methods_become_items_per_view() -> None:
     first, second = Counter(), Counter()
     assert [type(item) for item in first.children] == [Button, Select]
@@ -48,11 +45,20 @@ def test_decorated_methods_become_items_per_view() -> None:
     assert repr(first) == "<Counter items=2 timeout=None>"
 
 
+def test_a_subclass_can_drop_an_item_by_redefining_its_method() -> None:
+    class Plain(Counter):
+        @override
+        async def add(self, interaction: Interaction, pressed: Button) -> None:
+            del interaction, pressed
+
+    assert [type(item) for item in Plain().children] == [Select]
+
+
 def test_items_are_laid_out_in_rows() -> None:
     view = View()
     for index in range(6):
         view.add_item(Button(label=str(index)))
-    view.add_item(Select())
+    view.add_item(Select(options=[SelectOption(label="only", value="only")]))
     rows = view.to_components()
     assert [len(row.components) for row in rows if isinstance(row, ActionRow)] == [5, 1, 1]
     pinned = View().add_item(Button(row=2)).add_item(Button())
@@ -114,8 +120,12 @@ async def test_interaction_check_can_refuse() -> None:
     view = Private()
     client.add_view(view)
     await client.process_interaction(payload(component("counter:add")))
+    await client.process_interaction(payload(component("counter:pick", values=["a"])))
     await settle()
     assert view.count == 0
+    # A refused interaction changes nothing: not even the select's values.
+    [picker] = [child for child in view.children if isinstance(child, Select)]
+    assert picker.values == []
 
 
 async def test_callback_errors_reach_on_error(caplog: pytest.LogCaptureFixture) -> None:
@@ -205,3 +215,28 @@ async def test_the_timeout_can_change_while_running() -> None:
     view.timeout = 0.01
     assert view.timeout == 0.01
     assert await view.wait() is True
+
+
+@pytest.mark.parametrize(
+    ("item", "problem"),
+    [
+        (Button(custom_id="x" * 101), "custom_id must be 1 to 100"),
+        (Button(label="x" * 81), "label is 81 characters"),
+        (Button(url="https://e.com/" + "x" * 512), "url is"),
+        (Select(placeholder="x" * 151, options=[SelectOption(label="a", value="a")]), "placeholder"),
+        (Select(options=[]), "1 to 25 options"),
+        (Select(options=[SelectOption(label="x" * 101, value="a")]), "an option's label"),
+        (Select(options=[SelectOption(label="a", value="a")], min_values=2, max_values=1), "min_values"),
+        (Select(options=[SelectOption(label="a", value="a")], max_values=26), "max_values"),
+    ],
+)
+def test_items_discord_would_refuse_are_refused_before_sending(item: Item, problem: str) -> None:
+    view = View().add_item(item)
+    with pytest.raises(ValueError, match=problem):
+        view.to_components()
+
+
+def test_two_items_cannot_share_a_custom_id() -> None:
+    view = View().add_item(Button(custom_id="same")).add_item(Button(custom_id="same"))
+    with pytest.raises(ValueError, match="another item of the view has custom_id 'same'"):
+        view.to_components()

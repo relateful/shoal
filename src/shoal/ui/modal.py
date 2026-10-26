@@ -12,22 +12,30 @@
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-response-object-modal
 """
 
-import asyncio
 import copy
 import logging
+from collections.abc import Callable
 from typing import ClassVar, Self, override
 
 from shoal.client.interaction import Interaction
 from shoal.client.views import SubmittableModal
+from shoal.core.clock import Clock, SystemClock
+from shoal.core.tasks import spawn
 from shoal.payloads.components import (
     SubmittedActionRow,
     SubmittedLabel,
     SubmittedTextInput,
     parse_submitted_components,
 )
-from shoal.payloads.interactions import MODAL_MAX_COMPONENTS, ModalSubmitInteraction, ResolvedData
+from shoal.payloads.interactions import (
+    MODAL_MAX_COMPONENTS,
+    MODAL_TITLE_MAX_LENGTH,
+    ModalSubmitInteraction,
+    ResolvedData,
+)
 from shoal.payloads.interactions import Modal as ModalPayload
-from shoal.ui.item import random_custom_id
+from shoal.ui.item import check_length, random_custom_id
+from shoal.ui.lifetime import Lifetime
 from shoal.ui.text_input import TextInput
 
 _log = logging.getLogger("shoal.ui")
@@ -42,15 +50,11 @@ class Modal(SubmittableModal):
     Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-response-object-modal
     """
 
-    # Inputs are set as attributes; the protocol base already gives instances a __dict__.
+    # A subclass's inputs are set as attributes; subclasses get a __dict__ by not declaring slots.
     __slots__ = (
         "_children",
         "_custom_id",
-        "_finished",
-        "_timed_out",
-        "_timeout",
-        "_timer",
-        "_waiter",
+        "_lifetime",
         "title",
     )
 
@@ -71,7 +75,12 @@ class Modal(SubmittableModal):
         cls.__modal_inputs__ = list(found.items())
 
     def __init__(
-        self, *, title: str | None = None, timeout: float | None = None, custom_id: str | None = None
+        self,
+        *,
+        title: str | None = None,
+        timeout: float | None = None,
+        custom_id: str | None = None,
+        clock: Clock | None = None,
     ) -> None:
         """A modal titled `title` (up to 45 characters; the class keyword when not given).
 
@@ -84,12 +93,8 @@ class Modal(SubmittableModal):
             raise TypeError(msg)
         self.title: str = chosen
         self._custom_id: str = custom_id or random_custom_id()
-        self._timeout: float | None = timeout
         self._children: list[TextInput] = []
-        self._finished: bool = False
-        self._timed_out: bool = False
-        self._timer: asyncio.TimerHandle | None = None
-        self._waiter: asyncio.Future[bool] | None = None
+        self._lifetime: Lifetime = Lifetime(timeout, clock=clock or SystemClock())
         for name, template in type(self).__modal_inputs__:
             own = copy.copy(template)
             setattr(self, name, own)
@@ -126,7 +131,10 @@ class Modal(SubmittableModal):
     @override
     def to_modal(self) -> ModalPayload:
         """The modal to show. Showing it also starts its timeout."""
-        self._start_timer()
+        check_length(self, "title", self.title, MODAL_TITLE_MAX_LENGTH)
+        for item in self._children:
+            item.validate()
+        self._lifetime.restart()
         return ModalPayload(
             custom_id=self._custom_id,
             title=self.title,
@@ -135,43 +143,21 @@ class Modal(SubmittableModal):
 
     @override
     def is_finished(self) -> bool:
-        return self._finished
+        return self._lifetime.finished
 
+    @override
     def stop(self) -> None:
-        """Stop waiting for the submission."""
-        if self._finished:
-            return
-        self._finished = True
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
-        if self._waiter is not None and not self._waiter.done():
-            self._waiter.set_result(self._timed_out)
+        """Stop receiving interactions; does nothing the second time."""
+        self._lifetime.stop()
+
+    @override
+    def when_finished(self, callback: Callable[[], object], /) -> None:
+        """Run `callback` once when it stops; now if it already has."""
+        self._lifetime.when_finished(callback)
 
     async def wait(self) -> bool:
-        """Wait until the modal is submitted or stops; returns whether it timed out."""
-        if self._finished:
-            return self._timed_out
-        if self._waiter is None:
-            self._waiter = asyncio.get_running_loop().create_future()
-        return await self._waiter
-
-    def _start_timer(self) -> None:
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
-        if self._timeout is None or self._finished:
-            return
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        self._timer = loop.call_later(self._timeout, self._expire)
-
-    def _expire(self) -> None:
-        self._timer = None
-        self._timed_out = True
-        self.stop()
+        """Wait until it stops; returns whether it timed out."""
+        return await self._lifetime.wait()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
         """Decide whether a submission is accepted; the default accepts it."""
@@ -189,7 +175,7 @@ class Modal(SubmittableModal):
 
     @override
     async def dispatch(self, interaction: Interaction) -> None:
-        """Fill the inputs from the submission and run `on_submit`."""
+        """Fill the inputs from the submission, then run `on_submit` in its own task."""
         data = interaction.payload
         if not isinstance(data, ModalSubmitInteraction):
             return
@@ -205,6 +191,9 @@ class Modal(SubmittableModal):
                 item = by_id.get(submitted.custom_id)
                 if item is not None:
                     item.refresh(interaction, [submitted.value], resolved)
+        _ = spawn(self._submit(interaction), name=f"shoal-modal-{self._custom_id}")
+
+    async def _submit(self, interaction: Interaction) -> None:
         try:
             if await self.interaction_check(interaction):
                 await self.on_submit(interaction)

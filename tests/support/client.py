@@ -35,11 +35,16 @@ async def logged_in(kind: type[Client] = Client) -> tuple[Client, FakeTransport]
         return make_client(transport, token=token)
 
     client = kind(intents=INTENTS, rest=rest)
+    queue_login(transport)
+    await client.login("token")
+    return client, transport
+
+
+def queue_login(transport: FakeTransport) -> None:
+    """Queue what `login` asks for: the bot's user, its application and its (no) emojis."""
     transport.queue(200, user(BOT, "shoalbot") | {"bot": True})
     transport.queue(200, APPLICATION | {"id": str(APPLICATION_ID)})
     transport.queue(200, {"items": []})
-    await client.login("token")
-    return client, transport
 
 
 async def feed(client: Client, name: str, data: object, *, shard: int = 0) -> None:
@@ -55,6 +60,12 @@ async def started[C: Client](kind: type[C]) -> tuple[C, FakeTransport]: ...
 async def started(kind: type[Client] = Client) -> tuple[Client, FakeTransport]:
     """A logged-in client that received `READY` and the test guild."""
     client, transport = await logged_in(kind)
+    await receive_test_guild(client)
+    return client, transport
+
+
+async def receive_test_guild(client: Client) -> None:
+    """Feed shard 0's `READY` with the test guild, then its `GUILD_CREATE`."""
     await feed(client, "READY", {
         "v": 10,
         "user": user(BOT, "shoalbot") | {"bot": True},
@@ -64,7 +75,6 @@ async def started(kind: type[Client] = Client) -> tuple[Client, FakeTransport]:
         "application": {"id": str(APPLICATION_ID), "flags": 0},
     })  # fmt: skip
     await feed(client, "GUILD_CREATE", guild_create())
-    return client, transport
 
 
 class Recorder:

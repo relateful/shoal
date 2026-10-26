@@ -16,7 +16,7 @@ from shoal.payloads.application import (
 )
 from shoal.payloads.user import (
     ApplicationRoleConnection,
-    EditRoleConnectionParams,
+    EditCurrentRoleConnectionParams,
 )
 from shoal.rest.endpoints import (
     DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
@@ -133,7 +133,7 @@ class RoleConnections(Resource):
         )
 
     async def edit_me(
-        self, application_id: int, params: EditRoleConnectionParams
+        self, application_id: int, params: EditCurrentRoleConnectionParams
     ) -> ApplicationRoleConnection:
         """Record what linked roles check against for the user.
 

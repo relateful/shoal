@@ -1,16 +1,15 @@
 import pytest
 
-from shoal.core.codec import decode_json, encode_json
 from shoal.core.snowflake import Snowflake
 from shoal.models.base import Object
 from shoal.models.emoji import AppEmoji, Emoji, partial_emoji
 from shoal.payloads import Emoji as EmojiPayload
 from shoal.payloads import PartialEmoji
-from tests.support.models import APPLICATION, EMOJI, GUILD, MODS, World, user
+from tests.support.models import APPLICATION, EMOJI, GUILD, MODS, World, decoded, user
 
 
 def payload(data: object) -> EmojiPayload:
-    return decode_json(encode_json(data), EmojiPayload)
+    return decoded(data, EmojiPayload)
 
 
 async def test_emojis_render_as_message_text() -> None:

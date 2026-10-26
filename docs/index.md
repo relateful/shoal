@@ -18,7 +18,7 @@ secondary_link: reference/shoal/index.md
 
 <p class="status-tag">Pre-alpha</p>
 
-<p markdown="span">The foundation is complete and tested: typed payloads, a REST client that covers every endpoint Discord documents, the gateway, the cache, IPC, metrics and diagnostics, plus application commands, components and interactions over the gateway or HTTP. Models with methods and a command framework come next; the [roadmap](roadmap.md) has the order.</p>
+<p markdown="span">Built and tested: typed payloads, a REST client that covers every endpoint Discord documents, the gateway, the cache, IPC, metrics and diagnostics, and the bot API on top: a `Client` with models, slash, prefix and hybrid commands, cogs, views and modals, and the application's emojis. Start with [writing a bot](guide/bot.md); the [roadmap](roadmap.md) has what comes next.</p>
 
 </div>
 
@@ -166,7 +166,7 @@ Shards resume across restarts and feed a cache that survives them.
 
 ```python
 store = CacheStore(metrics=metrics)
-await store.load_snapshot("cache.msgpack")
+await store.load_snapshot("cache.msgpack", shard_count=gateway.shards)
 
 manager = ShardManager(
     token=token,

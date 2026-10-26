@@ -10,7 +10,7 @@ Discord: https://docs.discord.com/developers/reference#http-api
 import logging
 import random
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from http import HTTPStatus
 from types import TracebackType
@@ -49,7 +49,7 @@ from shoal.rest.errors import (
     TokenInvalidatedError,
 )
 from shoal.rest.files import File, encode_multipart
-from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, RateLimitHeaders
+from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, RateLimitHeaders, WaitTooLongError
 from shoal.rest.requester import QueryValue, Requester, encode_query
 from shoal.rest.resources import (
     Applications,
@@ -149,7 +149,8 @@ class RestClient(Requester):
         max_retries: Retries for rate limits, idempotent requests that hit 5xx, and network errors.
             A request that is not idempotent is retried after a network error only when it never
             left the machine, so a message or an interaction response is never sent twice.
-        max_rate_limit_wait: The longest 429 wait, in seconds, the client will sit through before
+        max_rate_limit_wait: The longest rate limit wait, in seconds (a 429's, or a bucket, global or
+            invalid request hold before sending), the client will sit through before
             raising `RateLimitedError` instead.
         refuse_after_unauthorized: After a 401 on a bot token, refuse every further request. This
             protects the IP from Discord's invalid request ban when a token is revoked.
@@ -400,12 +401,12 @@ class RestClient(Requester):
     ) -> HTTPResponse:
         if self._closed:
             raise ClientClosedError
-        if self._token_invalid:
+        if self._refuses(route):
             raise TokenInvalidatedError
         url = f"{self._base_url}{route.path}"
         if query:
             url = f"{url}?{encode_query(query)}"
-        headers = self._headers(reason)
+        headers = self._headers(reason, authorize=not route.route.token_authenticated)
         payload: bytes | None = None
         if files or form:
             payload, headers["Content-Type"] = encode_multipart(
@@ -432,7 +433,16 @@ class RestClient(Requester):
     ) -> HTTPResponse | float:
         """Send once. Returns the successful response, or the delay before retrying; raises otherwise."""
         template = route.route.key
-        await self._limiter.acquire(route)
+        try:
+            await self._limiter.acquire(route, max_wait=self._max_rate_limit_wait)
+        except WaitTooLongError as error:
+            # As for a 429 too long to wait out, but found out before sending.
+            msg = f"rate limited for {error.seconds:.2f}s before sending"
+            raise RateLimitedError(route, HTTPStatus.TOO_MANY_REQUESTS, msg) from None
+        if self._refuses(route):
+            # The token was rejected while this request waited for its turn or its retry.
+            self._limiter.release(route, None, None, None)
+            raise TokenInvalidatedError
         started = self._clock.monotonic()
         try:
             response = await self._transport.request(route.method, url, headers=headers, body=payload)
@@ -455,9 +465,7 @@ class RestClient(Requester):
             self._limiter.release(route, None, None, None)
             raise
 
-        limits = RateLimitHeaders.parse(response.headers)
-        rate_limited = response.status == HTTPStatus.TOO_MANY_REQUESTS
-        retry_after = self._retry_after(response) if rate_limited else None
+        limits, retry_after = self._rate_limit(response)
         self._limiter.release(route, response.status, limits, retry_after)
 
         labels = {"method": route.method.value, "route": template}
@@ -469,6 +477,7 @@ class RestClient(Requester):
             response.status == HTTPStatus.UNAUTHORIZED
             and self._refuse_after_unauthorized
             and self._is_bot_token
+            and not route.route.token_authenticated
         ):
             self._token_invalid = True
             _log.error("bot token rejected (401); refusing further requests to avoid an IP ban")
@@ -497,24 +506,36 @@ class RestClient(Requester):
     def _is_bot_token(self) -> bool:
         return self._token is not None and self._token.type is TokenType.BOT
 
-    def _headers(self, reason: str | None) -> dict[str, str]:
+    def _refuses(self, route: CompiledRoute) -> bool:
+        """Whether the bot token was rejected and `route` would send it."""
+        return self._token_invalid and not route.route.token_authenticated
+
+    def _headers(self, reason: str | None, *, authorize: bool) -> dict[str, str]:
         headers = {"User-Agent": self._user_agent}
-        if self._token is not None:
+        if authorize and self._token is not None:
             headers["Authorization"] = self._token.header
         if reason:
             headers["X-Audit-Log-Reason"] = quote(reason[:AUDIT_LOG_REASON_MAX_LENGTH], safe=" ")
         return headers
 
     @staticmethod
-    def _retry_after(response: HTTPResponse) -> float:
+    def _rate_limit(response: HTTPResponse) -> tuple[RateLimitHeaders, float | None]:
+        """The response's rate limit headers and, for a 429, how many seconds to wait."""
+        limits = RateLimitHeaders.parse(response.headers)
+        if response.status != HTTPStatus.TOO_MANY_REQUESTS:
+            return limits, None
         try:
-            return max(msgspec.json.decode(response.body, type=RateLimitResponse).retry_after, 0.0)
+            body = msgspec.json.decode(response.body, type=RateLimitResponse)
         except (msgspec.DecodeError, msgspec.ValidationError):
-            header = response.headers.get("retry-after", "1")
+            # Not Discord's JSON (a Cloudflare page): only the standard header is left.
             try:
-                return max(float(header), 0.0)
+                return limits, max(float(response.headers.get("retry-after", "1")), 0.0)
             except ValueError:
-                return 1.0
+                return limits, 1.0
+        if body.global_ and not limits.is_global:
+            # Discord marks a global limit in the header and the body; either one is enough.
+            limits = replace(limits, is_global=True)
+        return limits, max(body.retry_after, 0.0)
 
 
 def _may_have_been_sent(error: OSError) -> bool:

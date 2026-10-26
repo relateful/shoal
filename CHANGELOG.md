@@ -17,14 +17,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `shoal.rest`: `RestClient` with bot and bearer tokens, typed routes with docs links, per-bucket and
   global rate limiting, the invalid request guard, stop-after-401, and Search Guild Messages with
   retries while Discord builds the index.
-- Every HTTP endpoint Discord documents (239), grouped by resource with short names:
+- Every HTTP endpoint Discord documents (237), grouped by resource with short names:
   `rest.messages.create`, `rest.members.ban`, `rest.commands.overwrite_global`. The coverage page
-  lists the Shoal method for each Discord endpoint. Resources: users,
-  voice, emoji, stickers, soundboard, channels, threads, invites, messages, reactions, pins, polls,
-  webhooks, guilds, members, roles, bans, prune, widgets, onboarding, scheduled events, stage
-  instances, templates, Auto Moderation, audit logs, applications, monetization, OAuth2 information,
-  lobbies and application identity profiles, each with its payloads. The four endpoints Discord has
-  deprecated or disabled are left out.
+  lists the Shoal method for each Discord endpoint. Resources: `applications`, `audit_logs`,
+  `automod`, `channels`, `commands`, `emojis`, `entitlements`, `gateway`, `guilds` (prune, widget,
+  onboarding, welcome screen and the guild's other settings), `identities`, `interactions`, `invites`,
+  `lobbies`, `members` (bans
+  included), `messages`, `oauth2`, `polls`, `reactions`, `role_connections`, `roles`,
+  `scheduled_events`, `skus`, `soundboard`, `stage_instances`, `stickers`, `subscriptions`,
+  `templates`, `threads`, `users`, `voice`, `voice_states` and `webhooks`, each with its payloads. The
+  four endpoints Discord has deprecated or disabled are left out.
 - Every gateway event Discord documents (82) is typed: `DISPATCH_PAYLOADS` maps each dispatch name
   to the type its data decodes into, and the coverage page lists them. Includes Auto Moderation,
   audit log entries, bans, stickers, integrations, invites, scheduled event subscribers, soundboard
@@ -78,7 +80,62 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `shoal.emojis`: the application's emojis by name (`client.app_emojis.approve`), loaded at login,
   with declared names and unicode fallbacks, and a sync from a folder of images (in the bot, or
   `python -m shoal.emojis sync`) that skips unchanged images and never re-uploads what it lost track of.
+- `shoal.commands`: prefix and hybrid commands. `Bot` (a `Client` with commands and a slash command
+  tree), `Context`, commands and groups with argument conversion from type hints (`Greedy`, `*words`,
+  the rest of the message, converters), checks, cooldowns and `max_concurrency`, cogs with listeners,
+  extensions that load, unload and reload (taking their slash commands with them), a help command,
+  and hybrid commands and groups used both as `!name` and `/name`, with their checks run on both
+  sides before any option is converted.
+- `shoal.core.cooldown`: one sliding-window cooldown for both command frameworks, which can be asked
+  how long to wait without recording a use (`get_retry_after`).
+- `Client` options for large bots: `metrics`, `session_store`, `cache_snapshot` (loaded before
+  connecting, saved after the shards close), `identify_limiter`, `clock`, and the shards' connection
+  settings (`compression`, `large_threshold`, `capabilities`, ...). `commands.Bot` takes them too.
+- The most used names at the top level (`shoal.Client`, `shoal.Embed`, `shoal.app_commands`), loaded
+  on first use, so importing one layer still loads nothing else.
+- `guild.chunk()` and `guild.query_members()`: members over the gateway. Concurrent `chunk()` calls
+  share one request, the cache drops members who are not in the full list, and a request Discord rate
+  limits fails at once (`MemberRequestRateLimitedError`).
+- `shoal_events_dropped_total`: gateway payloads and dispatches dropped because they did not decode.
+- Webhook events: every event Discord posts to an app's Webhook Events URL is typed
+  (`WebhookEventPayload`, `WEBHOOK_EVENT_PAYLOADS`), and `Endpoint(..., events=handler)` receives them,
+  acknowledging each at once. `client.endpoint()` emits them as events (`on_application_authorized`,
+  `on_entitlement_create`, `on_lobby_message_create`, ...). `shoal_http_webhook_events_total` counts
+  them.
 - `shoal.metrics.prometheus`: `PrometheusMetrics`, exporting every metric in the catalog.
 - `shoal.diagnostics`: `LoopMonitor`, which names the code blocking the event loop while it blocks.
-- Documentation site with generated API reference, guides, and a Discord API coverage page checked
-  weekly against Discord's docs.
+- Documentation site with generated API reference, guides (including writing a bot), and a Discord
+  API coverage page checked weekly against Discord's docs.
+
+### Changed
+
+- Renamed for the naming rules: `rest.channels.set_voice_status` is `edit_voice_status`
+  (`EditVoiceStatusParams`), `rest.guilds.edit_widget` is `edit_widget_settings`
+  (`EditWidgetSettingsParams`), `BulkLobbyMemberParams` is `BulkEditLobbyMemberParams` and
+  `EditRoleConnectionParams` is `EditCurrentRoleConnectionParams`. `Cooldown.retry_after` is
+  `update_rate_limit`. `GATEWAY_DOMAIN` moved to `shoal.gateway.defaults`.
+- `~flags` inverts all 64 bits, so `permissions & ~other` keeps bits Discord added that Shoal does not
+  know yet; it used to clear them.
+- A view sent with `response.send_message` answers only on the message it was sent with, and views and
+  modals are forgotten as soon as they stop. A user has at most five modals waiting; opening another
+  stops the oldest.
+- An interaction counts as answered only once Discord accepted the response, so a failed response can
+  be sent again. Over HTTP, code after the response runs once the reply is written.
+- Channels from `GUILD_CREATE` get their guild's ID when Discord leaves it out.
+- Offline presences are not cached (an absent presence reads as offline).
+- A close code that ends the session backs off before identifying again, as other failures do.
+- `edit(attachments=...)` on messages is the list of attachments to keep, as existing `Attachment`s
+  and new `File`s; attachments left out are removed. Leaving it out still keeps them all.
+- `max_rate_limit_wait` also bounds the wait before sending (an empty bucket, a global pause, the
+  invalid request guard): a longer wait raises `RateLimitedError` at once instead of sleeping.
+- A 429 whose JSON body says `global` pauses every route, even without the `X-RateLimit-Global`
+  header.
+- `Guild.get_user` is removed; use `Client.get_user`. `shoal.models.channel.resolve_guild_channel`
+  is `resolve_cached_channel` (it also returns DM channels).
+- `Client.connect()` takes the token `login` used when none is given.
+- Cache snapshots record the shard count; `load_snapshot(shard_count=...)` starts cold after
+  resharding. `Client(cache_snapshot=...)` passes it.
+- `Identify`, `Resume` and the IPC `EventFrame` keep the token out of their repr, and `User` keeps its
+  email out of it.
+- The IPC client resets its reconnect backoff only after a subscription lasted a minute, so a worker
+  dropped as too slow over and over backs off.

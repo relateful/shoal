@@ -1,6 +1,6 @@
 """Interaction payloads as Discord sends them in the test guild, and views and modals that record calls."""
 
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from typing import TYPE_CHECKING, override
 
 from shoal.client.views import DispatchableView, SubmittableModal
@@ -123,6 +123,7 @@ class PersistentView(DispatchableView):
         self.custom_id = custom_id
         self.received: list[tuple[Interaction, str]] = []
         self.finished = False
+        self.on_finish: list[Callable[[], object]] = []
 
     @override
     def to_components(self) -> list[MessageComponent]:
@@ -145,9 +146,24 @@ class PersistentView(DispatchableView):
     def is_finished(self) -> bool:
         return self.finished
 
+    def stop(self) -> None:
+        """Stop, telling whoever stored it."""
+        self.finished = True
+        callbacks, self.on_finish = self.on_finish, []
+        for callback in callbacks:
+            callback()
+
     @override
-    async def dispatch(self, interaction: "Interaction", custom_id: str) -> None:
+    def when_finished(self, callback: Callable[[], object], /) -> None:
+        if self.finished:
+            callback()
+        else:
+            self.on_finish.append(callback)
+
+    @override
+    async def dispatch(self, interaction: "Interaction", custom_id: str) -> bool:
         self.received.append((interaction, custom_id))
+        return True
 
 
 class RecordingModal(SubmittableModal):
@@ -157,6 +173,7 @@ class RecordingModal(SubmittableModal):
         self._custom_id = custom_id
         self.submitted: list[Interaction] = []
         self.finished = False
+        self.on_finish: list[Callable[[], object]] = []
 
     @property
     @override
@@ -175,5 +192,21 @@ class RecordingModal(SubmittableModal):
         return self.finished
 
     @override
+    def stop(self) -> None:
+        """Stop, telling whoever stored it."""
+        self.finished = True
+        callbacks, self.on_finish = self.on_finish, []
+        for callback in callbacks:
+            callback()
+
+    @override
+    def when_finished(self, callback: Callable[[], object], /) -> None:
+        if self.finished:
+            callback()
+        else:
+            self.on_finish.append(callback)
+
+    @override
     async def dispatch(self, interaction: "Interaction") -> None:
         self.submitted.append(interaction)
+        self.stop()

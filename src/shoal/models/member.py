@@ -7,14 +7,14 @@
 Discord: https://docs.discord.com/developers/resources/guild#guild-member-object
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Self, override
 
 from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
-from shoal.models.base import MISSING, Hashable, MissingType, Object
+from shoal.models.base import MISSING, Hashable, MissingType, Object, given
 from shoal.models.defaults import DEFAULT_BAN_MESSAGE_SECONDS
 from shoal.models.messageable import Messageable
 from shoal.models.permissions import guild_permissions
@@ -33,8 +33,8 @@ if TYPE_CHECKING:
     from shoal.models.role import Role
 
 
-def _timed_out(until: datetime | None, now: datetime | None = None) -> bool:
-    return until is not None and until > (now or datetime.now(UTC))
+def _timed_out(until: datetime | None, now: datetime) -> bool:
+    return until is not None and until > now
 
 
 class Member(BaseUser, Messageable):
@@ -197,11 +197,17 @@ class Member(BaseUser, Messageable):
         """When their timeout ends, while they are timed out."""
         until = self._data.communication_disabled_until
         until = until if isinstance(until, datetime) else None
-        return until if _timed_out(until) else None
+        return until if _timed_out(until, self._state.now()) else None
 
     def is_timed_out(self) -> bool:
         """Whether they are timed out right now."""
         return self.timed_out_until is not None
+
+    def has_role(self, role: int | str, /) -> bool:
+        """Whether they have `role`, given by ID or by name."""
+        if isinstance(role, int):
+            return role in self._data.roles
+        return any(found.name == role for found in self.roles)
 
     @property
     def raw_roles(self) -> list[Snowflake]:
@@ -290,10 +296,10 @@ class Member(BaseUser, Messageable):
         Discord: https://docs.discord.com/developers/resources/guild#modify-guild-member
         """
         params = EditMemberParams(
-            nick=UNSET if isinstance(nick, MissingType) else nick,
+            nick=given(nick),
             roles=UNSET if isinstance(roles, MissingType) else [role.id for role in roles],
-            mute=UNSET if isinstance(mute, MissingType) else mute,
-            deaf=UNSET if isinstance(deafen, MissingType) else deafen,
+            mute=given(mute),
+            deaf=given(deafen),
             channel_id=(
                 UNSET
                 if isinstance(voice_channel, MissingType)
@@ -343,7 +349,7 @@ class Member(BaseUser, Messageable):
 
         Discord: https://docs.discord.com/developers/resources/guild#modify-guild-member
         """
-        moment = datetime.now(UTC) + until if isinstance(until, timedelta) else until
+        moment = self._state.now() + until if isinstance(until, timedelta) else until
         return await self.edit(timed_out_until=moment, reason=reason)
 
     async def move_to(self, channel: Hashable | None, *, reason: str | None = None) -> "Member":

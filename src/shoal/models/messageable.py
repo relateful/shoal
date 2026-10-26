@@ -11,15 +11,15 @@ Discord: https://docs.discord.com/developers/resources/message
 
 import asyncio
 import contextlib
+import logging
 from collections.abc import AsyncIterator, Sequence
 from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Self, final
 
-from msgspec import UNSET
-
+from shoal.core.clock import Clock
 from shoal.core.snowflake import Snowflake
-from shoal.models.base import Hashable
+from shoal.models.base import Hashable, unset_if_none
 from shoal.models.defaults import TYPING_REFRESH
 from shoal.models.sending import EmbedLike, outgoing
 from shoal.models.state import ComponentView, State
@@ -31,6 +31,7 @@ from shoal.payloads.message import (
     MessageReference,
 )
 from shoal.payloads.poll import PollCreateRequest
+from shoal.rest.errors import HTTPError
 from shoal.rest.files import File
 
 if TYPE_CHECKING:
@@ -40,6 +41,8 @@ type MessageTarget = Message | PartialMessage | MessageReference
 """What `reference=` accepts: a message to reply to, or a reference you built."""
 type Before = int | datetime | Hashable
 """A point in a channel's history: a message, a message ID, or a time."""
+
+_log = logging.getLogger("shoal.models")
 
 
 def _cursor(point: int | datetime | Hashable) -> Snowflake:
@@ -166,7 +169,7 @@ class Messageable:
         messages around a point and cannot be combined with `before` or `after`.
 
         Raises:
-            ValueError: `around` was combined with `before` or `after`, or with a limit over 100.
+            ValueError: `around` was combined with `before` or `after`, or with no limit or one over 100.
 
         Discord: https://docs.discord.com/developers/resources/message#get-channel-messages
         """
@@ -196,7 +199,7 @@ class Messageable:
             if ascending:
                 params = ListMessagesParams(after=lower if lower is not None else Snowflake(0), limit=size)
             else:
-                params = ListMessagesParams(before=upper if upper is not None else UNSET, limit=size)
+                params = ListMessagesParams(before=unset_if_none(upper), limit=size)
             received = await state.rest.messages.list(channel_id, params)
             # Only one bound goes to Discord; the other is checked here, and crossing it ends the walk.
             page = [
@@ -245,7 +248,7 @@ class Messageable:
 
     def typing(self) -> "Typing":
         """`async with channel.typing():` shows the bot typing until the block ends."""
-        return Typing(self)
+        return Typing(self, self._messageable_state.clock)
 
 
 @final
@@ -255,17 +258,23 @@ class Typing:
     Discord: https://docs.discord.com/developers/resources/channel#trigger-typing-indicator
     """
 
-    __slots__ = ("_target", "_task")
+    __slots__ = ("_clock", "_target", "_task")
 
-    def __init__(self, target: Messageable) -> None:
-        """Typing in `target`; use `Messageable.typing()`."""
+    def __init__(self, target: Messageable, clock: Clock) -> None:
+        """Typing in `target`, refreshed on `clock`; use `Messageable.typing()`."""
         self._target: Messageable = target
+        self._clock: Clock = clock
         self._task: asyncio.Task[None] | None = None
 
     async def _keep_typing(self) -> None:
         while True:
-            await asyncio.sleep(TYPING_REFRESH)
-            await self._target.trigger_typing()
+            await self._clock.sleep(TYPING_REFRESH)
+            try:
+                await self._target.trigger_typing()
+            except HTTPError as error:
+                # The indicator is cosmetic: the work inside the block goes on, and its result stands.
+                _log.warning("stopped refreshing the typing indicator: %s", error)
+                return
 
     async def __aenter__(self) -> Self:
         await self._target.trigger_typing()

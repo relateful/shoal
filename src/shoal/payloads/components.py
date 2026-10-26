@@ -34,10 +34,70 @@ ACTION_ROW_MAX_BUTTONS: Final = 5
 Discord: https://docs.discord.com/developers/components/reference#action-row
 """
 
+BUTTON_LABEL_MAX_LENGTH: Final = 80
+"""Characters in a button's label.
+
+Discord: https://docs.discord.com/developers/components/reference#button-button-structure
+"""
+
+BUTTON_URL_MAX_LENGTH: Final = 512
+"""Characters in a link button's URL.
+
+Discord: https://docs.discord.com/developers/components/reference#button-button-structure
+"""
+
+COMPONENT_CUSTOM_ID_MAX_LENGTH: Final = 100
+"""Characters in a component's `custom_id` (at least one).
+
+Discord: https://docs.discord.com/developers/components/reference#anatomy-of-a-component-custom-id
+"""
+
+LABEL_DESCRIPTION_MAX_LENGTH: Final = 100
+"""Characters in a modal label's description.
+
+Discord: https://docs.discord.com/developers/components/reference#label-label-structure
+"""
+
+LABEL_MAX_LENGTH: Final = 45
+"""Characters in a modal label's text.
+
+Discord: https://docs.discord.com/developers/components/reference#label-label-structure
+"""
+
 LEGACY_MESSAGE_MAX_ACTION_ROWS: Final = 5
 """Action rows a message without `is_components_v2` can have.
 
 Discord: https://docs.discord.com/developers/components/reference#legacy-message-component-behavior
+"""
+
+SELECT_MAX_OPTIONS: Final = 25
+"""Options in a string select, and the most choices any select allows (`max_values`).
+
+Discord: https://docs.discord.com/developers/components/reference#string-select-string-select-structure
+"""
+
+SELECT_OPTION_TEXT_MAX_LENGTH: Final = 100
+"""Characters in a select option's label, value and description.
+
+Discord: https://docs.discord.com/developers/components/reference#string-select-select-option-structure
+"""
+
+SELECT_PLACEHOLDER_MAX_LENGTH: Final = 150
+"""Characters in a select's placeholder.
+
+Discord: https://docs.discord.com/developers/components/reference#string-select-string-select-structure
+"""
+
+TEXT_INPUT_MAX_LENGTH: Final = 4000
+"""Characters a text input can hold, and the most its `min_length` and `max_length` can be.
+
+Discord: https://docs.discord.com/developers/components/reference#text-input-text-input-structure
+"""
+
+TEXT_INPUT_PLACEHOLDER_MAX_LENGTH: Final = 100
+"""Characters in a text input's placeholder.
+
+Discord: https://docs.discord.com/developers/components/reference#text-input-text-input-structure
 """
 
 
@@ -783,6 +843,8 @@ def parse_components(raw: Sequence[RawComponent]) -> list[Component | UnknownCom
 
 
 class _Wrapped[T](Protocol):
+    __slots__ = ()
+
     @property
     def component(self) -> T: ...
 

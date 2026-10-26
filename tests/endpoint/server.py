@@ -9,7 +9,12 @@ from aiohttp import web
 
 from shoal.core.clock import Clock
 from shoal.core.codec import JSONObject
-from shoal.core.metrics import HTTP_INTERACTION_SECONDS, HTTP_INTERACTIONS, InMemoryMetrics
+from shoal.core.metrics import (
+    HTTP_INTERACTION_SECONDS,
+    HTTP_INTERACTIONS,
+    HTTP_WEBHOOK_EVENTS,
+    InMemoryMetrics,
+)
 from shoal.endpoint import Endpoint
 from shoal.payloads import (
     ApplicationCommandInteraction,
@@ -18,8 +23,11 @@ from shoal.payloads import (
     InteractionResponse,
     MessageResponse,
     UnknownInteraction,
+    WebhookEventPayload,
+    WebhookPayloadType,
 )
 from tests.support.endpoint import post, url_of
+from tests.support.fakes import FakeClock, settle
 from tests.support.server import free_port, serve
 from tests.support.signing import PUBLIC
 
@@ -274,3 +282,76 @@ async def test_a_failed_start_leaves_nothing_running() -> None:
             await second.start()
         with pytest.raises(RuntimeError, match="not listening"):
             _ = second.address
+
+
+def webhook_event(event_type: str, data: JSONObject) -> JSONObject:
+    event: JSONObject = {"type": event_type, "timestamp": "2024-10-18T14:42:53.064834", "data": data}
+    return {"version": 1, "application_id": "11", "type": 1, "event": event}
+
+
+def events_counted(metrics: InMemoryMetrics, event: str, result: str) -> float:
+    return metrics.counters.get(
+        InMemoryMetrics.key(HTTP_WEBHOOK_EVENTS, {"event": event, "result": result}), 0
+    )
+
+
+async def test_webhook_events_are_acknowledged_at_once_and_handled_after() -> None:
+    metrics = InMemoryMetrics()
+    received: list[WebhookEventPayload] = []
+    release = asyncio.Event()
+
+    async def events(payload: WebhookEventPayload) -> None:
+        await release.wait()
+        received.append(payload)
+
+    async with Endpoint(PUBLIC, Recorder(None), port=0, events=events, metrics=metrics) as server:
+        url = url_of(server, "/events")
+        ping, ping_body = await post(url, {"version": 1, "application_id": "11", "type": 0})
+        status, body = await post(url, webhook_event("APPLICATION_DEAUTHORIZED", {"user": USER}))
+        assert received == []
+        release.set()
+        await settle()
+    assert (ping, ping_body, status, body) == (204, b"", 204, b"")
+    [payload] = received
+    assert payload.type is WebhookPayloadType.EVENT
+    assert events_counted(metrics, "ping", "accepted") == 1
+    assert events_counted(metrics, "APPLICATION_DEAUTHORIZED", "accepted") == 1
+
+
+async def test_webhook_events_are_verified_and_checked_like_interactions(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    metrics = InMemoryMetrics()
+
+    async def failing(payload: WebhookEventPayload) -> None:
+        del payload
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    async with Endpoint(PUBLIC, Recorder(None), port=0, events=failing, metrics=metrics) as server:
+        url = url_of(server, "/events")
+        forged, _ = await post(url, webhook_event("ENTITLEMENT_CREATE", {}), signature="00" * 64)
+        malformed, _ = await post(url, {"version": 1})
+        with caplog.at_level(logging.ERROR, logger="shoal.endpoint"):
+            newer, _ = await post(url, webhook_event("SOMETHING_NEW", {}))
+            await settle()
+    assert (forged, malformed, newer) == (401, 400, 204)
+    assert events_counted(metrics, "unknown", "invalid_signature") == 1
+    assert events_counted(metrics, "unknown", "malformed") == 1
+    assert events_counted(metrics, "unknown", "handler_error") == 1
+    assert "webhook event handler failed" in caplog.text
+
+
+async def test_without_an_events_handler_there_is_no_events_route() -> None:
+    async with Endpoint(PUBLIC, Recorder(None), port=0) as server:
+        status, _ = await post(url_of(server, "/events"), {"version": 1, "application_id": "11", "type": 0})
+    assert status == 404
+
+
+async def test_max_age_refuses_a_recorded_request_sent_later() -> None:
+    signed_at = 1_700_000_000.0
+    for now, expected in ((signed_at + 5, 200), (signed_at + 600, 401)):
+        clock = FakeClock(wall=now)
+        async with Endpoint(PUBLIC, Recorder(None), port=0, max_age=60.0, clock=clock) as server:
+            status, _ = await post(url_of(server), PING)
+        assert status == expected

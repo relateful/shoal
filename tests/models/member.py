@@ -2,11 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from shoal.core.codec import decode_json, encode_json
 from shoal.models.base import Object
 from shoal.models.member import Member
 from shoal.payloads import GuildMember, StatusType
-from tests.support.models import ALICE, BOB, BOT, GUILD, MODS, OWNER, RED, VOICE, World, member
+from tests.support.models import ALICE, BOB, BOT, GUILD, MODS, OWNER, RED, VOICE, World, decoded, member
 
 
 async def alice(world: World | None = None) -> tuple[World, Member]:
@@ -27,6 +26,10 @@ async def test_members_proxy_their_user_and_add_the_guilds_view() -> None:
     assert ally.premium_since is None
     assert not ally.pending
     assert ally.raw_roles == [RED]
+    assert ally.has_role(RED)
+    assert ally.has_role("red")
+    assert not ally.has_role(MODS)
+    assert not ally.has_role("mods")
 
 
 async def test_roles_are_ordered_lowest_first_from_everyone() -> None:
@@ -54,8 +57,8 @@ async def test_guild_permissions_come_from_the_cached_roles() -> None:
 
 async def test_timeouts_limit_permissions_until_they_end() -> None:
     world = await World.started()
-    later = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
-    earlier = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    later = (world.state.now() + timedelta(hours=1)).isoformat()
+    earlier = (world.state.now() - timedelta(hours=1)).isoformat()
     await world.dispatch(
         "GUILD_MEMBER_ADD", member(5, "timed", communication_disabled_until=later) | {"guild_id": str(GUILD)}
     )
@@ -86,7 +89,7 @@ async def test_voice_and_presence_come_from_the_cache() -> None:
 
 async def test_avatars_prefer_the_guild_one() -> None:
     world = World()
-    data = decode_json(encode_json(member(ALICE, "alice", avatar="guildhash", banner="b")), GuildMember)
+    data = decoded(member(ALICE, "alice", avatar="guildhash", banner="b"), GuildMember)
     ally = Member(world.state, data, GUILD)
     assert ally.guild_avatar is not None
     assert ally.display_avatar == ally.guild_avatar
@@ -96,7 +99,7 @@ async def test_avatars_prefer_the_guild_one() -> None:
 
 async def test_a_member_needs_to_know_its_user() -> None:
     world = World()
-    data = decode_json(encode_json({k: v for k, v in member(ALICE, "a").items() if k != "user"}), GuildMember)
+    data = decoded({k: v for k, v in member(ALICE, "a").items() if k != "user"}, GuildMember)
     with pytest.raises(ValueError, match="needs a user"):
         Member(world.state, data, GUILD)
 
@@ -162,7 +165,7 @@ async def test_timeout_takes_a_duration_or_a_moment() -> None:
     await ally.timeout(timedelta(minutes=10))
     body = world.last_body()
     sent = datetime.fromisoformat(str(body["communication_disabled_until"]))
-    assert timedelta(minutes=9) < sent - datetime.now(UTC) <= timedelta(minutes=10)
+    assert sent - datetime.fromtimestamp(world.clock.wall(), UTC) == timedelta(minutes=10)
     world.transport.queue(200, member(ALICE, "alice"))
     await ally.timeout(None)
     assert world.last_request()[2] == {"communication_disabled_until": None}

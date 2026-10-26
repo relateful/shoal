@@ -14,12 +14,9 @@ import msgspec
 from msgspec import UNSET, UnsetType
 
 from shoal.core.codec import JSONObject, decode_json, encode_json
+from shoal.models.base import unset_if_none
 from shoal.payloads.message import Embed as EmbedPayload
 from shoal.payloads.message import EmbedAuthor, EmbedField, EmbedFooter, EmbedImage, EmbedProvider, EmbedVideo
-
-
-def _unset[T](value: T | None) -> T | UnsetType:
-    return UNSET if value is None else value
 
 
 def _value[T](value: T | UnsetType) -> T | None:
@@ -50,11 +47,11 @@ class Embed:
         """Start an embed; add the rest with the `set_*` and `add_field` methods."""
         chosen = colour if colour is not None else color
         self._data: EmbedPayload = EmbedPayload(
-            title=_unset(title),
-            description=_unset(description),
-            url=_unset(url),
-            color=_unset(chosen),
-            timestamp=_unset(timestamp),
+            title=unset_if_none(title),
+            description=unset_if_none(description),
+            url=unset_if_none(url),
+            color=unset_if_none(chosen),
+            timestamp=unset_if_none(timestamp),
         )
 
     @classmethod
@@ -89,7 +86,7 @@ class Embed:
 
     @title.setter
     def title(self, value: str | None) -> None:
-        self._data = msgspec.structs.replace(self._data, title=_unset(value))
+        self._data = msgspec.structs.replace(self._data, title=unset_if_none(value))
 
     @property
     def description(self) -> str | None:
@@ -98,7 +95,7 @@ class Embed:
 
     @description.setter
     def description(self, value: str | None) -> None:
-        self._data = msgspec.structs.replace(self._data, description=_unset(value))
+        self._data = msgspec.structs.replace(self._data, description=unset_if_none(value))
 
     @property
     def url(self) -> str | None:
@@ -107,7 +104,7 @@ class Embed:
 
     @url.setter
     def url(self, value: str | None) -> None:
-        self._data = msgspec.structs.replace(self._data, url=_unset(value))
+        self._data = msgspec.structs.replace(self._data, url=unset_if_none(value))
 
     @property
     def colour(self) -> int | None:
@@ -116,7 +113,7 @@ class Embed:
 
     @colour.setter
     def colour(self, value: int | None) -> None:
-        self._data = msgspec.structs.replace(self._data, color=_unset(value))
+        self._data = msgspec.structs.replace(self._data, color=unset_if_none(value))
 
     color = colour
 
@@ -127,7 +124,7 @@ class Embed:
 
     @timestamp.setter
     def timestamp(self, value: datetime | None) -> None:
-        self._data = msgspec.structs.replace(self._data, timestamp=_unset(value))
+        self._data = msgspec.structs.replace(self._data, timestamp=unset_if_none(value))
 
     @property
     def footer(self) -> EmbedFooter | None:
@@ -166,7 +163,7 @@ class Embed:
 
     def set_footer(self, *, text: str | None = None, icon_url: str | None = None) -> Self:
         """Set the footer, or remove it when `text` is `None`."""
-        footer = UNSET if text is None else EmbedFooter(text=text, icon_url=_unset(icon_url))
+        footer = UNSET if text is None else EmbedFooter(text=text, icon_url=unset_if_none(icon_url))
         self._data = msgspec.structs.replace(self._data, footer=footer)
         return self
 
@@ -187,7 +184,7 @@ class Embed:
 
     def set_author(self, *, name: str, url: str | None = None, icon_url: str | None = None) -> Self:
         """Set the author line."""
-        author = EmbedAuthor(name=name, url=_unset(url), icon_url=_unset(icon_url))
+        author = EmbedAuthor(name=name, url=unset_if_none(url), icon_url=unset_if_none(icon_url))
         self._data = msgspec.structs.replace(self._data, author=author)
         return self
 

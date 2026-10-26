@@ -6,6 +6,8 @@ Discord: https://docs.discord.com/developers/reference#snowflakes
 from datetime import datetime
 from typing import Final, override
 
+from msgspec import UNSET, UnsetType
+
 from shoal.core.snowflake import Snowflake
 
 
@@ -67,3 +69,13 @@ class MissingType:
 
 MISSING: Final = MissingType()
 """The default of every `edit(...)` keyword: leave that part as it is."""
+
+
+def unset_if_none[T](value: T | None) -> T | UnsetType:
+    """`value` for a request body, or left out (`UNSET`) when it is `None`."""
+    return UNSET if value is None else value
+
+
+def given[T](value: T | MissingType) -> T | UnsetType:
+    """`value` for a request body; a keyword left out (`MISSING`) is left out of the body too."""
+    return UNSET if isinstance(value, MissingType) else value

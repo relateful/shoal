@@ -15,7 +15,7 @@ Bits Discord adds before Shoal knows about them are kept, never dropped, and rep
 from collections.abc import Iterator
 from typing import ClassVar, Self, final, overload, override
 
-from shoal.core.snowflake import UINT64_MAX
+from shoal.core.snowflake import UINT64_MAX, parse_uint64
 
 
 @final
@@ -85,19 +85,7 @@ class BaseFlags(int):
             TypeError: A keyword is not a known flag of this class.
             ValueError: The raw value is negative, not an unsigned 64-bit integer, or not decimal.
         """
-        if isinstance(value, bool):
-            msg = f"{cls.__name__} cannot be built from a bool"
-            raise TypeError(msg)
-        if isinstance(value, str):
-            if not value.isascii() or not value.isdigit():
-                msg = f"{cls.__name__} string must be decimal digits, got {value!r}"
-                raise ValueError(msg)
-            number = int(value)
-        else:
-            number = int(value)
-        if not 0 <= number <= UINT64_MAX:
-            msg = f"{cls.__name__} value {number} is outside the unsigned 64-bit range"
-            raise ValueError(msg)
+        number = parse_uint64(value, cls.__name__)
         for name, enabled in flags.items():
             bit = cls.known_flags.get(name)
             if bit is None:
@@ -161,7 +149,8 @@ class BaseFlags(int):
 
     @override
     def __invert__(self) -> Self:
-        return type(self)(~int(self) & self.known_mask)
+        # Across all 64 bits, so `perms & ~other` keeps bits Discord added that Shoal does not know.
+        return type(self)(~int(self) & UINT64_MAX)
 
     def without(self, other: int) -> Self:
         """The bits set here and not in `other`."""

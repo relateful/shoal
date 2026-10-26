@@ -108,7 +108,7 @@ CASES = [
     ),
     EndpointCase(
         name="set voice status",
-        call=lambda client: client.channels.set_voice_status(6, None),
+        call=lambda client: client.channels.edit_voice_status(6, None),
         method="PUT",
         path="/channels/6/voice-status",
         body={"status": None},

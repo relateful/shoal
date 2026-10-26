@@ -1,8 +1,8 @@
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
     CreateGroupDMParams,
+    EditCurrentRoleConnectionParams,
     EditCurrentUserParams,
-    EditRoleConnectionParams,
     ListGuildsParams,
 )
 from tests.support.json_payloads import MEMBER, USER
@@ -121,7 +121,7 @@ CASES = [
     EndpointCase(
         name="update role connection",
         call=lambda client: client.role_connections.edit_me(
-            7, EditRoleConnectionParams(platform_name="Example", metadata={"level": "12"})
+            7, EditCurrentRoleConnectionParams(platform_name="Example", metadata={"level": "12"})
         ),
         method="PUT",
         path=ROLE_CONNECTION_PATH,

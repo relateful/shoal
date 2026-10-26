@@ -26,6 +26,7 @@ from http import HTTPStatus
 from typing import Protocol, final, override
 
 from shoal.core.clock import Clock, SystemClock
+from shoal.core.errors import ShoalError
 from shoal.core.metrics import REST_INVALID_REQUESTS, Metrics, NoopMetrics
 from shoal.payloads.rate_limits import (
     GLOBAL_REQUESTS_PER_SECOND,
@@ -34,7 +35,7 @@ from shoal.payloads.rate_limits import (
     INVALID_REQUEST_WINDOW,
     RateLimitScope,
 )
-from shoal.rest.defaults import BUCKET_PRUNE_THRESHOLD, INVALID_REQUEST_SAFETY_MARGIN
+from shoal.rest.defaults import BUCKET_PRUNE_INTERVAL, BUCKET_PRUNE_THRESHOLD, INVALID_REQUEST_SAFETY_MARGIN
 from shoal.rest.route import CompiledRoute
 
 _log = logging.getLogger("shoal.rest.ratelimit")
@@ -59,38 +60,51 @@ class RateLimitHeaders:
         """Read the headers from a lower-cased header mapping, ignoring malformed values."""
         scope_value = headers.get("x-ratelimit-scope")
         return cls(
-            limit=_int_or_none(headers.get("x-ratelimit-limit")),
-            remaining=_int_or_none(headers.get("x-ratelimit-remaining")),
-            reset_after=_float_or_none(headers.get("x-ratelimit-reset-after")),
+            limit=_number(headers.get("x-ratelimit-limit"), int),
+            remaining=_number(headers.get("x-ratelimit-remaining"), int),
+            reset_after=_number(headers.get("x-ratelimit-reset-after"), float),
             bucket=headers.get("x-ratelimit-bucket"),
             is_global=headers.get("x-ratelimit-global", "").lower() == "true",
             scope=RateLimitScope(scope_value) if scope_value else None,
         )
 
 
-def _int_or_none(value: str | None) -> int | None:
+def _number[T: (int, float)](value: str | None, kind: type[T]) -> T | None:
+    """A header as a number; `None` when it is missing or not one."""
     if value is None:
         return None
     try:
-        return int(value)
+        return kind(value)
     except ValueError:
         return None
 
 
-def _float_or_none(value: str | None) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except ValueError:
-        return None
+class WaitTooLongError(ShoalError):
+    """A rate limit would hold a request longer than the caller is willing to wait."""
+
+    def __init__(self, seconds: float) -> None:
+        """The request would wait `seconds`."""
+        super().__init__(f"the rate limit would hold the request for {seconds:.2f}s")
+        self.seconds: float = seconds
+
+
+def _check_wait(seconds: float, max_wait: float | None) -> None:
+    if max_wait is not None and seconds > max_wait:
+        raise WaitTooLongError(seconds)
 
 
 class RateLimiter(Protocol):
     """Decides when a request may be sent, and learns from every response."""
 
-    async def acquire(self, route: CompiledRoute) -> None:
-        """Wait until `route` may be sent. Every `acquire` must be followed by exactly one `release`."""
+    __slots__ = ()
+
+    async def acquire(self, route: CompiledRoute, *, max_wait: float | None = None) -> None:
+        """Wait until `route` may be sent. Every `acquire` must be followed by exactly one `release`.
+
+        Raises:
+            WaitTooLongError: The wait would be longer than `max_wait` seconds; nothing was taken,
+                so no `release` follows.
+        """
         ...
 
     def release(
@@ -118,7 +132,7 @@ class _Bucket:
         self.discovering: asyncio.Event | None = None
         self._responded: asyncio.Event | None = None
 
-    async def acquire(self) -> bool:
+    async def acquire(self, max_wait: float | None) -> bool:
         """Take one request from the bucket, or wait and return `False`.
 
         After any wait the route may belong to another bucket (Discord named it, or renamed it), so
@@ -145,10 +159,17 @@ class _Bucket:
                 self._responded = asyncio.Event()
             await self._responded.wait()
             return False
+        _check_wait(self.reset_at - now, max_wait)
         await self._clock.sleep(self.reset_at - now)
         return False
 
-    def update(self, headers: RateLimitHeaders | None) -> None:
+    def update(self, headers: RateLimitHeaders | None, *, succeeded: bool) -> None:
+        """Learn where the bucket stands from a response's headers.
+
+        A successful response without headers means the route has no limit. A failed one without
+        headers (a Cloudflare error page, a proxy's 502) says nothing, so discovery goes on, one
+        request at a time, rather than letting every waiting request through at once.
+        """
         if headers is not None and headers.limit is not None:
             self.limit = headers.limit
             if headers.reset_after is None:
@@ -164,8 +185,9 @@ class _Bucket:
                     )
             self.wake()
         elif self.limit is None:
-            self.limit = 0
-            self.remaining = None
+            if succeeded:
+                self.limit = 0
+                self.remaining = None
             self.wake()
         else:
             self.unanswered()
@@ -217,10 +239,11 @@ class _GlobalLimiter:
         self._updated: float = clock.monotonic()
         self._paused_until: float = 0.0
 
-    async def acquire(self) -> None:
+    async def acquire(self, max_wait: float | None) -> None:
         while True:
             now = self._clock.monotonic()
             if now < self._paused_until:
+                _check_wait(self._paused_until - now, max_wait)
                 await self._clock.sleep(self._paused_until - now)
                 continue
             if self._per_second is None:
@@ -252,7 +275,7 @@ class InvalidRequestGuard:
     Discord: https://docs.discord.com/developers/topics/rate-limits#invalid-request-limit-aka-cloudflare-bans
     """
 
-    __slots__ = ("_clock", "_events", "_metrics", "_threshold", "_warned", "_window")
+    __slots__ = ("_clock", "_events", "_holding", "_metrics", "_threshold", "_warned", "_window")
 
     def __init__(
         self,
@@ -270,8 +293,9 @@ class InvalidRequestGuard:
         self._clock: Clock = clock
         self._window: float = window
         self._threshold: int = limit - safety_margin
-        self._events: deque[float] = deque()
+        self._events: deque[float] = deque()  # bounded by the window: pruned as events age out
         self._warned: bool = False
+        self._holding: bool = False  # logged once per hold, not once per waiter per wake
         self._metrics: Metrics = metrics or NoopMetrics()
 
     @property
@@ -299,15 +323,23 @@ class InvalidRequestGuard:
                 INVALID_REQUEST_LIMIT,
             )
 
-    async def acquire(self) -> None:
-        """Wait while the window is at the threshold."""
+    async def acquire(self, max_wait: float | None = None) -> None:
+        """Wait while the window is at the threshold.
+
+        Raises:
+            WaitTooLongError: The hold would be longer than `max_wait` seconds.
+        """
         while True:
             now = self._clock.monotonic()
             self._expire(now)
             if len(self._events) < self._threshold:
+                self._holding = False
                 return
             wait = self._events[0] + self._window - now
-            _log.error("holding requests for %.1fs to stay under Discord's invalid request ban", wait)
+            _check_wait(wait, max_wait)
+            if not self._holding:
+                self._holding = True
+                _log.error("holding requests to stay under Discord's invalid request ban")
             await self._clock.sleep(wait)
 
     def _expire(self, now: float) -> None:
@@ -329,7 +361,7 @@ class LocalRateLimiter(RateLimiter):
         metrics: Passed to the default invalid request guard.
     """
 
-    __slots__ = ("_buckets", "_clock", "_global", "_hashes", "_invalid")
+    __slots__ = ("_buckets", "_clock", "_global", "_hashes", "_invalid", "_pruned_at")
 
     def __init__(
         self,
@@ -347,6 +379,7 @@ class LocalRateLimiter(RateLimiter):
         )
         self._hashes: dict[str, str] = {}
         self._buckets: dict[str, _Bucket] = {}
+        self._pruned_at: float | None = None
 
     @property
     def invalid_guard(self) -> InvalidRequestGuard:
@@ -364,13 +397,13 @@ class LocalRateLimiter(RateLimiter):
         return f"{identity}|{route.major}"
 
     @override
-    async def acquire(self, route: CompiledRoute) -> None:
-        await self._invalid.acquire()
-        while not await self._bucket(self.bucket_key(route)).acquire():
+    async def acquire(self, route: CompiledRoute, *, max_wait: float | None = None) -> None:
+        await self._invalid.acquire(max_wait)
+        while not await self._bucket(self.bucket_key(route)).acquire(max_wait):
             pass  # waited; the route's bucket may have changed meanwhile
         if route.route.global_limit:
             try:
-                await self._global.acquire()
+                await self._global.acquire(max_wait)
             except BaseException:
                 self.release(route, None, None, None)
                 raise
@@ -396,10 +429,10 @@ class LocalRateLimiter(RateLimiter):
                 self._global.pause(retry_after)
                 bucket.unanswered()
             else:
-                bucket.update(headers)
+                bucket.update(headers, succeeded=False)
                 bucket.block_for(retry_after)
         else:
-            bucket.update(headers)
+            bucket.update(headers, succeeded=HTTPStatus.OK <= status < HTTPStatus.MULTIPLE_CHOICES)
         self._prune()
 
     def _learn_bucket(self, route: CompiledRoute, named: str) -> None:
@@ -410,10 +443,13 @@ class LocalRateLimiter(RateLimiter):
         any bucket the route no longer uses are woken and look their bucket up again, so the two
         never hand out the same quota twice and nobody waits on a bucket no response will reach.
         """
-        provisional = f"{route.route.key}|{route.major}"
-        if provisional in self._buckets:
-            self._buckets.pop(provisional).wake()
         previous = self._hashes.get(route.route.key)
+        if previous is None:
+            # Provisional buckets exist only until the route's first name is learned: scanning for
+            # them on every later response would cost a pass over every bucket each time.
+            provisional = f"{route.route.key}|"
+            for key in [key for key in self._buckets if key.startswith(provisional)]:
+                self._buckets.pop(key).wake()
         if previous == named:
             return
         self._hashes[route.route.key] = named
@@ -431,8 +467,16 @@ class LocalRateLimiter(RateLimiter):
         return bucket
 
     def _prune(self) -> None:
+        """Forget idle buckets once there are many, at most once per `BUCKET_PRUNE_INTERVAL`.
+
+        Never on every response: a large bot keeps more than the threshold active, and scanning them
+        all for each response would cost more than the memory it frees.
+        """
         if len(self._buckets) < BUCKET_PRUNE_THRESHOLD:
             return
         now = self._clock.monotonic()
+        if self._pruned_at is not None and now - self._pruned_at < BUCKET_PRUNE_INTERVAL:
+            return
+        self._pruned_at = now
         for key in [key for key, bucket in self._buckets.items() if bucket.is_idle(now)]:
             del self._buckets[key]

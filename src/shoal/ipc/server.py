@@ -44,7 +44,7 @@ _DISCARD_CHUNK: Final = 64 * 1024
 """Bytes read at a time from a subscriber that sends anything after its handshake."""
 
 _LOGGED_NAME_LENGTH: Final = 100
-"""How much of a rejected client's self-chosen name is logged."""
+"""How much of a client's self-chosen name is kept for logs and task names."""
 
 
 @dataclass(eq=False, slots=True)
@@ -150,8 +150,11 @@ class EventServer:
         server, self._server = self._server, None
         if server is not None:
             server.close()
+        pumps = [subscriber.task for subscriber in self._subscribers if subscriber.task is not None]
         for subscriber in list(self._subscribers):
             self._drop(subscriber, "closed")
+        # Cancelled by `_drop`; waited for, so none is left pending when the loop shuts down.
+        await asyncio.gather(*pumps, return_exceptions=True)
         connections = list(self._connections)
         self._connections.clear()
         for writer in connections:
@@ -195,9 +198,10 @@ class EventServer:
             self._metrics.increment(IPC_DISCONNECTS, {"reason": "rejected"})
             self._close(writer)
             return
+        name = hello.name[:_LOGGED_NAME_LENGTH]
         reason = self._reject_reason(hello)
         if reason is not None:
-            _log.warning("IPC subscriber %r rejected: %s", hello.name[:_LOGGED_NAME_LENGTH], reason)
+            _log.warning("IPC subscriber %r rejected: %s", name, reason)
             self._metrics.increment(IPC_DISCONNECTS, {"reason": "rejected"})
             writer.write(encode_frame(Rejected(reason)))
             with contextlib.suppress(OSError):
@@ -209,7 +213,7 @@ class EventServer:
             self._abort(writer)
             return
         subscriber = _Subscriber(
-            name=hello.name,
+            name=name,
             shard_ids=frozenset(hello.shard_ids) if hello.shard_ids is not None else None,
             events=frozenset(hello.events) if hello.events is not None else None,
             writer=writer,
@@ -218,8 +222,8 @@ class EventServer:
         writer.write(encode_frame(Accepted(PROTOCOL_VERSION)))
         self._subscribers.add(subscriber)
         self._metrics.set(IPC_SUBSCRIBERS, len(self._subscribers))
-        _log.info("IPC subscriber %r connected", hello.name)
-        subscriber.task = asyncio.create_task(self._pump(subscriber, reader), name=f"shoal-ipc-{hello.name}")
+        _log.info("IPC subscriber %r connected", name)
+        subscriber.task = asyncio.create_task(self._pump(subscriber, reader), name=f"shoal-ipc-{name}")
 
     def _reject_reason(self, hello: Subscribe) -> str | None:
         if not hmac.compare_digest(hello.token.encode(), self._token):
@@ -229,16 +233,12 @@ class EventServer:
         return None
 
     async def _pump(self, subscriber: _Subscriber, reader: asyncio.StreamReader) -> None:
-        closed = asyncio.create_task(_until_closed(reader))
-        frame: asyncio.Task[bytes] | None = None
+        # One watcher per subscriber notices it leaving and cancels this pump, so sending an event
+        # costs no task of its own.
+        watcher = asyncio.create_task(self._watch(subscriber, reader))
         try:
             while True:
-                frame = asyncio.create_task(subscriber.queue.get())
-                done, _ = await asyncio.wait({frame, closed}, return_when=asyncio.FIRST_COMPLETED)
-                if closed in done:
-                    self._drop(subscriber, "closed")
-                    return
-                subscriber.writer.write(frame.result())
+                subscriber.writer.write(await subscriber.queue.get())
                 await subscriber.writer.drain()
         except OSError:
             self._drop(subscriber, "error")
@@ -246,9 +246,11 @@ class EventServer:
             _log.exception("IPC subscriber %r failed", subscriber.name)
             self._drop(subscriber, "error")
         finally:
-            closed.cancel()
-            if frame is not None:
-                frame.cancel()
+            watcher.cancel()
+
+    async def _watch(self, subscriber: _Subscriber, reader: asyncio.StreamReader) -> None:
+        await _until_closed(reader)
+        self._drop(subscriber, "closed")
 
     def _drop(self, subscriber: _Subscriber, reason: str) -> None:
         """Forget a subscriber and close its socket without waiting, so no caller ever blocks on it."""

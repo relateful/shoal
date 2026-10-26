@@ -77,6 +77,13 @@ async def test_a_new_guild_is_joined_and_a_known_one_becomes_available() -> None
     assert isinstance(before, Guild)
     assert isinstance(after, Guild)
     assert (before.name, after.name) == ("Shoal Test", "Renamed")
+    [gone] = events.args("guild_remove")
+    assert isinstance(gone, Guild)
+    # The cache forgot it, but the guild handed over still has what it had.
+    assert client.get_guild(11) is None
+    assert gone.channels
+    assert gone.members
+    assert gone.roles
     await feed(client, "GUILD_DELETE", {"id": "12"})  # never cached: nothing to report
     assert len(events.seen) == 5
 
@@ -116,8 +123,21 @@ async def test_messages_and_their_edits_and_deletions() -> None:
     )
     [bulk] = events.args("bulk_message_delete")
     assert isinstance(bulk, list)
-    assert [found.id for found in cast("list[Message]", bulk)] == [7]
+    assert [found.id for found in cast("list[Message]", bulk)] == [7]  # event arguments are objects
     assert "raw_bulk_message_delete" in events.names()
+
+
+async def test_removing_the_last_reaction_reports_it_at_zero() -> None:
+    client, _ = await started()
+    events = Recorder(client, "reaction_remove")
+    await feed(client, "MESSAGE_CREATE", message(6) | {"guild_id": GUILD_ID})
+    fire = {"id": None, "name": "\N{FIRE}"}
+    use: Json = {"channel_id": str(GENERAL), "message_id": "6", "guild_id": GUILD_ID, "user_id": str(ALICE)}
+    await feed(client, "MESSAGE_REACTION_ADD", use | {"emoji": fire, "burst": False, "type": 0})
+    await feed(client, "MESSAGE_REACTION_REMOVE", use | {"emoji": fire, "burst": False, "type": 0})
+    removed, _ = events.args("reaction_remove")
+    assert isinstance(removed, Reaction)
+    assert (removed.count, removed.normal_count, removed.emoji) == (0, 0, "\N{FIRE}")
 
 
 async def test_reactions_on_cached_messages() -> None:
@@ -169,7 +189,7 @@ async def test_reactions_on_cached_messages() -> None:
     found, reactions = events.args("reaction_clear")
     assert isinstance(found, Message)
     assert isinstance(reactions, list)
-    assert len(cast("list[Reaction]", reactions)) == 1
+    assert len(cast("list[Reaction]", reactions)) == 1  # event arguments are objects
     unknown = base | {"message_id": "99", "user_id": str(ALICE), "emoji": fire, "burst": False, "type": 0}
     await feed(client, "MESSAGE_REACTION_ADD", unknown)
     assert events.names().count("raw_reaction_add") == 4
@@ -276,6 +296,7 @@ async def test_roles_emojis_and_stickers() -> None:
     await feed(client, "GUILD_EMOJIS_UPDATE", {"guild_id": GUILD_ID, "emojis": []})
     _, old_emojis, new_emojis = events.args("guild_emojis_update")
     assert isinstance(old_emojis, list)
+    # Event arguments are objects.
     assert [type(emoji) for emoji in cast("list[object]", old_emojis)] == [Emoji]
     assert new_emojis == []
     await feed(client, "GUILD_STICKERS_UPDATE", {"guild_id": GUILD_ID, "stickers": []})

@@ -67,7 +67,7 @@ class LobbyMemberParams(Payload):
     """1 to 80 characters; leave out to keep the current one, `None` to clear it."""
 
 
-class BulkLobbyMemberParams(Payload):
+class BulkEditLobbyMemberParams(Payload):
     """One member to add, update or remove in Bulk Update Lobby Members.
 
     Discord: https://docs.discord.com/developers/resources/lobby#bulk-update-lobby-members

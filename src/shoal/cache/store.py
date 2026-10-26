@@ -30,25 +30,25 @@ import logging
 from collections.abc import Awaitable, Callable, Hashable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Protocol, final
+from typing import Protocol, cast, final
 
 import msgspec
 
 from shoal.cache.collection import CacheCollection, MemoryCollection, NullCollection
-from shoal.cache.defaults import SNAPSHOT_FORMAT
+from shoal.cache.defaults import SNAPSHOT_FORMAT, YIELD_EVERY
 from shoal.cache.entry import Entry, Freshness, Source
 from shoal.cache.guild import CachedGuild
 from shoal.cache.policy import CacheConfig, EntityKind, RestartStrategy
 from shoal.core.clock import Clock, SystemClock
 from shoal.core.codec import PayloadDecodeError, decode_msgpack, encode_msgpack
+from shoal.core.errors import ShoalError
 from shoal.core.files import write_private
 from shoal.core.metrics import CACHE_LOOKUPS, Metrics, NoopMetrics
 from shoal.core.snowflake import Snowflake
 from shoal.payloads.channel import Channel
 from shoal.payloads.emoji import Emoji
-from shoal.payloads.gateway_events import Presence
+from shoal.payloads.gateway_events import MessageCreate, Presence
 from shoal.payloads.guild import GuildMember
-from shoal.payloads.message import Message
 from shoal.payloads.permissions import Role
 from shoal.payloads.scheduled_event import GuildScheduledEvent
 from shoal.payloads.soundboard import SoundboardSound
@@ -59,8 +59,6 @@ from shoal.payloads.voice import VoiceState
 
 _log = logging.getLogger("shoal.cache")
 
-_RESTORE_BATCH: Final = 1000
-"""Entries restored between yields to the event loop, so loading a large snapshot never blocks it."""
 
 type GuildUserKey = tuple[Snowflake, Snowflake]
 """Members, presences and voice states are keyed by `(guild_id, user_id)`."""
@@ -83,6 +81,7 @@ class Snapshot(msgspec.Struct, kw_only=True, gc=False):
     format: int
     saved_at: float
     revision: int
+    shard_count: int | None = None
     shards: dict[int, ShardMark] = msgspec.field(default_factory=dict[int, ShardMark])
     channels: Rows[Snowflake, Channel] = msgspec.field(default_factory=list[tuple[Snowflake, Entry[Channel]]])
     emojis: Rows[Snowflake, Emoji] = msgspec.field(default_factory=list[tuple[Snowflake, Entry[Emoji]]])
@@ -92,7 +91,9 @@ class Snapshot(msgspec.Struct, kw_only=True, gc=False):
     members: Rows[GuildUserKey, GuildMember] = msgspec.field(
         default_factory=list[tuple[GuildUserKey, Entry[GuildMember]]]
     )
-    messages: Rows[Snowflake, Message] = msgspec.field(default_factory=list[tuple[Snowflake, Entry[Message]]])
+    messages: Rows[Snowflake, MessageCreate] = msgspec.field(
+        default_factory=list[tuple[Snowflake, Entry[MessageCreate]]]
+    )
     presences: Rows[GuildUserKey, Presence] = msgspec.field(
         default_factory=list[tuple[GuildUserKey, Entry[Presence]]]
     )
@@ -129,7 +130,15 @@ def _everything(freshness: Freshness, scope: Snowflake | None) -> bool:
 
 
 class _Drop(Protocol):
+    __slots__ = ()
+
     def __call__(self, scope: Snowflake | None, doomed: _Doomed, *, every_scope: bool) -> Awaitable[int]: ...
+
+
+class _Copy(Protocol):
+    __slots__ = ()
+
+    def __call__(self, scope: Snowflake, into: "CacheStore") -> Awaitable[None]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +148,8 @@ class _Registration:
     kind: EntityKind
     drop: _Drop
     """Removes the entries `doomed` selects, in `scope` or (with `every_scope`) everywhere."""
+    copy: _Copy
+    """Copies the entries of `scope` into another store's collection of the same kind."""
 
 
 @final
@@ -156,6 +167,7 @@ class CacheStore:
 
     __slots__ = (
         "_clock",
+        "_collections",
         "_config",
         "_first_sequence",
         "_floor",
@@ -204,6 +216,8 @@ class CacheStore:
         """Shards that started a new session in this process; only their entries can be swept."""
         self._kinds: dict[int, EntityKind] = {}
         self._registry: list[_Registration] = []
+        self._collections: dict[EntityKind, object] = {}
+        """Each kind's collection, for another store copying into this one."""
         self.channels: CacheCollection[Snowflake, Channel] = self._register(
             EntityKind.CHANNEL, NullCollection[Snowflake, Channel]()
         )
@@ -216,8 +230,8 @@ class CacheStore:
         self.members: CacheCollection[GuildUserKey, GuildMember] = self._register(
             EntityKind.MEMBER, NullCollection[GuildUserKey, GuildMember]()
         )
-        self.messages: CacheCollection[Snowflake, Message] = self._register(
-            EntityKind.MESSAGE, NullCollection[Snowflake, Message]()
+        self.messages: CacheCollection[Snowflake, MessageCreate] = self._register(
+            EntityKind.MESSAGE, NullCollection[Snowflake, MessageCreate]()
         )
         self.presences: CacheCollection[GuildUserKey, Presence] = self._register(
             EntityKind.PRESENCE, NullCollection[GuildUserKey, Presence]()
@@ -262,7 +276,14 @@ class CacheStore:
                     removed += 1
             return removed
 
-        self._registry.append(_Registration(kind, drop))
+        async def copy(scope: Snowflake, into: CacheStore) -> None:
+            # Both stores registered this kind with the same key and value types.
+            target = cast("CacheCollection[K, V]", into._collections[kind])
+            for key, entry in await collection.scoped(scope):
+                await target.set(key, entry)
+
+        self._collections[kind] = collection
+        self._registry.append(_Registration(kind, drop, copy))
         return collection
 
     @property
@@ -428,7 +449,7 @@ class CacheStore:
             self.members, (Snowflake(guild_id), Snowflake(user_id)), fresh_only=fresh_only
         )
 
-    async def get_message(self, message_id: int, *, fresh_only: bool = False) -> Message | None:
+    async def get_message(self, message_id: int, *, fresh_only: bool = False) -> MessageCreate | None:
         """A cached message."""
         return await self.value(self.messages, Snowflake(message_id), fresh_only=fresh_only)
 
@@ -510,6 +531,34 @@ class CacheStore:
                 removed += await registration.drop(guild_id, doomed, every_scope=False)
         return removed
 
+    async def reconcile_members(self, guild_id: Snowflake, *, since: int) -> int:
+        """Drop a guild's members written at or before `since`: they were not in a full member list.
+
+        Call it after the last `GUILD_MEMBERS_CHUNK` of a request for every member, with `since` set to
+        `revision` from just before its first chunk. Returns how many members were removed.
+        """
+
+        def doomed(freshness: Freshness, scope: Snowflake | None) -> bool:
+            del scope
+            return freshness.revision <= since
+
+        removed = 0
+        for registration in self._registry:
+            if registration.kind is EntityKind.MEMBER:
+                removed += await registration.drop(guild_id, doomed, every_scope=False)
+        return removed
+
+    async def detached_guild(self, guild_id: Snowflake) -> "CacheStore":
+        """A separate store holding a copy of the guild and everything scoped to it.
+
+        For an object that outlives the guild here: `on_guild_remove` hands one over, so its
+        channels, roles and members still read as they were after this store forgets them.
+        """
+        copy = CacheStore(self._config, clock=self._clock)
+        for registration in self._registry:
+            await registration.copy(guild_id, copy)
+        return copy
+
     async def forget_guild(self, guild_id: Snowflake) -> int:
         """Remove a guild and everything scoped to it (the bot left or was removed)."""
         self._unavailable.discard(guild_id)
@@ -519,29 +568,35 @@ class CacheStore:
         return removed
 
     async def sweep_stale(self) -> int:
-        """Remove what the bot lost while it was offline, once every shard is ready.
+        """Forget the guilds the bot left while it was offline, once every shard is ready.
 
-        Only entries from shards that identified a new session in this process are judged: their
-        `GUILD_CREATE`s replaced everything that still exists. Entries of resumed shards (Discord
-        replays their changes), of shards this process never saw, and written outside the gateway
-        are kept, and so are guilds in an outage: they are still there, Discord just cannot send
-        them yet.
+        A guild whose shard identified a new session in this process but whose entry is still stale
+        got no `GUILD_CREATE`: the bot is no longer in it. It is forgotten with everything scoped to
+        it. Nothing else is judged: each `GUILD_CREATE` already reconciled its own guild
+        (`reconcile_guild`), and what no `GUILD_CREATE` carries (users, DM channels, messages, the
+        members of large guilds) is not gone just because it was not resent; its cache policy bounds
+        it. Guilds of resumed shards, of shards this process never saw, and in an outage are kept.
+        Returns how many entries were removed.
         """
-
-        def doomed(freshness: Freshness, scope: Snowflake | None) -> bool:
-            if scope in self._unavailable or freshness.shard not in self._identified:
-                return False
-            return freshness.revision < self._threshold(freshness)
-
+        gone = [
+            guild_id
+            for guild_id, entry in await self.guilds.items()
+            if guild_id not in self._unavailable
+            and entry.freshness.shard in self._identified
+            and entry.freshness.revision < self._threshold(entry.freshness)
+        ]
         removed = 0
-        for registration in self._registry:
-            removed += await registration.drop(None, doomed, every_scope=True)
+        for guild_id in gone:
+            removed += await self.forget_guild(guild_id)
         if removed:
-            _log.info("removed %d stale cache entries after startup", removed)
+            _log.info("forgot %d guilds the bot left while offline (%d cache entries)", len(gone), removed)
         return removed
 
-    async def snapshot(self) -> Snapshot:
-        """Capture every kind whose policy has `persist` set, with each shard's position."""
+    async def snapshot(self, *, shard_count: int | None = None) -> Snapshot:
+        """Capture every kind whose policy has `persist` set, with each shard's position.
+
+        `shard_count` is the bot's total shard count, so a snapshot is not restored after resharding.
+        """
 
         async def rows[K: Hashable, V](kind: EntityKind, collection: CacheCollection[K, V]) -> Rows[K, V]:
             return await collection.items() if self._config.policy(kind).persist else []
@@ -553,6 +608,7 @@ class CacheStore:
             format=SNAPSHOT_FORMAT,
             saved_at=self._clock.wall(),
             revision=self._revision,
+            shard_count=shard_count,
             shards=shards,
             channels=await rows(EntityKind.CHANNEL, self.channels),
             emojis=await rows(EntityKind.EMOJI, self.emojis),
@@ -569,23 +625,27 @@ class CacheStore:
             voice_states=await rows(EntityKind.VOICE_STATE, self.voice_states),
         )
 
-    async def save_snapshot(self, path: str | Path) -> None:
+    async def save_snapshot(self, path: str | Path, *, shard_count: int | None = None) -> None:
         """Write a snapshot to `path` atomically, readable by the bot's user only.
 
+        Owner-only applies on POSIX systems; on Windows the file takes its directory's access rules.
+
         The snapshot holds member, user and guild data. Save it after closing the shards
-        (`ShardManager.close()`), so it ends exactly where the saved sessions resume.
+        (`ShardManager.close()`), so it ends exactly where the saved sessions resume. Pass the bot's
+        total `shard_count` so `load_snapshot` can tell when the bot was resharded.
         """
-        snapshot = await self.snapshot()
+        snapshot = await self.snapshot(shard_count=shard_count)
         await asyncio.to_thread(_write_snapshot, Path(path), snapshot)
 
-    async def load_snapshot(self, path: str | Path) -> bool:
+    async def load_snapshot(self, path: str | Path, *, shard_count: int | None = None) -> bool:
         """Replace the cache with a snapshot written by `save_snapshot`, marking every entry stale.
 
         Load before the shards connect: entries written while loading would be overwritten by the
         snapshot's older ones. Returns whether anything was loaded. Nothing is loaded when the
         restart strategy is `RestartStrategy.COLD`. A missing, unreadable or incompatible snapshot is
-        skipped with a log line, and the cache starts cold. Kinds whose policy no longer persists are
-        not restored.
+        skipped with a log line, and the cache starts cold. So is one saved with a different
+        `shard_count` (when both are known): its entries belong to shards that no longer exist, and
+        no session survives resharding anyway. Kinds whose policy no longer persists are not restored.
         """
         if self._config.restart is RestartStrategy.COLD:
             return False
@@ -596,6 +656,14 @@ class CacheStore:
             return False
         except (OSError, PayloadDecodeError, _FormatMismatchError) as error:
             _log.warning("cache snapshot %s cannot be used (%s); starting cold", target, error)
+            return False
+        if shard_count is not None and snapshot.shard_count not in (None, shard_count):
+            _log.info(
+                "cache snapshot %s was saved with %d shards, not %d; starting cold",
+                target,
+                snapshot.shard_count,
+                shard_count,
+            )
             return False
         for registration in self._registry:
             await registration.drop(None, _everything, every_scope=True)
@@ -631,11 +699,11 @@ class CacheStore:
         for index, (key, entry) in enumerate(rows, start=1):
             freshness = msgspec.structs.replace(entry.freshness, source=Source.SNAPSHOT)
             await collection.set(key, msgspec.structs.replace(entry, freshness=freshness))
-            if index % _RESTORE_BATCH == 0:
+            if index % YIELD_EVERY == 0:
                 await asyncio.sleep(0)
 
 
-class _FormatMismatchError(Exception):
+class _FormatMismatchError(ShoalError):
     def __init__(self, found: int) -> None:
         super().__init__(f"format {found}, expected {SNAPSHOT_FORMAT}")
 
@@ -645,6 +713,10 @@ def _write_snapshot(path: Path, snapshot: Snapshot) -> None:
 
 
 def _read_snapshot(path: Path) -> Snapshot:
+    """The snapshot at `path`.
+
+    Blocks; call it through `asyncio.to_thread`.
+    """
     data = path.read_bytes()
     found = decode_msgpack(data, _SnapshotFormat).format
     if found != SNAPSHOT_FORMAT:

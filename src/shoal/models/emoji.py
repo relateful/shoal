@@ -17,7 +17,7 @@ from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
-from shoal.models.base import MISSING, Hashable, MissingType
+from shoal.models.base import MISSING, Hashable, MissingType, given
 from shoal.models.state import State
 from shoal.payloads.emoji import EditApplicationEmojiParams, EditEmojiParams, PartialEmoji
 from shoal.payloads.emoji import Emoji as EmojiPayload
@@ -140,7 +140,7 @@ class Emoji(Hashable):
         Discord: https://docs.discord.com/developers/resources/emoji#modify-guild-emoji
         """
         params = EditEmojiParams(
-            name=UNSET if isinstance(name, MissingType) else name,
+            name=given(name),
             roles=UNSET
             if isinstance(roles, MissingType)
             else None

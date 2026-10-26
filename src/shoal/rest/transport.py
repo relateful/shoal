@@ -10,6 +10,7 @@ from typing import Protocol, final, override
 
 import aiohttp
 
+from shoal.core.errors import ShoalError
 from shoal.rest.defaults import REQUEST_TIMEOUT
 
 
@@ -31,6 +32,8 @@ class HTTPTransport(Protocol):
     too.
     """
 
+    __slots__ = ()
+
     async def request(
         self,
         method: str,
@@ -47,7 +50,7 @@ class HTTPTransport(Protocol):
         ...
 
 
-class TransportError(OSError):
+class TransportError(ShoalError, OSError):
     """The request could not be completed at the network level.
 
     Args:

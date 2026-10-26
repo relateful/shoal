@@ -108,6 +108,20 @@ def test_commands_go_where_guilds_says_unless_told_otherwise() -> None:
     assert tree.get_commands(guild=2) == [local]
 
 
+def test_a_command_can_be_discarded_from_everywhere_it_was_added() -> None:
+    tree = CommandTree(Client(intents=INTENTS))
+    everywhere = Command(callback=ping)
+    tree.add_command(everywhere)
+    tree.add_command(everywhere, guilds=[1, 2])
+    other = Command(callback=ping)
+    tree.add_command(other, guild=3)
+    assert tree.get_all_commands() == [everywhere, other]
+    tree.discard(everywhere)
+    tree.discard(everywhere)
+    assert tree.get_all_commands() == [other]
+    assert tree.get_command("ping", guild=3) is other
+
+
 def test_a_context_menu_and_a_slash_command_can_share_a_name() -> None:
     tree = CommandTree(Client(intents=INTENTS))
 
@@ -326,6 +340,29 @@ async def test_unhandled_errors_are_logged(caplog: pytest.LogCaptureFixture) -> 
         await client.process_interaction(payload(command("broken")))
         await settle()
     assert "command 'broken' raised" in caplog.text
+
+
+async def test_a_handler_returning_true_stops_the_error_there(caplog: pytest.LogCaptureFixture) -> None:
+    client, _, tree, _ = await setup()
+    seen: list[Exception] = []
+
+    @tree.command()
+    async def broken(interaction: Interaction) -> None:
+        del interaction
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    @broken.error
+    async def handled(interaction: Interaction, error: Exception) -> bool:
+        del interaction
+        seen.append(error)
+        return True
+
+    with caplog.at_level(logging.ERROR, logger="shoal.app_commands"):
+        await client.process_interaction(payload(command("broken")))
+        await settle()
+    assert len(seen) == 1
+    assert "command 'broken' raised" not in caplog.text
 
 
 async def test_a_failing_error_handler_is_logged(caplog: pytest.LogCaptureFixture) -> None:
