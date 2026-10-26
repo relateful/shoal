@@ -103,8 +103,12 @@ Payloads mirror Discord's JSON exactly and hold data only.
 - `Any` is banned (ruff rule). Use `object`, a `Protocol`, a `TypeGuard` or a precise type. The one
   exception is `core.codec.JSONObject`, for JSON Discord extends faster than Shoal models it: received
   components (named `RawComponent` where they appear) and the body of an `UnknownInteraction` or
-  `UnknownComponent`. It is converted to typed payloads before use. Aliases may rename
-  `JSONObject`, but no other alias may wrap `Any`. Tests use it for JSON fixtures.
+  `UnknownComponent`. It is converted to typed payloads before use. Two objects are kept as JSON
+  because they have no fixed shape at all: a guild template's snapshot (placeholder integer IDs)
+  and an identity profile's `metadata` (the game's own data). Aliases may rename `JSONObject`, but
+  no other alias may wrap `Any`. Tests use it for JSON fixtures.
+- A value whose type depends on another field, like an audit log change's `old_value` and
+  `new_value`, is `msgspec.Raw`: the caller decodes it into the type the other field names.
 - `cast` and `type: ignore` are a last resort: name the error code and say why on the same line.
 - Use Python 3.12 syntax: `type` aliases, `class Box[T]`, `def first[T]`.
 - Protocols describe every swappable dependency (transport, connector, clock, rate limiter, identify

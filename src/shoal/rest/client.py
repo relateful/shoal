@@ -61,6 +61,7 @@ from shoal.rest.requester import QueryValue, encode_query, query_of
 from shoal.rest.resources import (
     ApplicationCommandEndpoints,
     ApplicationEndpoints,
+    ApplicationIdentityEndpoints,
     AuditLogEndpoints,
     AutoModerationEndpoints,
     ChannelEndpoints,
@@ -70,6 +71,7 @@ from shoal.rest.resources import (
     GuildTemplateEndpoints,
     InteractionEndpoints,
     InviteEndpoints,
+    LobbyEndpoints,
     MessageEndpoints,
     MonetizationEndpoints,
     ScheduledEventEndpoints,
@@ -130,6 +132,7 @@ class Token:
 class RestClient(
     ApplicationCommandEndpoints,
     ApplicationEndpoints,
+    ApplicationIdentityEndpoints,
     AuditLogEndpoints,
     AutoModerationEndpoints,
     ChannelEndpoints,
@@ -139,6 +142,7 @@ class RestClient(
     GuildTemplateEndpoints,
     InteractionEndpoints,
     InviteEndpoints,
+    LobbyEndpoints,
     MessageEndpoints,
     MonetizationEndpoints,
     ScheduledEventEndpoints,

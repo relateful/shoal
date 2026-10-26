@@ -10,6 +10,12 @@ from typing import Final
 
 from shoal.rest.route import HTTPMethod, Route
 
+ADD_A_MEMBER_TO_A_LOBBY: Final = Route(
+    HTTPMethod.PUT,
+    "/lobbies/{lobby_id}/members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/lobby#add-a-member-to-a-lobby",
+)
+
 ADD_GUILD_MEMBER: Final = Route(
     HTTPMethod.PUT,
     "/guilds/{guild_id}/members/{user_id}",
@@ -74,6 +80,12 @@ BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS: Final = Route(
     HTTPMethod.PUT,
     "/applications/{application_id}/guilds/{guild_id}/commands",
     docs="https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands",
+)
+
+BULK_UPDATE_LOBBY_MEMBERS: Final = Route(
+    HTTPMethod.POST,
+    "/lobbies/{lobby_id}/members/bulk",
+    docs="https://docs.discord.com/developers/resources/lobby#bulk-update-lobby-members",
 )
 
 CONSUME_AN_ENTITLEMENT: Final = Route(
@@ -188,10 +200,34 @@ CREATE_INTERACTION_RESPONSE: Final = Route(
 )
 """Not counted towards the global rate limit, like every interaction endpoint."""
 
+CREATE_LOBBY: Final = Route(
+    HTTPMethod.POST,
+    "/lobbies",
+    docs="https://docs.discord.com/developers/resources/lobby#create-lobby",
+)
+
+CREATE_LOBBY_CHANNEL_INVITE_FOR_SELF: Final = Route(
+    HTTPMethod.POST,
+    "/lobbies/{lobby_id}/members/@me/invites",
+    docs="https://docs.discord.com/developers/resources/lobby#create-lobby-channel-invite-for-self",
+)
+
+CREATE_LOBBY_CHANNEL_INVITE_FOR_USER: Final = Route(
+    HTTPMethod.POST,
+    "/lobbies/{lobby_id}/members/{user_id}/invites",
+    docs="https://docs.discord.com/developers/resources/lobby#create-lobby-channel-invite-for-user",
+)
+
 CREATE_MESSAGE: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/messages",
     docs="https://docs.discord.com/developers/resources/message#create-message",
+)
+
+CREATE_OR_JOIN_LOBBY: Final = Route(
+    HTTPMethod.PUT,
+    "/lobbies",
+    docs="https://docs.discord.com/developers/resources/lobby#create-or-join-lobby",
 )
 
 CREATE_REACTION: Final = Route(
@@ -240,6 +276,12 @@ DELETE_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.DELETE,
     "/applications/{application_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#delete-application-emoji",
+)
+
+DELETE_APPLICATION_IDENTITY: Final = Route(
+    HTTPMethod.POST,
+    "/users/{user_id}/application-identities/{application_id}/{provider_type}/{provider_issued_user_id}/delete",
+    docs="https://docs.discord.com/developers/resources/application-identity-profile#delete-application-identity",
 )
 
 DELETE_AUTO_MODERATION_RULE: Final = Route(
@@ -332,6 +374,12 @@ DELETE_INVITE: Final = Route(
     HTTPMethod.DELETE,
     "/invites/{invite_code}",
     docs="https://docs.discord.com/developers/resources/invite#delete-invite",
+)
+
+DELETE_LOBBY: Final = Route(
+    HTTPMethod.DELETE,
+    "/lobbies/{lobby_id}",
+    docs="https://docs.discord.com/developers/resources/lobby#delete-lobby",
 )
 
 DELETE_MESSAGE: Final = Route(
@@ -500,6 +548,24 @@ GET_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.GET,
     "/applications/{application_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#get-application-emoji",
+)
+
+GET_APPLICATION_IDENTITIES_BY_EXTERNAL_ID: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/application-identities/{provider_type}/{provider_issued_user_id}",
+    docs="https://docs.discord.com/developers/resources/application-identity-profile#get-application-identities-by-external-id",
+)
+
+GET_APPLICATION_IDENTITIES_BY_USER_ID: Final = Route(
+    HTTPMethod.GET,
+    "/users/{user_id}/application-identities/{application_id}",
+    docs="https://docs.discord.com/developers/resources/application-identity-profile#get-application-identities-by-user-id",
+)
+
+GET_APPLICATION_IDENTITY_PROFILE: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile",
+    docs="https://docs.discord.com/developers/resources/application-identity-profile#get-application-identity-profile",
 )
 
 GET_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS: Final = Route(
@@ -834,6 +900,18 @@ GET_INVITE: Final = Route(
     docs="https://docs.discord.com/developers/resources/invite#get-invite",
 )
 
+GET_LOBBY: Final = Route(
+    HTTPMethod.GET,
+    "/lobbies/{lobby_id}",
+    docs="https://docs.discord.com/developers/resources/lobby#get-lobby",
+)
+
+GET_LOBBY_MESSAGES: Final = Route(
+    HTTPMethod.GET,
+    "/lobbies/{lobby_id}/messages",
+    docs="https://docs.discord.com/developers/resources/lobby#get-lobby-messages",
+)
+
 GET_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
     HTTPMethod.GET,
     "/webhooks/{application_id}/{interaction_token}/messages/@original",
@@ -944,10 +1022,22 @@ LEAVE_GUILD: Final = Route(
     docs="https://docs.discord.com/developers/resources/user#leave-guild",
 )
 
+LEAVE_LOBBY: Final = Route(
+    HTTPMethod.DELETE,
+    "/lobbies/{lobby_id}/members/@me",
+    docs="https://docs.discord.com/developers/resources/lobby#leave-lobby",
+)
+
 LEAVE_THREAD: Final = Route(
     HTTPMethod.DELETE,
     "/channels/{channel_id}/thread-members/@me",
     docs="https://docs.discord.com/developers/resources/channel#leave-thread",
+)
+
+LINK_CHANNEL_TO_LOBBY: Final = Route(
+    HTTPMethod.PATCH,
+    "/lobbies/{lobby_id}/channel-linking",
+    docs="https://docs.discord.com/developers/resources/lobby#link-channel-to-lobby",
 )
 
 LIST_ACTIVE_GUILD_THREADS: Final = Route(
@@ -1184,6 +1274,12 @@ MODIFY_GUILD_WIDGET: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#modify-guild-widget",
 )
 
+MODIFY_LOBBY: Final = Route(
+    HTTPMethod.PATCH,
+    "/lobbies/{lobby_id}",
+    docs="https://docs.discord.com/developers/resources/lobby#modify-lobby",
+)
+
 MODIFY_STAGE_INSTANCE: Final = Route(
     HTTPMethod.PATCH,
     "/stage-instances/{channel_id}",
@@ -1212,6 +1308,12 @@ PIN_MESSAGE: Final = Route(
     HTTPMethod.PUT,
     "/channels/{channel_id}/messages/pins/{message_id}",
     docs="https://docs.discord.com/developers/resources/message#pin-message",
+)
+
+REMOVE_A_MEMBER_FROM_A_LOBBY: Final = Route(
+    HTTPMethod.DELETE,
+    "/lobbies/{lobby_id}/members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/lobby#remove-a-member-from-a-lobby",
 )
 
 REMOVE_GUILD_BAN: Final = Route(
@@ -1256,6 +1358,12 @@ SEARCH_GUILD_MESSAGES: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#search-guild-messages",
 )
 
+SEND_LOBBY_MESSAGE: Final = Route(
+    HTTPMethod.POST,
+    "/lobbies/{lobby_id}/messages",
+    docs="https://docs.discord.com/developers/resources/lobby#send-lobby-message",
+)
+
 SEND_SOUNDBOARD_SOUND: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/send-soundboard-sound",
@@ -1298,10 +1406,22 @@ TRIGGER_TYPING_INDICATOR: Final = Route(
     docs="https://docs.discord.com/developers/resources/channel#trigger-typing-indicator",
 )
 
+UNLINK_CHANNEL_FROM_LOBBY: Final = Route(
+    HTTPMethod.PATCH,
+    "/lobbies/{lobby_id}/channel-linking",
+    docs="https://docs.discord.com/developers/resources/lobby#unlink-channel-from-lobby",
+)
+
 UNPIN_MESSAGE: Final = Route(
     HTTPMethod.DELETE,
     "/channels/{channel_id}/messages/pins/{message_id}",
     docs="https://docs.discord.com/developers/resources/message#unpin-message",
+)
+
+UPDATE_APPLICATION_IDENTITY_PROFILE: Final = Route(
+    HTTPMethod.PATCH,
+    "/applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile",
+    docs="https://docs.discord.com/developers/resources/application-identity-profile#update-application-identity-profile",
 )
 
 UPDATE_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS: Final = Route(
@@ -1316,6 +1436,12 @@ UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
     docs="https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection",
 )
 
+UPDATE_LOBBY_MESSAGE_MODERATION_METADATA: Final = Route(
+    HTTPMethod.PUT,
+    "/lobbies/{lobby_id}/messages/{message_id}/moderation-metadata",
+    docs="https://docs.discord.com/developers/resources/lobby#update-lobby-message-moderation-metadata",
+)
+
 UPDATE_TARGET_USERS: Final = Route(
     HTTPMethod.PUT,
     "/invites/{invite_code}/target-users",
@@ -1323,6 +1449,7 @@ UPDATE_TARGET_USERS: Final = Route(
 )
 
 ALL_ROUTES: Final = (
+    ADD_A_MEMBER_TO_A_LOBBY,
     ADD_GUILD_MEMBER,
     ADD_GUILD_MEMBER_ROLE,
     ADD_TARGET_USER,
@@ -1334,6 +1461,7 @@ ALL_ROUTES: Final = (
     BULK_GUILD_BAN,
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
+    BULK_UPDATE_LOBBY_MEMBERS,
     CONSUME_AN_ENTITLEMENT,
     CREATE_APPLICATION_EMOJI,
     CREATE_AUTO_MODERATION_RULE,
@@ -1352,7 +1480,11 @@ ALL_ROUTES: Final = (
     CREATE_GUILD_STICKER,
     CREATE_GUILD_TEMPLATE,
     CREATE_INTERACTION_RESPONSE,
+    CREATE_LOBBY,
+    CREATE_LOBBY_CHANNEL_INVITE_FOR_SELF,
+    CREATE_LOBBY_CHANNEL_INVITE_FOR_USER,
     CREATE_MESSAGE,
+    CREATE_OR_JOIN_LOBBY,
     CREATE_REACTION,
     CREATE_STAGE_INSTANCE,
     CREATE_TEST_ENTITLEMENT,
@@ -1361,6 +1493,7 @@ ALL_ROUTES: Final = (
     DELETE_ALL_REACTIONS,
     DELETE_ALL_REACTIONS_FOR_EMOJI,
     DELETE_APPLICATION_EMOJI,
+    DELETE_APPLICATION_IDENTITY,
     DELETE_AUTO_MODERATION_RULE,
     DELETE_CHANNEL,
     DELETE_CHANNEL_PERMISSION,
@@ -1376,6 +1509,7 @@ ALL_ROUTES: Final = (
     DELETE_GUILD_STICKER,
     DELETE_GUILD_TEMPLATE,
     DELETE_INVITE,
+    DELETE_LOBBY,
     DELETE_MESSAGE,
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
     DELETE_OWN_REACTION,
@@ -1403,6 +1537,9 @@ ALL_ROUTES: Final = (
     GET_APPLICATION_ACTIVITY_INSTANCE,
     GET_APPLICATION_COMMAND_PERMISSIONS,
     GET_APPLICATION_EMOJI,
+    GET_APPLICATION_IDENTITIES_BY_EXTERNAL_ID,
+    GET_APPLICATION_IDENTITIES_BY_USER_ID,
+    GET_APPLICATION_IDENTITY_PROFILE,
     GET_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS,
     GET_AUTO_MODERATION_RULE,
     GET_CHANNEL,
@@ -1458,6 +1595,8 @@ ALL_ROUTES: Final = (
     GET_GUILD_WIDGET_IMAGE,
     GET_GUILD_WIDGET_SETTINGS,
     GET_INVITE,
+    GET_LOBBY,
+    GET_LOBBY_MESSAGES,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_REACTIONS,
     GET_SKU_SUBSCRIPTION,
@@ -1476,7 +1615,9 @@ ALL_ROUTES: Final = (
     GROUP_DM_REMOVE_RECIPIENT,
     JOIN_THREAD,
     LEAVE_GUILD,
+    LEAVE_LOBBY,
     LEAVE_THREAD,
+    LINK_CHANNEL_TO_LOBBY,
     LIST_ACTIVE_GUILD_THREADS,
     LIST_APPLICATION_EMOJIS,
     LIST_AUTO_MODERATION_RULES_FOR_GUILD,
@@ -1516,11 +1657,13 @@ ALL_ROUTES: Final = (
     MODIFY_GUILD_TEMPLATE,
     MODIFY_GUILD_WELCOME_SCREEN,
     MODIFY_GUILD_WIDGET,
+    MODIFY_LOBBY,
     MODIFY_STAGE_INSTANCE,
     MODIFY_USER_VOICE_STATE,
     MODIFY_WEBHOOK,
     MODIFY_WEBHOOK_WITH_TOKEN,
     PIN_MESSAGE,
+    REMOVE_A_MEMBER_FROM_A_LOBBY,
     REMOVE_GUILD_BAN,
     REMOVE_GUILD_MEMBER,
     REMOVE_GUILD_MEMBER_ROLE,
@@ -1528,6 +1671,7 @@ ALL_ROUTES: Final = (
     REMOVE_THREAD_MEMBER,
     SEARCH_GUILD_MEMBERS,
     SEARCH_GUILD_MESSAGES,
+    SEND_LOBBY_MESSAGE,
     SEND_SOUNDBOARD_SOUND,
     SET_VOICE_CHANNEL_STATUS,
     START_THREAD_FROM_MESSAGE,
@@ -1535,9 +1679,12 @@ ALL_ROUTES: Final = (
     START_THREAD_WITHOUT_MESSAGE,
     SYNC_GUILD_TEMPLATE,
     TRIGGER_TYPING_INDICATOR,
+    UNLINK_CHANNEL_FROM_LOBBY,
     UNPIN_MESSAGE,
+    UPDATE_APPLICATION_IDENTITY_PROFILE,
     UPDATE_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS,
     UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
+    UPDATE_LOBBY_MESSAGE_MODERATION_METADATA,
     UPDATE_TARGET_USERS,
 )
 """Every declared route, for the docs checker and tests."""

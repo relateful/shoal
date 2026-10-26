@@ -3,6 +3,7 @@ from shoal.rest import endpoints
 from tests.rest.resources import (
     application,
     application_commands,
+    application_identity,
     audit_log,
     auto_moderation,
     channel,
@@ -12,6 +13,7 @@ from tests.rest.resources import (
     guild_template,
     interactions,
     invite,
+    lobby,
     message,
     monetization,
     scheduled_event,
@@ -27,6 +29,7 @@ from tests.support.rest import EndpointCase, check_endpoint
 ALL_CASES: list[EndpointCase] = [
     *application.CASES,
     *application_commands.CASES,
+    *application_identity.CASES,
     *audit_log.CASES,
     *auto_moderation.CASES,
     *channel.CASES,
@@ -36,6 +39,7 @@ ALL_CASES: list[EndpointCase] = [
     *guild_template.CASES,
     *interactions.CASES,
     *invite.CASES,
+    *lobby.CASES,
     *message.CASES,
     *monetization.CASES,
     *scheduled_event.CASES,
