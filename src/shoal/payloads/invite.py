@@ -129,6 +129,30 @@ class InviteWithMetadata(Invite):
     created_at: datetime
 
 
+class GuildInvite(Invite):
+    """An invite from Get Guild Invites: the metadata is only there with Manage Guild.
+
+    Discord: https://docs.discord.com/developers/resources/guild#get-guild-invites
+    """
+
+    uses: int | UnsetType = UNSET
+    max_uses: int | UnsetType = UNSET
+    max_age: int | UnsetType = UNSET
+    temporary: bool | UnsetType = UNSET
+    created_at: datetime | UnsetType = UNSET
+
+
+class VanityURL(Payload):
+    """A guild's vanity invite and how often it was used: a partial invite.
+
+    Discord: https://docs.discord.com/developers/resources/guild#get-guild-vanity-url-example-partial-invite-object
+    """
+
+    code: str | None
+    """`None` when the guild has no vanity URL set."""
+    uses: int
+
+
 class CreateChannelInviteParams(Payload):
     """JSON body of Create Channel Invite. Every field is optional, but the body is always sent.
 

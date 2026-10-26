@@ -69,6 +69,17 @@ class Requester(ABC):
         """Send a request whose successful response has no body (204)."""
 
     @abstractmethod
+    async def request_optional[T](
+        self,
+        route: CompiledRoute,
+        response_type: type[T],
+        *,
+        body: object = None,
+        reason: str | None = None,
+    ) -> T | None:
+        """Send a request that answers with `response_type`, or with no body (204) for `None`."""
+
+    @abstractmethod
     async def request_bytes(
         self, route: CompiledRoute, *, query: Mapping[str, QueryValue] | None = None
     ) -> bytes:

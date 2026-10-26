@@ -10,6 +10,18 @@ from typing import Final
 
 from shoal.rest.route import HTTPMethod, Route
 
+ADD_GUILD_MEMBER: Final = Route(
+    HTTPMethod.PUT,
+    "/guilds/{guild_id}/members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/guild#add-guild-member",
+)
+
+ADD_GUILD_MEMBER_ROLE: Final = Route(
+    HTTPMethod.PUT,
+    "/guilds/{guild_id}/members/{user_id}/roles/{role_id}",
+    docs="https://docs.discord.com/developers/resources/guild#add-guild-member-role",
+)
+
 ADD_TARGET_USER: Final = Route(
     HTTPMethod.PUT,
     "/invites/{invite_code}/target-users/{user_id}",
@@ -20,6 +32,12 @@ ADD_THREAD_MEMBER: Final = Route(
     HTTPMethod.PUT,
     "/channels/{channel_id}/thread-members/{user_id}",
     docs="https://docs.discord.com/developers/resources/channel#add-thread-member",
+)
+
+BEGIN_GUILD_PRUNE: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/prune",
+    docs="https://docs.discord.com/developers/resources/guild#begin-guild-prune",
 )
 
 BULK_ADD_TARGET_USERS: Final = Route(
@@ -38,6 +56,12 @@ BULK_DELETE_TARGET_USERS: Final = Route(
     HTTPMethod.POST,
     "/invites/{invite_code}/target-users/bulk-delete",
     docs="https://docs.discord.com/developers/resources/invite#bulk-delete-target-users",
+)
+
+BULK_GUILD_BAN: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/bulk-ban",
+    docs="https://docs.discord.com/developers/resources/guild#bulk-guild-ban",
 )
 
 BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS: Final = Route(
@@ -96,10 +120,28 @@ CREATE_GUILD_APPLICATION_COMMAND: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#create-guild-application-command",
 )
 
+CREATE_GUILD_BAN: Final = Route(
+    HTTPMethod.PUT,
+    "/guilds/{guild_id}/bans/{user_id}",
+    docs="https://docs.discord.com/developers/resources/guild#create-guild-ban",
+)
+
+CREATE_GUILD_CHANNEL: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/channels",
+    docs="https://docs.discord.com/developers/resources/guild#create-guild-channel",
+)
+
 CREATE_GUILD_EMOJI: Final = Route(
     HTTPMethod.POST,
     "/guilds/{guild_id}/emojis",
     docs="https://docs.discord.com/developers/resources/emoji#create-guild-emoji",
+)
+
+CREATE_GUILD_ROLE: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/roles",
+    docs="https://docs.discord.com/developers/resources/guild#create-guild-role",
 )
 
 CREATE_GUILD_SOUNDBOARD_SOUND: Final = Route(
@@ -206,6 +248,18 @@ DELETE_GUILD_EMOJI: Final = Route(
     HTTPMethod.DELETE,
     "/guilds/{guild_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#delete-guild-emoji",
+)
+
+DELETE_GUILD_INTEGRATION: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/integrations/{integration_id}",
+    docs="https://docs.discord.com/developers/resources/guild#delete-guild-integration",
+)
+
+DELETE_GUILD_ROLE: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/roles/{role_id}",
+    docs="https://docs.discord.com/developers/resources/guild#delete-guild-role",
 )
 
 DELETE_GUILD_SOUNDBOARD_SOUND: Final = Route(
@@ -498,16 +552,82 @@ GET_GUILD_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command-permissions",
 )
 
+GET_GUILD_BAN: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/bans/{user_id}",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-ban",
+)
+
+GET_GUILD_BANS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/bans",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-bans",
+)
+
+GET_GUILD_CHANNELS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/channels",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-channels",
+)
+
 GET_GUILD_EMOJI: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#get-guild-emoji",
 )
 
+GET_GUILD_INTEGRATIONS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/integrations",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-integrations",
+)
+
+GET_GUILD_INVITES: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/invites",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-invites",
+)
+
 GET_GUILD_MEMBER: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/members/{user_id}",
     docs="https://docs.discord.com/developers/resources/guild#get-guild-member",
+)
+
+GET_GUILD_ONBOARDING: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/onboarding",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-onboarding",
+)
+
+GET_GUILD_PREVIEW: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/preview",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-preview",
+)
+
+GET_GUILD_PRUNE_COUNT: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/prune",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-prune-count",
+)
+
+GET_GUILD_ROLE: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/roles/{role_id}",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-role",
+)
+
+GET_GUILD_ROLES: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/roles",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-roles",
+)
+
+GET_GUILD_ROLE_MEMBER_COUNTS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/roles/member-counts",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-role-member-counts",
 )
 
 GET_GUILD_SOUNDBOARD_SOUND: Final = Route(
@@ -522,10 +642,46 @@ GET_GUILD_STICKER: Final = Route(
     docs="https://docs.discord.com/developers/resources/sticker#get-guild-sticker",
 )
 
+GET_GUILD_VANITY_URL: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/vanity-url",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-vanity-url",
+)
+
+GET_GUILD_VOICE_REGIONS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/regions",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-voice-regions",
+)
+
 GET_GUILD_WEBHOOKS: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/webhooks",
     docs="https://docs.discord.com/developers/resources/webhook#get-guild-webhooks",
+)
+
+GET_GUILD_WELCOME_SCREEN: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/welcome-screen",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-welcome-screen",
+)
+
+GET_GUILD_WIDGET: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/widget.json",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-widget",
+)
+
+GET_GUILD_WIDGET_IMAGE: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/widget.png",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-widget-image",
+)
+
+GET_GUILD_WIDGET_SETTINGS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/widget",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-widget-settings",
 )
 
 GET_INVITE: Final = Route(
@@ -638,6 +794,12 @@ LEAVE_THREAD: Final = Route(
     docs="https://docs.discord.com/developers/resources/channel#leave-thread",
 )
 
+LIST_ACTIVE_GUILD_THREADS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/threads/active",
+    docs="https://docs.discord.com/developers/resources/guild#list-active-guild-threads",
+)
+
 LIST_APPLICATION_EMOJIS: Final = Route(
     HTTPMethod.GET,
     "/applications/{application_id}/emojis",
@@ -654,6 +816,12 @@ LIST_GUILD_EMOJIS: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/emojis",
     docs="https://docs.discord.com/developers/resources/emoji#list-guild-emojis",
+)
+
+LIST_GUILD_MEMBERS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/members",
+    docs="https://docs.discord.com/developers/resources/guild#list-guild-members",
 )
 
 LIST_GUILD_SOUNDBOARD_SOUNDS: Final = Route(
@@ -716,10 +884,22 @@ MODIFY_CHANNEL: Final = Route(
     docs="https://docs.discord.com/developers/resources/channel#modify-channel",
 )
 
+MODIFY_CURRENT_MEMBER: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/members/@me",
+    docs="https://docs.discord.com/developers/resources/guild#modify-current-member",
+)
+
 MODIFY_CURRENT_USER: Final = Route(
     HTTPMethod.PATCH,
     "/users/@me",
     docs="https://docs.discord.com/developers/resources/user#modify-current-user",
+)
+
+MODIFY_CURRENT_USER_NICK: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/members/@me/nick",
+    docs="https://docs.discord.com/developers/resources/guild#modify-current-user-nick",
 )
 
 MODIFY_CURRENT_USER_VOICE_STATE: Final = Route(
@@ -728,10 +908,52 @@ MODIFY_CURRENT_USER_VOICE_STATE: Final = Route(
     docs="https://docs.discord.com/developers/resources/voice#modify-current-user-voice-state",
 )
 
+MODIFY_GUILD: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild",
+)
+
+MODIFY_GUILD_CHANNEL_POSITIONS: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/channels",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-channel-positions",
+)
+
 MODIFY_GUILD_EMOJI: Final = Route(
     HTTPMethod.PATCH,
     "/guilds/{guild_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#modify-guild-emoji",
+)
+
+MODIFY_GUILD_INCIDENT_ACTIONS: Final = Route(
+    HTTPMethod.PUT,
+    "/guilds/{guild_id}/incident-actions",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-incident-actions",
+)
+
+MODIFY_GUILD_MEMBER: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-member",
+)
+
+MODIFY_GUILD_ONBOARDING: Final = Route(
+    HTTPMethod.PUT,
+    "/guilds/{guild_id}/onboarding",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-onboarding",
+)
+
+MODIFY_GUILD_ROLE: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/roles/{role_id}",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-role",
+)
+
+MODIFY_GUILD_ROLE_POSITIONS: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/roles",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-role-positions",
 )
 
 MODIFY_GUILD_SOUNDBOARD_SOUND: Final = Route(
@@ -744,6 +966,18 @@ MODIFY_GUILD_STICKER: Final = Route(
     HTTPMethod.PATCH,
     "/guilds/{guild_id}/stickers/{sticker_id}",
     docs="https://docs.discord.com/developers/resources/sticker#modify-guild-sticker",
+)
+
+MODIFY_GUILD_WELCOME_SCREEN: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/welcome-screen",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-welcome-screen",
+)
+
+MODIFY_GUILD_WIDGET: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/widget",
+    docs="https://docs.discord.com/developers/resources/guild#modify-guild-widget",
 )
 
 MODIFY_USER_VOICE_STATE: Final = Route(
@@ -770,6 +1004,24 @@ PIN_MESSAGE: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#pin-message",
 )
 
+REMOVE_GUILD_BAN: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/bans/{user_id}",
+    docs="https://docs.discord.com/developers/resources/guild#remove-guild-ban",
+)
+
+REMOVE_GUILD_MEMBER: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/guild#remove-guild-member",
+)
+
+REMOVE_GUILD_MEMBER_ROLE: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/members/{user_id}/roles/{role_id}",
+    docs="https://docs.discord.com/developers/resources/guild#remove-guild-member-role",
+)
+
 REMOVE_TARGET_USER: Final = Route(
     HTTPMethod.DELETE,
     "/invites/{invite_code}/target-users/{user_id}",
@@ -780,6 +1032,12 @@ REMOVE_THREAD_MEMBER: Final = Route(
     HTTPMethod.DELETE,
     "/channels/{channel_id}/thread-members/{user_id}",
     docs="https://docs.discord.com/developers/resources/channel#remove-thread-member",
+)
+
+SEARCH_GUILD_MEMBERS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/members/search",
+    docs="https://docs.discord.com/developers/resources/guild#search-guild-members",
 )
 
 SEARCH_GUILD_MESSAGES: Final = Route(
@@ -843,11 +1101,15 @@ UPDATE_TARGET_USERS: Final = Route(
 )
 
 ALL_ROUTES: Final = (
+    ADD_GUILD_MEMBER,
+    ADD_GUILD_MEMBER_ROLE,
     ADD_TARGET_USER,
     ADD_THREAD_MEMBER,
+    BEGIN_GUILD_PRUNE,
     BULK_ADD_TARGET_USERS,
     BULK_DELETE_MESSAGES,
     BULK_DELETE_TARGET_USERS,
+    BULK_GUILD_BAN,
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
     CREATE_APPLICATION_EMOJI,
@@ -857,7 +1119,10 @@ ALL_ROUTES: Final = (
     CREATE_GLOBAL_APPLICATION_COMMAND,
     CREATE_GROUP_DM,
     CREATE_GUILD_APPLICATION_COMMAND,
+    CREATE_GUILD_BAN,
+    CREATE_GUILD_CHANNEL,
     CREATE_GUILD_EMOJI,
+    CREATE_GUILD_ROLE,
     CREATE_GUILD_SOUNDBOARD_SOUND,
     CREATE_GUILD_STICKER,
     CREATE_INTERACTION_RESPONSE,
@@ -875,6 +1140,8 @@ ALL_ROUTES: Final = (
     DELETE_GLOBAL_APPLICATION_COMMAND,
     DELETE_GUILD_APPLICATION_COMMAND,
     DELETE_GUILD_EMOJI,
+    DELETE_GUILD_INTEGRATION,
+    DELETE_GUILD_ROLE,
     DELETE_GUILD_SOUNDBOARD_SOUND,
     DELETE_GUILD_STICKER,
     DELETE_INVITE,
@@ -922,11 +1189,28 @@ ALL_ROUTES: Final = (
     GET_GUILD_APPLICATION_COMMAND,
     GET_GUILD_APPLICATION_COMMANDS,
     GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
+    GET_GUILD_BAN,
+    GET_GUILD_BANS,
+    GET_GUILD_CHANNELS,
     GET_GUILD_EMOJI,
+    GET_GUILD_INTEGRATIONS,
+    GET_GUILD_INVITES,
     GET_GUILD_MEMBER,
+    GET_GUILD_ONBOARDING,
+    GET_GUILD_PREVIEW,
+    GET_GUILD_PRUNE_COUNT,
+    GET_GUILD_ROLE,
+    GET_GUILD_ROLES,
+    GET_GUILD_ROLE_MEMBER_COUNTS,
     GET_GUILD_SOUNDBOARD_SOUND,
     GET_GUILD_STICKER,
+    GET_GUILD_VANITY_URL,
+    GET_GUILD_VOICE_REGIONS,
     GET_GUILD_WEBHOOKS,
+    GET_GUILD_WELCOME_SCREEN,
+    GET_GUILD_WIDGET,
+    GET_GUILD_WIDGET_IMAGE,
+    GET_GUILD_WIDGET_SETTINGS,
     GET_INVITE,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_REACTIONS,
@@ -945,9 +1229,11 @@ ALL_ROUTES: Final = (
     JOIN_THREAD,
     LEAVE_GUILD,
     LEAVE_THREAD,
+    LIST_ACTIVE_GUILD_THREADS,
     LIST_APPLICATION_EMOJIS,
     LIST_DEFAULT_SOUNDBOARD_SOUNDS,
     LIST_GUILD_EMOJIS,
+    LIST_GUILD_MEMBERS,
     LIST_GUILD_SOUNDBOARD_SOUNDS,
     LIST_GUILD_STICKERS,
     LIST_JOINED_PRIVATE_ARCHIVED_THREADS,
@@ -958,17 +1244,32 @@ ALL_ROUTES: Final = (
     LIST_VOICE_REGIONS,
     MODIFY_APPLICATION_EMOJI,
     MODIFY_CHANNEL,
+    MODIFY_CURRENT_MEMBER,
     MODIFY_CURRENT_USER,
+    MODIFY_CURRENT_USER_NICK,
     MODIFY_CURRENT_USER_VOICE_STATE,
+    MODIFY_GUILD,
+    MODIFY_GUILD_CHANNEL_POSITIONS,
     MODIFY_GUILD_EMOJI,
+    MODIFY_GUILD_INCIDENT_ACTIONS,
+    MODIFY_GUILD_MEMBER,
+    MODIFY_GUILD_ONBOARDING,
+    MODIFY_GUILD_ROLE,
+    MODIFY_GUILD_ROLE_POSITIONS,
     MODIFY_GUILD_SOUNDBOARD_SOUND,
     MODIFY_GUILD_STICKER,
+    MODIFY_GUILD_WELCOME_SCREEN,
+    MODIFY_GUILD_WIDGET,
     MODIFY_USER_VOICE_STATE,
     MODIFY_WEBHOOK,
     MODIFY_WEBHOOK_WITH_TOKEN,
     PIN_MESSAGE,
+    REMOVE_GUILD_BAN,
+    REMOVE_GUILD_MEMBER,
+    REMOVE_GUILD_MEMBER_ROLE,
     REMOVE_TARGET_USER,
     REMOVE_THREAD_MEMBER,
+    SEARCH_GUILD_MEMBERS,
     SEARCH_GUILD_MESSAGES,
     SEND_SOUNDBOARD_SOUND,
     SET_VOICE_CHANNEL_STATUS,

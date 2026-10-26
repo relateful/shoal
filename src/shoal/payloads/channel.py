@@ -479,3 +479,61 @@ class ListJoinedPrivateArchivedThreadsParams(Payload):
     before: Snowflake | UnsetType = UNSET
     """Threads with a lower ID."""
     limit: int | UnsetType = UNSET
+
+
+class CreateGuildChannelParams(Payload):
+    """JSON body of Create Guild Channel. Needs Manage Channels.
+
+    Each field applies to some channel types only; Discord's table lists which.
+
+    Discord: https://docs.discord.com/developers/resources/guild#create-guild-channel-json-params
+    """
+
+    name: str
+    """1 to 100 characters."""
+    type: ChannelType | UnsetType | None = UNSET
+    topic: str | UnsetType | None = UNSET
+    bitrate: int | UnsetType | None = UNSET
+    user_limit: int | UnsetType | None = UNSET
+    rate_limit_per_user: int | UnsetType | None = UNSET
+    position: int | UnsetType | None = UNSET
+    permission_overwrites: list[PartialOverwrite] | UnsetType | None = UNSET
+    """Only permissions the bot has can be set; Manage Roles only by administrators."""
+    parent_id: Snowflake | UnsetType | None = UNSET
+    nsfw: bool | UnsetType | None = UNSET
+    rtc_region: str | UnsetType | None = UNSET
+    video_quality_mode: VideoQualityMode | UnsetType | None = UNSET
+    default_auto_archive_duration: int | UnsetType | None = UNSET
+    default_reaction_emoji: DefaultReaction | UnsetType | None = UNSET
+    available_tags: list[ForumTagParams] | UnsetType | None = UNSET
+    default_sort_order: SortOrderType | UnsetType | None = UNSET
+    default_forum_layout: ForumLayoutType | UnsetType | None = UNSET
+    default_thread_rate_limit_per_user: int | UnsetType | None = UNSET
+    flags: ChannelFlags | UnsetType | None = UNSET
+
+
+class ChannelPositionParams(Payload):
+    """One channel's change, in the body of Modify Guild Channel Positions.
+
+    At most one entry per request may change `parent_id`.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-channel-positions-json-params
+    """
+
+    id: Snowflake
+    position: int | UnsetType | None = UNSET
+    lock_permissions: bool | UnsetType | None = UNSET
+    """Sync the overwrites with the new parent; needs Manage Roles."""
+    parent_id: Snowflake | UnsetType | None = UNSET
+    flags: ChannelFlags | UnsetType | None = UNSET
+
+
+class ActiveThreads(Payload):
+    """A guild's active threads, newest first.
+
+    Discord: https://docs.discord.com/developers/resources/guild#list-active-guild-threads-response-body
+    """
+
+    threads: list[Channel]
+    members: list[ThreadMember]
+    """The current user's membership in each returned thread they joined."""

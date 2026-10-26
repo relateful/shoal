@@ -285,6 +285,19 @@ class RestClient(
         await self._send(route, body=body, query=query, reason=reason, files=files, form=form)
 
     @override
+    async def request_optional[T](
+        self,
+        route: CompiledRoute,
+        response_type: type[T],
+        *,
+        body: object = None,
+        reason: str | None = None,
+    ) -> T | None:
+        """Send a request that may answer with no body; `None` then. Raises like `request`."""
+        response = await self._send(route, body=body, query=None, reason=reason)
+        return decode_json(response.body, response_type) if response.body else None
+
+    @override
     async def request_bytes(
         self, route: CompiledRoute, *, query: Mapping[str, QueryValue] | None = None
     ) -> bytes:

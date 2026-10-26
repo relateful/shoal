@@ -2,8 +2,8 @@
 
 Discord: https://docs.discord.com/developers/resources/guild
 
-Not yet modeled: `Guild.welcome_screen`, `Guild.incidents_data`, guild previews,
-widgets, bans, integrations and onboarding. Decoding ignores those keys until they are added.
+Not yet modeled: `Integration.scopes` as OAuth2 scope values (kept as strings until the OAuth2
+scopes are modeled).
 """
 
 from datetime import datetime
@@ -13,9 +13,10 @@ from msgspec import UNSET, UnsetType
 from shoal.core.enums import DiscordIntEnum, DiscordStrEnum
 from shoal.core.flags import BaseFlags, flag
 from shoal.core.snowflake import Snowflake
+from shoal.payloads.api import ImageData
 from shoal.payloads.base import Payload
 from shoal.payloads.emoji import Emoji
-from shoal.payloads.permissions import Permissions, Role
+from shoal.payloads.permissions import Permissions, Role, RoleColors
 from shoal.payloads.sticker import Sticker
 from shoal.payloads.user import AvatarDecorationData, Collectibles, User
 
@@ -165,6 +166,43 @@ class GuildMemberFlags(BaseFlags):
     automod_quarantined_guild_tag = flag(10)
 
 
+class WelcomeScreenChannel(Payload):
+    """A channel shown on a Community guild's welcome screen.
+
+    Discord: https://docs.discord.com/developers/resources/guild#welcome-screen-object-welcome-screen-channel-structure
+    """
+
+    channel_id: Snowflake
+    description: str
+    emoji_id: Snowflake | None
+    """Set for a custom emoji."""
+    emoji_name: str | None
+    """The custom emoji's name, the unicode emoji, or `None` for no emoji."""
+
+
+class WelcomeScreen(Payload):
+    """What a Community guild shows new members.
+
+    Discord: https://docs.discord.com/developers/resources/guild#welcome-screen-object
+    """
+
+    description: str | None
+    welcome_channels: list[WelcomeScreenChannel]
+    """Up to 5."""
+
+
+class IncidentsData(Payload):
+    """Safety actions in force in a guild, and recent incidents.
+
+    Discord: https://docs.discord.com/developers/resources/guild#incidents-data-object
+    """
+
+    invites_disabled_until: datetime | None
+    dms_disabled_until: datetime | None
+    dm_spam_detected_at: datetime | UnsetType | None = UNSET
+    raid_detected_at: datetime | UnsetType | None = UNSET
+
+
 class Guild(Payload):
     """A guild (server).
 
@@ -209,10 +247,13 @@ class Guild(Payload):
     max_stage_video_channel_users: int | UnsetType = UNSET
     approximate_member_count: int | UnsetType = UNSET
     approximate_presence_count: int | UnsetType = UNSET
+    welcome_screen: WelcomeScreen | UnsetType = UNSET
     nsfw_level: GuildNSFWLevel
     stickers: list[Sticker] | UnsetType = UNSET
     premium_progress_bar_enabled: bool
     safety_alerts_channel_id: Snowflake | None
+    incidents_data: IncidentsData | UnsetType | None = UNSET
+    """Discord's table lists it as always present; Get Guild's own example leaves it out."""
 
 
 class PartialGuild(Payload):
@@ -294,3 +335,554 @@ class PartialMember(Payload):
     communication_disabled_until: datetime | UnsetType | None = UNSET
     avatar_decoration_data: AvatarDecorationData | UnsetType | None = UNSET
     collectibles: Collectibles | UnsetType | None = UNSET
+
+
+class GuildPreview(Payload):
+    """What anyone can see of a discoverable guild.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-preview-object
+    """
+
+    id: Snowflake
+    name: str
+    icon: str | None
+    splash: str | None
+    discovery_splash: str | None
+    emojis: list[Emoji]
+    features: list[GuildFeature]
+    approximate_member_count: int
+    approximate_presence_count: int
+    description: str | None
+    stickers: list[Sticker]
+
+
+class GuildWidgetSettings(Payload):
+    """Whether a guild's widget is on, and the channel its invite leads to.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-widget-settings-object
+    """
+
+    enabled: bool
+    channel_id: Snowflake | None
+
+
+class WidgetChannel(Payload):
+    """A voice or stage channel listed on a guild widget: a partial channel.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-widget-object-example-guild-widget
+    """
+
+    id: Snowflake
+    name: str
+    position: int
+
+
+class WidgetMember(Payload):
+    """An online member listed on a guild widget. `id`, `discriminator` and `avatar` are anonymized.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-widget-object-example-guild-widget
+    """
+
+    id: Snowflake
+    username: str
+    discriminator: str
+    avatar: str | None
+    status: str
+    avatar_url: str
+
+
+class GuildWidget(Payload):
+    """A guild's public widget.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-widget-object
+    """
+
+    id: Snowflake
+    name: str
+    instant_invite: str | None
+    channels: list[WidgetChannel]
+    members: list[WidgetMember]
+    """Up to 100."""
+    presence_count: int
+
+
+class WidgetStyle(DiscordStrEnum):
+    """The look of a guild widget image.
+
+    Discord: https://docs.discord.com/developers/resources/guild#get-guild-widget-image-widget-style-options
+    """
+
+    BANNER1 = "banner1"
+    BANNER2 = "banner2"
+    BANNER3 = "banner3"
+    BANNER4 = "banner4"
+    SHIELD = "shield"
+    """Discord's default."""
+
+
+class IntegrationExpireBehavior(DiscordIntEnum):
+    """What happens to a subscriber when their subscription ends.
+
+    Discord: https://docs.discord.com/developers/resources/guild#integration-object-integration-expire-behaviors
+    """
+
+    REMOVE_ROLE = 0
+    KICK = 1
+
+
+class IntegrationAccount(Payload):
+    """The account on the other service an integration belongs to.
+
+    Discord: https://docs.discord.com/developers/resources/guild#integration-account-object
+    """
+
+    id: str
+    name: str
+
+
+class IntegrationApplication(Payload):
+    """The app behind a Discord integration.
+
+    Discord: https://docs.discord.com/developers/resources/guild#integration-application-object
+    """
+
+    id: Snowflake
+    name: str
+    icon: str | None
+    description: str
+    bot: User | UnsetType = UNSET
+
+
+class Integration(Payload):
+    """A Twitch, YouTube, app or role subscription integration in a guild.
+
+    The subscription fields are absent on bot integrations.
+
+    Discord: https://docs.discord.com/developers/resources/guild#integration-object
+    """
+
+    id: Snowflake
+    name: str
+    type: str
+    """`twitch`, `youtube`, `discord` or `guild_subscription`."""
+    enabled: bool
+    syncing: bool | UnsetType = UNSET
+    role_id: Snowflake | UnsetType = UNSET
+    """The role given to subscribers."""
+    enable_emoticons: bool | UnsetType = UNSET
+    expire_behavior: IntegrationExpireBehavior | UnsetType = UNSET
+    expire_grace_period: int | UnsetType = UNSET
+    """Days."""
+    user: User | UnsetType = UNSET
+    account: IntegrationAccount
+    synced_at: datetime | UnsetType = UNSET
+    subscriber_count: int | UnsetType = UNSET
+    revoked: bool | UnsetType = UNSET
+    application: IntegrationApplication | UnsetType = UNSET
+    scopes: list[str] | UnsetType = UNSET
+    """OAuth2 scopes the app was authorized for."""
+
+
+class Ban(Payload):
+    """A banned user.
+
+    Discord: https://docs.discord.com/developers/resources/guild#ban-object
+    """
+
+    reason: str | None
+    user: User
+
+
+class OnboardingMode(DiscordIntEnum):
+    """What counts towards the requirements for turning onboarding on.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object-onboarding-mode
+    """
+
+    ONBOARDING_DEFAULT = 0
+    """Default channels only."""
+    ONBOARDING_ADVANCED = 1
+    """Default channels and questions."""
+
+
+class PromptType(DiscordIntEnum):
+    """How an onboarding question is shown.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object-prompt-types
+    """
+
+    MULTIPLE_CHOICE = 0
+    DROPDOWN = 1
+
+
+class PromptOption(Payload):
+    """An answer to an onboarding question.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object-prompt-option-structure
+    """
+
+    id: Snowflake
+    channel_ids: list[Snowflake]
+    """Channels a member who picks it is added to."""
+    role_ids: list[Snowflake]
+    """Roles a member who picks it is given."""
+    emoji: Emoji | UnsetType = UNSET
+    emoji_id: Snowflake | UnsetType = UNSET
+    emoji_name: str | UnsetType = UNSET
+    emoji_animated: bool | UnsetType = UNSET
+    title: str
+    description: str | None
+
+
+class OnboardingPrompt(Payload):
+    """An onboarding question.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object-onboarding-prompt-structure
+    """
+
+    id: Snowflake
+    type: PromptType
+    options: list[PromptOption]
+    title: str
+    single_select: bool
+    required: bool
+    in_onboarding: bool
+    """`False` shows it only in Channels & Roles."""
+
+
+class GuildOnboarding(Payload):
+    """A guild's onboarding flow.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object
+    """
+
+    guild_id: Snowflake
+    prompts: list[OnboardingPrompt]
+    default_channel_ids: list[Snowflake]
+    """Channels every member is added to."""
+    enabled: bool
+    mode: OnboardingMode
+
+
+class ModifyGuildParams(Payload):
+    """JSON body of Modify Guild. Needs Manage Guild; changing `COMMUNITY` needs Administrator.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-json-params
+    """
+
+    name: str | UnsetType = UNSET
+    region: str | UnsetType | None = UNSET
+    """Deprecated; set `rtc_region` on voice channels instead."""
+    verification_level: VerificationLevel | UnsetType | None = UNSET
+    default_message_notifications: DefaultMessageNotificationLevel | UnsetType | None = UNSET
+    explicit_content_filter: ExplicitContentFilterLevel | UnsetType | None = UNSET
+    afk_channel_id: Snowflake | UnsetType | None = UNSET
+    afk_timeout: int | UnsetType = UNSET
+    """Seconds: 60, 300, 900, 1800 or 3600."""
+    icon: ImageData | UnsetType | None = UNSET
+    """1024x1024; an animated GIF needs the `ANIMATED_ICON` feature."""
+    splash: ImageData | UnsetType | None = UNSET
+    """16:9; needs the `INVITE_SPLASH` feature."""
+    discovery_splash: ImageData | UnsetType | None = UNSET
+    """16:9; needs the `DISCOVERABLE` feature."""
+    banner: ImageData | UnsetType | None = UNSET
+    """16:9; needs the `BANNER` feature, and `ANIMATED_BANNER` for a GIF."""
+    system_channel_id: Snowflake | UnsetType | None = UNSET
+    system_channel_flags: SystemChannelFlags | UnsetType = UNSET
+    rules_channel_id: Snowflake | UnsetType | None = UNSET
+    public_updates_channel_id: Snowflake | UnsetType | None = UNSET
+    preferred_locale: str | UnsetType | None = UNSET
+    features: list[GuildFeature] | UnsetType = UNSET
+    description: str | UnsetType | None = UNSET
+    premium_progress_bar_enabled: bool | UnsetType = UNSET
+    safety_alerts_channel_id: Snowflake | UnsetType | None = UNSET
+
+
+class ListGuildMembersParams(Payload):
+    """Query of List Guild Members. Needs the Guild Members privileged intent.
+
+    Discord: https://docs.discord.com/developers/resources/guild#list-guild-members-query-string-params
+    """
+
+    limit: int | UnsetType = UNSET
+    """1 to 1000; Discord's default is 1."""
+    after: Snowflake | UnsetType = UNSET
+    """The highest user ID of the previous page."""
+
+
+class SearchGuildMembersParams(Payload):
+    """Query of Search Guild Members: members whose username or nickname starts with `query`.
+
+    Discord: https://docs.discord.com/developers/resources/guild#search-guild-members-query-string-params
+    """
+
+    query: str
+    limit: int | UnsetType = UNSET
+    """1 to 1000; Discord's default is 1."""
+
+
+class AddGuildMemberParams(Payload):
+    """JSON body of Add Guild Member.
+
+    Discord: https://docs.discord.com/developers/resources/guild#add-guild-member-json-params
+    """
+
+    access_token: str
+    """An OAuth2 token of the user, with the `guilds.join` scope, granted to this bot's app."""
+    nick: str | UnsetType = UNSET
+    """Needs Manage Nicknames."""
+    roles: list[Snowflake] | UnsetType = UNSET
+    """Needs Manage Roles."""
+    mute: bool | UnsetType = UNSET
+    """Needs Mute Members."""
+    deaf: bool | UnsetType = UNSET
+    """Needs Deafen Members."""
+
+
+class ModifyGuildMemberParams(Payload):
+    """JSON body of Modify Guild Member. Each field needs its own permission (see Discord's table).
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-member-json-params
+    """
+
+    nick: str | UnsetType | None = UNSET
+    roles: list[Snowflake] | UnsetType | None = UNSET
+    mute: bool | UnsetType | None = UNSET
+    """Fails unless the member is in a voice channel."""
+    deaf: bool | UnsetType | None = UNSET
+    """Fails unless the member is in a voice channel."""
+    channel_id: Snowflake | UnsetType | None = UNSET
+    """Move the member to this voice channel; `None` disconnects them."""
+    communication_disabled_until: datetime | UnsetType | None = UNSET
+    """Time the member out until then, up to 28 days ahead; `None` ends a timeout."""
+    flags: GuildMemberFlags | UnsetType | None = UNSET
+    """Only `bypasses_verification` can be changed."""
+
+
+class ModifyCurrentMemberParams(Payload):
+    """JSON body of Modify Current Member.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-current-member-json-params
+    """
+
+    nick: str | UnsetType | None = UNSET
+    """Needs Change Nickname."""
+    banner: ImageData | UnsetType | None = UNSET
+    avatar: ImageData | UnsetType | None = UNSET
+    bio: str | UnsetType | None = UNSET
+
+
+class ModifyCurrentUserNickParams(Payload):
+    """JSON body of the deprecated Modify Current User Nick.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-current-user-nick-json-params
+    """
+
+    nick: str | UnsetType | None = UNSET
+
+
+class GetGuildBansParams(Payload):
+    """Query of Get Guild Bans. Bans come in ascending user ID order; `before` wins over `after`.
+
+    Discord: https://docs.discord.com/developers/resources/guild#get-guild-bans-query-string-params
+    """
+
+    limit: int | UnsetType = UNSET
+    """Up to 1000, Discord's default."""
+    before: Snowflake | UnsetType = UNSET
+    after: Snowflake | UnsetType = UNSET
+
+
+class CreateGuildBanParams(Payload):
+    """JSON body of Create Guild Ban.
+
+    Discord: https://docs.discord.com/developers/resources/guild#create-guild-ban-json-params
+    """
+
+    delete_message_days: int | UnsetType = UNSET
+    """Deprecated; use `delete_message_seconds`."""
+    delete_message_seconds: int | UnsetType = UNSET
+    """Delete the user's messages from this many seconds back, up to 604800 (7 days)."""
+
+
+class BulkGuildBanParams(Payload):
+    """JSON body of Bulk Guild Ban.
+
+    Discord: https://docs.discord.com/developers/resources/guild#bulk-guild-ban-json-params
+    """
+
+    user_ids: list[Snowflake]
+    """Up to 200."""
+    delete_message_seconds: int | UnsetType = UNSET
+    """Up to 604800 (7 days)."""
+
+
+class BulkBanResponse(Payload):
+    """Who Bulk Guild Ban banned, and who it could not (or who were banned already).
+
+    Discord: https://docs.discord.com/developers/resources/guild#bulk-guild-ban-bulk-ban-response
+    """
+
+    banned_users: list[Snowflake]
+    failed_users: list[Snowflake]
+
+
+class CreateGuildRoleParams(Payload):
+    """JSON body of Create Guild Role.
+
+    Discord: https://docs.discord.com/developers/resources/guild#create-guild-role-json-params
+    """
+
+    name: str | UnsetType = UNSET
+    """Up to 100 characters; Discord's default is "new role"."""
+    permissions: Permissions | UnsetType = UNSET
+    """Discord's default is the guild's @everyone permissions."""
+    color: int | UnsetType = UNSET
+    """Deprecated; use `colors`."""
+    colors: RoleColors | UnsetType = UNSET
+    hoist: bool | UnsetType = UNSET
+    icon: ImageData | UnsetType | None = UNSET
+    """Needs the `ROLE_ICONS` feature."""
+    unicode_emoji: str | UnsetType | None = UNSET
+    """Needs the `ROLE_ICONS` feature."""
+    mentionable: bool | UnsetType = UNSET
+
+
+class RolePositionParams(Payload):
+    """One role's new position, in the body of Modify Guild Role Positions.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-role-positions-json-params
+    """
+
+    id: Snowflake
+    position: int | UnsetType | None = UNSET
+
+
+class ModifyGuildRoleParams(Payload):
+    """JSON body of Modify Guild Role.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-role-json-params
+    """
+
+    name: str | UnsetType | None = UNSET
+    permissions: Permissions | UnsetType | None = UNSET
+    color: int | UnsetType | None = UNSET
+    """Deprecated; use `colors`."""
+    colors: RoleColors | UnsetType | None = UNSET
+    hoist: bool | UnsetType | None = UNSET
+    icon: ImageData | UnsetType | None = UNSET
+    unicode_emoji: str | UnsetType | None = UNSET
+    mentionable: bool | UnsetType | None = UNSET
+
+
+class GetGuildPruneCountParams(Payload):
+    """Query of Get Guild Prune Count.
+
+    Discord: https://docs.discord.com/developers/resources/guild#get-guild-prune-count-query-string-params
+    """
+
+    days: int | UnsetType = UNSET
+    """1 to 30; Discord's default is 7."""
+    include_roles: list[Snowflake] | UnsetType = UNSET
+    """Also count members whose roles are all among these. Sent comma-separated."""
+
+
+class BeginGuildPruneParams(Payload):
+    """JSON body of Begin Guild Prune.
+
+    Discord: https://docs.discord.com/developers/resources/guild#begin-guild-prune-json-params
+    """
+
+    days: int | UnsetType = UNSET
+    """1 to 30; Discord's default is 7."""
+    compute_prune_count: bool | UnsetType = UNSET
+    """`False` makes `pruned` `None`; recommended for large guilds."""
+    include_roles: list[Snowflake] | UnsetType = UNSET
+    reason: str | UnsetType = UNSET
+    """Deprecated; pass `reason` to the method, which sends the audit log header."""
+
+
+class PruneCount(Payload):
+    """How many members a prune removes, or would remove.
+
+    Discord: https://docs.discord.com/developers/resources/guild#get-guild-prune-count
+    """
+
+    pruned: int | None
+    """`None` when `compute_prune_count` was false."""
+
+
+class ModifyGuildWidgetParams(Payload):
+    """JSON body of Modify Guild Widget.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-widget
+    """
+
+    enabled: bool | UnsetType = UNSET
+    channel_id: Snowflake | UnsetType | None = UNSET
+
+
+class ModifyGuildWelcomeScreenParams(Payload):
+    """JSON body of Modify Guild Welcome Screen.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-welcome-screen-json-params
+    """
+
+    enabled: bool | UnsetType | None = UNSET
+    welcome_channels: list[WelcomeScreenChannel] | UnsetType | None = UNSET
+    description: str | UnsetType | None = UNSET
+
+
+class PromptOptionParams(Payload):
+    """An onboarding answer in a request; it takes the emoji as separate fields, not an object.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object-prompt-option-structure
+    """
+
+    id: Snowflake | UnsetType = UNSET
+    channel_ids: list[Snowflake]
+    role_ids: list[Snowflake]
+    emoji_id: Snowflake | UnsetType = UNSET
+    emoji_name: str | UnsetType = UNSET
+    emoji_animated: bool | UnsetType = UNSET
+    title: str
+    description: str | None
+
+
+class OnboardingPromptParams(Payload):
+    """An onboarding question in a request.
+
+    Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object-onboarding-prompt-structure
+    """
+
+    id: Snowflake
+    type: PromptType
+    options: list[PromptOptionParams]
+    title: str
+    single_select: bool
+    required: bool
+    in_onboarding: bool
+
+
+class ModifyGuildOnboardingParams(Payload):
+    """JSON body of Modify Guild Onboarding. Needs Manage Guild and Manage Roles.
+
+    When enabled, onboarding needs at least 7 default channels, 5 of which @everyone can send in.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-onboarding-json-params
+    """
+
+    prompts: list[OnboardingPromptParams] | UnsetType = UNSET
+    default_channel_ids: list[Snowflake] | UnsetType = UNSET
+    enabled: bool | UnsetType = UNSET
+    mode: OnboardingMode | UnsetType = UNSET
+
+
+class ModifyGuildIncidentActionsParams(Payload):
+    """JSON body of Modify Guild Incident Actions. Each pause can last up to 24 hours; `None` ends it.
+
+    Discord: https://docs.discord.com/developers/resources/guild#modify-guild-incident-actions-json-params
+    """
+
+    invites_disabled_until: datetime | UnsetType | None = UNSET
+    dms_disabled_until: datetime | UnsetType | None = UNSET
