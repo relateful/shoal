@@ -52,3 +52,14 @@ async def test_files_are_read_from_disk_off_the_loop(tmp_path: Path) -> None:
         "the report",
         "SPOILER_report.json",
     )
+
+
+def test_text_fields_come_before_the_files() -> None:
+    body, content_type = encode_multipart(
+        None, {"file": File("s.png", b"x")}, {"name": "party", "tags": "tada"}
+    )
+    assert [(part.name, part.filename, part.data) for part in parse_form(body, content_type)] == [
+        ("name", None, b"party"),
+        ("tags", None, b"tada"),
+        ("file", "s.png", b"x"),
+    ]

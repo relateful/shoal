@@ -66,15 +66,21 @@ class File:
         return f"File(filename={self.filename!r}, size={len(self.data)})"
 
 
-def encode_multipart(payload_json: bytes | None, files: Mapping[str, File]) -> tuple[bytes, str]:
+def encode_multipart(
+    payload_json: bytes | None, files: Mapping[str, File], fields: Mapping[str, str] | None = None
+) -> tuple[bytes, str]:
     """Build a `multipart/form-data` body. Returns the body and its `Content-Type` header.
 
     Args:
         payload_json: The JSON parameters, sent as the `payload_json` part, or `None` for none.
         files: Each part's form field name (`files[0]`, `file`…) and the file in it.
+        fields: Plain text form fields, for endpoints that take their parameters that way.
     """
     boundary = secrets.token_hex(16)
     parts: list[bytes] = []
+    for name, value in (fields or {}).items():
+        head = f'--{boundary}\r\nContent-Disposition: form-data; name="{_quote(name)}"\r\n\r\n'
+        parts.append(head.encode() + value.encode() + b"\r\n")
     if payload_json is not None:
         parts.append(
             _part_head(boundary, 'form-data; name="payload_json"', "application/json")

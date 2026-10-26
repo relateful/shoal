@@ -3,7 +3,7 @@
 Discord: https://docs.discord.com/developers/resources/message
 
 Not yet modeled: `Message.activity`, `application`, `message_snapshots`, `interaction_metadata`,
-`interaction`, `sticker_items`, `stickers`, `role_subscription_data`, `resolved`,
+`interaction`, `role_subscription_data`, `resolved`,
 `poll`, `call` and `shared_client_theme`, and the matching create-message parameters (stickers,
 polls, file uploads). Decoding ignores those keys until they are added.
 """
@@ -20,6 +20,7 @@ from shoal.payloads.channel import Channel, ChannelType, ThreadMember
 from shoal.payloads.components import MessageComponent, RawComponent
 from shoal.payloads.emoji import Emoji
 from shoal.payloads.errors import JSONErrorCode
+from shoal.payloads.sticker import Sticker, StickerItem
 from shoal.payloads.user import User
 
 
@@ -361,6 +362,9 @@ class Message(Payload):
     components: list[RawComponent] | UnsetType = UNSET
     """The message's components as Discord sent them; `parse_components` decodes them. Kept as JSON
     so a component type newer than Shoal never stops the message from decoding."""
+    sticker_items: list[StickerItem] | UnsetType = UNSET
+    stickers: list[Sticker] | UnsetType = UNSET
+    """Deprecated; read `sticker_items`."""
     position: int | UnsetType = UNSET
 
 

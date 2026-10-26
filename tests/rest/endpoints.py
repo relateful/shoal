@@ -8,6 +8,8 @@ from tests.rest.resources import (
     guild,
     interactions,
     message,
+    soundboard,
+    sticker,
     user,
     voice,
 )
@@ -21,6 +23,8 @@ ALL_CASES: list[EndpointCase] = [
     *guild.CASES,
     *interactions.CASES,
     *message.CASES,
+    *soundboard.CASES,
+    *sticker.CASES,
     *user.CASES,
     *voice.CASES,
 ]

@@ -44,11 +44,13 @@ class Requester(ABC):
         query: Mapping[str, QueryValue] | None = None,
         reason: str | None = None,
         files: Mapping[str, File] | None = None,
+        form: Mapping[str, str] | None = None,
     ) -> T:
         """Send a request and decode the JSON response into `response_type`.
 
         With `files`, the body goes in the `payload_json` part of a `multipart/form-data` request,
-        next to one part per file, named by the mapping's keys.
+        next to one part per file, named by the mapping's keys. `form` adds plain text fields, for
+        endpoints that take their parameters as form fields rather than `payload_json`.
         """
 
     @abstractmethod
@@ -60,6 +62,7 @@ class Requester(ABC):
         query: Mapping[str, QueryValue] | None = None,
         reason: str | None = None,
         files: Mapping[str, File] | None = None,
+        form: Mapping[str, str] | None = None,
     ) -> None:
         """Send a request whose successful response has no body (204)."""
 
@@ -79,6 +82,15 @@ def encode_query(query: Mapping[str, QueryValue]) -> str:
         else:
             pairs.extend((key, _query_scalar(item)) for item in value)
     return urlencode(pairs)
+
+
+def form_of(params: msgspec.Struct) -> dict[str, str]:
+    """The set fields of a form payload, as text form fields."""
+    return {
+        field.encode_name: _query_scalar(value) if isinstance(value, bool) else str(value)
+        for field in msgspec.structs.fields(params)
+        if (value := getattr(params, field.name)) is not msgspec.UNSET
+    }
 
 
 def query_of(params: msgspec.Struct) -> dict[str, QueryValue]:

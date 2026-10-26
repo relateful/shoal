@@ -2,7 +2,7 @@
 
 Discord: https://docs.discord.com/developers/resources/guild
 
-Not yet modeled: `Guild.welcome_screen`, `Guild.stickers`, `Guild.incidents_data`, guild previews,
+Not yet modeled: `Guild.welcome_screen`, `Guild.incidents_data`, guild previews,
 widgets, bans, integrations and onboarding. Decoding ignores those keys until they are added.
 """
 
@@ -16,6 +16,7 @@ from shoal.core.snowflake import Snowflake
 from shoal.payloads.base import Payload
 from shoal.payloads.emoji import Emoji
 from shoal.payloads.permissions import Permissions, Role
+from shoal.payloads.sticker import Sticker
 from shoal.payloads.user import AvatarDecorationData, Collectibles, User
 
 
@@ -209,6 +210,7 @@ class Guild(Payload):
     approximate_member_count: int | UnsetType = UNSET
     approximate_presence_count: int | UnsetType = UNSET
     nsfw_level: GuildNSFWLevel
+    stickers: list[Sticker] | UnsetType = UNSET
     premium_progress_bar_enabled: bool
     safety_alerts_channel_id: Snowflake | None
 

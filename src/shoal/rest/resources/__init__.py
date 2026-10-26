@@ -12,6 +12,8 @@ from shoal.rest.resources.gateway import GatewayEndpoints
 from shoal.rest.resources.guild import GuildEndpoints
 from shoal.rest.resources.interactions import InteractionEndpoints
 from shoal.rest.resources.message import MessageEndpoints
+from shoal.rest.resources.soundboard import SoundboardEndpoints
+from shoal.rest.resources.sticker import StickerEndpoints
 from shoal.rest.resources.user import UserEndpoints
 from shoal.rest.resources.voice import VoiceEndpoints
 
@@ -23,6 +25,8 @@ __all__ = [
     "GuildEndpoints",
     "InteractionEndpoints",
     "MessageEndpoints",
+    "SoundboardEndpoints",
+    "StickerEndpoints",
     "UserEndpoints",
     "VoiceEndpoints",
 ]

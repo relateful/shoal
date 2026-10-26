@@ -1,0 +1,102 @@
+from shoal.core.snowflake import Snowflake
+from shoal.payloads import (
+    CreateGuildSoundboardSoundParams,
+    ModifyGuildSoundboardSoundParams,
+    SendSoundboardSoundParams,
+)
+from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
+
+DEFAULT_SOUND: dict[str, object] = {
+    "name": "quack",
+    "sound_id": "1",
+    "volume": 1.0,
+    "emoji_id": None,
+    "emoji_name": "\N{DUCK}",
+    "available": True,
+}
+"""Discord's example."""
+GUILD_SOUND: dict[str, object] = {
+    "name": "Yay",
+    "sound_id": "1106714396018884649",
+    "volume": 1,
+    "emoji_id": "989193655938064464",
+    "emoji_name": None,
+    "guild_id": "613425648685547541",
+    "available": True,
+}
+"""Discord's example."""
+SOUND = "data:audio/ogg;base64,T2dnUw=="
+GUILD_SOUNDS = "/guilds/613425648685547541/soundboard-sounds"
+
+CASES = [
+    EndpointCase(
+        name="send sound",
+        call=lambda client: client.send_soundboard_sound(
+            6,
+            SendSoundboardSoundParams(
+                sound_id=Snowflake(1106714396018884649), source_guild_id=Snowflake(613425648685547541)
+            ),
+        ),
+        method="POST",
+        path="/channels/6/send-soundboard-sound",
+        body={"sound_id": "1106714396018884649", "source_guild_id": "613425648685547541"},
+    ),
+    EndpointCase(
+        name="list default sounds",
+        call=lambda client: client.list_default_soundboard_sounds(),
+        method="GET",
+        path="/soundboard-default-sounds",
+        response=[DEFAULT_SOUND],
+    ),
+    EndpointCase(
+        name="list guild sounds",
+        call=lambda client: client.list_guild_soundboard_sounds(613425648685547541),
+        method="GET",
+        path=GUILD_SOUNDS,
+        response={"items": [GUILD_SOUND]},
+        result=[GUILD_SOUND],
+    ),
+    EndpointCase(
+        name="get guild sound",
+        call=lambda client: client.get_guild_soundboard_sound(613425648685547541, 1106714396018884649),
+        method="GET",
+        path=f"{GUILD_SOUNDS}/1106714396018884649",
+        response=GUILD_SOUND,
+    ),
+    EndpointCase(
+        name="create guild sound",
+        call=lambda client: client.create_guild_soundboard_sound(
+            613425648685547541,
+            CreateGuildSoundboardSoundParams(name="Yay", sound=SOUND, emoji_id=Snowflake(989193655938064464)),
+            reason="new sound",
+        ),
+        method="POST",
+        path=GUILD_SOUNDS,
+        body={"name": "Yay", "sound": SOUND, "emoji_id": "989193655938064464"},
+        response=GUILD_SOUND,
+        reason="new sound",
+    ),
+    EndpointCase(
+        name="modify guild sound",
+        call=lambda client: client.modify_guild_soundboard_sound(
+            613425648685547541,
+            1106714396018884649,
+            ModifyGuildSoundboardSoundParams(volume=0.5, emoji_id=None),
+        ),
+        method="PATCH",
+        path=f"{GUILD_SOUNDS}/1106714396018884649",
+        body={"volume": 0.5, "emoji_id": None},
+        response=GUILD_SOUND,
+    ),
+    EndpointCase(
+        name="delete guild sound",
+        call=lambda client: client.delete_guild_soundboard_sound(613425648685547541, 1106714396018884649),
+        method="DELETE",
+        path=f"{GUILD_SOUNDS}/1106714396018884649",
+    ),
+]
+
+
+@endpoint_cases(CASES)
+async def test_soundboard_endpoints(case: EndpointCase) -> None:
+    await check_endpoint(case)

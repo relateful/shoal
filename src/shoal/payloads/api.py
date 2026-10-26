@@ -110,3 +110,33 @@ def image_data(image: bytes) -> ImageData:
             return f"data:{content_type};base64,{base64.b64encode(image).decode()}"
     msg = "image data must be a PNG, JPEG or GIF"
     raise ValueError(msg)
+
+
+type SoundData = str
+"""A sound sent inline as a data URI, such as `data:audio/ogg;base64,T2dnUw…`. Build one with
+`sound_data`.
+
+Discord: https://docs.discord.com/developers/resources/soundboard#create-guild-soundboard-sound-json-params
+"""
+
+_SOUND_SIGNATURES: Final = (
+    (b"OggS", "audio/ogg"),
+    (b"ID3", "audio/mpeg"),
+    (b"\xff\xfb", "audio/mpeg"),
+    (b"\xff\xf3", "audio/mpeg"),
+    (b"\xff\xf2", "audio/mpeg"),
+)
+"""The leading bytes of Ogg files, and of MP3 files with an ID3 tag or starting on a frame."""
+
+
+def sound_data(sound: bytes) -> SoundData:
+    """Encode a sound as the data URI Discord expects, with the content type its bytes show.
+
+    Raises:
+        ValueError: `sound` is not an MP3 or Ogg file, the only formats soundboard sounds accept.
+    """
+    for signature, content_type in _SOUND_SIGNATURES:
+        if sound.startswith(signature):
+            return f"data:{content_type};base64,{base64.b64encode(sound).decode()}"
+    msg = "sound data must be an MP3 or Ogg file"
+    raise ValueError(msg)

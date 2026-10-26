@@ -66,6 +66,8 @@ from shoal.rest.resources import (
     GuildEndpoints,
     InteractionEndpoints,
     MessageEndpoints,
+    SoundboardEndpoints,
+    StickerEndpoints,
     UserEndpoints,
     VoiceEndpoints,
 )
@@ -124,6 +126,8 @@ class RestClient(
     GuildEndpoints,
     InteractionEndpoints,
     MessageEndpoints,
+    SoundboardEndpoints,
+    StickerEndpoints,
     UserEndpoints,
     VoiceEndpoints,
 ):
@@ -238,6 +242,7 @@ class RestClient(
         query: Mapping[str, QueryValue] | None = None,
         reason: str | None = None,
         files: Mapping[str, File] | None = None,
+        form: Mapping[str, str] | None = None,
     ) -> T:
         """Send a request and decode the JSON response into `response_type`.
 
@@ -250,6 +255,7 @@ class RestClient(
                 (https://docs.discord.com/developers/resources/audit-log#audit-log-entry-object).
             files: Files to upload, by form field name. The request becomes `multipart/form-data`,
                 with `body` in its `payload_json` part.
+            form: Plain text form fields sent next to `files`.
 
         Raises:
             HTTPError: Discord returned an error status (see its subclasses).
@@ -257,7 +263,7 @@ class RestClient(
             ClientClosedError: The client was closed.
             OSError: The network failed on every attempt.
         """
-        response = await self._send(route, body=body, query=query, reason=reason, files=files)
+        response = await self._send(route, body=body, query=query, reason=reason, files=files, form=form)
         return decode_json(response.body, response_type)
 
     @override
@@ -269,9 +275,10 @@ class RestClient(
         query: Mapping[str, QueryValue] | None = None,
         reason: str | None = None,
         files: Mapping[str, File] | None = None,
+        form: Mapping[str, str] | None = None,
     ) -> None:
         """Send a request whose successful response has no body (204). Raises like `request`."""
-        await self._send(route, body=body, query=query, reason=reason, files=files)
+        await self._send(route, body=body, query=query, reason=reason, files=files, form=form)
 
     async def _send(
         self,
@@ -281,6 +288,7 @@ class RestClient(
         query: Mapping[str, QueryValue] | None,
         reason: str | None,
         files: Mapping[str, File] | None = None,
+        form: Mapping[str, str] | None = None,
     ) -> HTTPResponse:
         if self._closed:
             raise ClientClosedError
@@ -293,7 +301,7 @@ class RestClient(
         payload: bytes | None = None
         if files:
             payload, headers["Content-Type"] = encode_multipart(
-                None if body is None else encode_json(body), files
+                None if body is None else encode_json(body), files, form
             )
         elif body is not None:
             payload = encode_json(body)

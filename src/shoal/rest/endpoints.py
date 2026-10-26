@@ -66,6 +66,18 @@ CREATE_GUILD_EMOJI: Final = Route(
     docs="https://docs.discord.com/developers/resources/emoji#create-guild-emoji",
 )
 
+CREATE_GUILD_SOUNDBOARD_SOUND: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/soundboard-sounds",
+    docs="https://docs.discord.com/developers/resources/soundboard#create-guild-soundboard-sound",
+)
+
+CREATE_GUILD_STICKER: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/stickers",
+    docs="https://docs.discord.com/developers/resources/sticker#create-guild-sticker",
+)
+
 CREATE_INTERACTION_RESPONSE: Final = Route(
     HTTPMethod.POST,
     "/interactions/{interaction_id}/{interaction_token}/callback",
@@ -116,6 +128,18 @@ DELETE_GUILD_EMOJI: Final = Route(
     HTTPMethod.DELETE,
     "/guilds/{guild_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#delete-guild-emoji",
+)
+
+DELETE_GUILD_SOUNDBOARD_SOUND: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/soundboard-sounds/{sound_id}",
+    docs="https://docs.discord.com/developers/resources/soundboard#delete-guild-soundboard-sound",
+)
+
+DELETE_GUILD_STICKER: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/stickers/{sticker_id}",
+    docs="https://docs.discord.com/developers/resources/sticker#delete-guild-sticker",
 )
 
 DELETE_MESSAGE: Final = Route(
@@ -294,6 +318,18 @@ GET_GUILD_MEMBER: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#get-guild-member",
 )
 
+GET_GUILD_SOUNDBOARD_SOUND: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/soundboard-sounds/{sound_id}",
+    docs="https://docs.discord.com/developers/resources/soundboard#get-guild-soundboard-sound",
+)
+
+GET_GUILD_STICKER: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/stickers/{sticker_id}",
+    docs="https://docs.discord.com/developers/resources/sticker#get-guild-sticker",
+)
+
 GET_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
     HTTPMethod.GET,
     "/webhooks/{application_id}/{interaction_token}/messages/@original",
@@ -301,6 +337,18 @@ GET_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
     global_limit=False,
 )
 """Not counted towards the global rate limit, like every interaction endpoint."""
+
+GET_STICKER: Final = Route(
+    HTTPMethod.GET,
+    "/stickers/{sticker_id}",
+    docs="https://docs.discord.com/developers/resources/sticker#get-sticker",
+)
+
+GET_STICKER_PACK: Final = Route(
+    HTTPMethod.GET,
+    "/sticker-packs/{pack_id}",
+    docs="https://docs.discord.com/developers/resources/sticker#get-sticker-pack",
+)
 
 GET_USER: Final = Route(
     HTTPMethod.GET,
@@ -326,10 +374,34 @@ LIST_APPLICATION_EMOJIS: Final = Route(
     docs="https://docs.discord.com/developers/resources/emoji#list-application-emojis",
 )
 
+LIST_DEFAULT_SOUNDBOARD_SOUNDS: Final = Route(
+    HTTPMethod.GET,
+    "/soundboard-default-sounds",
+    docs="https://docs.discord.com/developers/resources/soundboard#list-default-soundboard-sounds",
+)
+
 LIST_GUILD_EMOJIS: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/emojis",
     docs="https://docs.discord.com/developers/resources/emoji#list-guild-emojis",
+)
+
+LIST_GUILD_SOUNDBOARD_SOUNDS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/soundboard-sounds",
+    docs="https://docs.discord.com/developers/resources/soundboard#list-guild-soundboard-sounds",
+)
+
+LIST_GUILD_STICKERS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/stickers",
+    docs="https://docs.discord.com/developers/resources/sticker#list-guild-stickers",
+)
+
+LIST_STICKER_PACKS: Final = Route(
+    HTTPMethod.GET,
+    "/sticker-packs",
+    docs="https://docs.discord.com/developers/resources/sticker#list-sticker-packs",
 )
 
 LIST_VOICE_REGIONS: Final = Route(
@@ -362,6 +434,18 @@ MODIFY_GUILD_EMOJI: Final = Route(
     docs="https://docs.discord.com/developers/resources/emoji#modify-guild-emoji",
 )
 
+MODIFY_GUILD_SOUNDBOARD_SOUND: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/soundboard-sounds/{sound_id}",
+    docs="https://docs.discord.com/developers/resources/soundboard#modify-guild-soundboard-sound",
+)
+
+MODIFY_GUILD_STICKER: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/stickers/{sticker_id}",
+    docs="https://docs.discord.com/developers/resources/sticker#modify-guild-sticker",
+)
+
 MODIFY_USER_VOICE_STATE: Final = Route(
     HTTPMethod.PATCH,
     "/guilds/{guild_id}/voice-states/{user_id}",
@@ -372,6 +456,12 @@ SEARCH_GUILD_MESSAGES: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/messages/search",
     docs="https://docs.discord.com/developers/resources/message#search-guild-messages",
+)
+
+SEND_SOUNDBOARD_SOUND: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/send-soundboard-sound",
+    docs="https://docs.discord.com/developers/resources/soundboard#send-soundboard-sound",
 )
 
 UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
@@ -390,6 +480,8 @@ ALL_ROUTES: Final = (
     CREATE_GROUP_DM,
     CREATE_GUILD_APPLICATION_COMMAND,
     CREATE_GUILD_EMOJI,
+    CREATE_GUILD_SOUNDBOARD_SOUND,
+    CREATE_GUILD_STICKER,
     CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
     DELETE_APPLICATION_EMOJI,
@@ -398,6 +490,8 @@ ALL_ROUTES: Final = (
     DELETE_GLOBAL_APPLICATION_COMMAND,
     DELETE_GUILD_APPLICATION_COMMAND,
     DELETE_GUILD_EMOJI,
+    DELETE_GUILD_SOUNDBOARD_SOUND,
+    DELETE_GUILD_STICKER,
     DELETE_MESSAGE,
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
@@ -426,19 +520,30 @@ ALL_ROUTES: Final = (
     GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
     GET_GUILD_EMOJI,
     GET_GUILD_MEMBER,
+    GET_GUILD_SOUNDBOARD_SOUND,
+    GET_GUILD_STICKER,
     GET_ORIGINAL_INTERACTION_RESPONSE,
+    GET_STICKER,
+    GET_STICKER_PACK,
     GET_USER,
     GET_USER_VOICE_STATE,
     LEAVE_GUILD,
     LIST_APPLICATION_EMOJIS,
+    LIST_DEFAULT_SOUNDBOARD_SOUNDS,
     LIST_GUILD_EMOJIS,
+    LIST_GUILD_SOUNDBOARD_SOUNDS,
+    LIST_GUILD_STICKERS,
+    LIST_STICKER_PACKS,
     LIST_VOICE_REGIONS,
     MODIFY_APPLICATION_EMOJI,
     MODIFY_CURRENT_USER,
     MODIFY_CURRENT_USER_VOICE_STATE,
     MODIFY_GUILD_EMOJI,
+    MODIFY_GUILD_SOUNDBOARD_SOUND,
+    MODIFY_GUILD_STICKER,
     MODIFY_USER_VOICE_STATE,
     SEARCH_GUILD_MESSAGES,
+    SEND_SOUNDBOARD_SOUND,
     UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
 )
 """Every declared route, for the docs checker and tests."""
