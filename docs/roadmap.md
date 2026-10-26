@@ -34,9 +34,11 @@ Built from what running greed taught us:
 
 ## 4. The rest of the Discord API
 
-`docs/coverage.md` lists every documented endpoint and whether Shoal implements it; CI fails when
-Discord documents something new. Priorities: webhooks, scheduled events and their recurrence exceptions, voice messages,
-polls, stickers, soundboard, auto moderation, entitlements, lobbies and webhook events.
+Every HTTP endpoint Discord documents is implemented; `docs/coverage.md` shows it and CI fails when
+Discord documents something new. Still to come: the gateway events of the newer resources
+(scheduled events, stage instances, stickers, soundboard, Auto Moderation, integrations, entitlements
+and subscriptions) with their cache handling, the outgoing webhook events Discord sends to an app,
+and voice messages.
 
 ## 5. Voice
 

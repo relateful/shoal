@@ -17,6 +17,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `shoal.rest`: `RestClient` with bot and bearer tokens, typed routes with docs links, per-bucket and
   global rate limiting, the invalid request guard, stop-after-401, and Search Guild Messages with
   retries while Discord builds the index.
+- Every HTTP endpoint Discord documents (239), grouped by resource in `shoal.rest.resources`: users,
+  voice, emoji, stickers, soundboard, channels, threads, invites, messages, reactions, pins, polls,
+  webhooks, guilds, members, roles, bans, prune, widgets, onboarding, scheduled events, stage
+  instances, templates, Auto Moderation, audit logs, applications, monetization, OAuth2 information,
+  lobbies and application identity profiles, each with its payloads. The four endpoints Discord has
+  deprecated or disabled are left out.
+- File uploads: `File` (bytes, or read off the event loop with `File.from_path`) on every endpoint
+  that takes files. Message-like requests describe new files in `attachments` themselves; edits only
+  append, so existing attachments are never dropped by accident. `image_data` and `sound_data` build
+  the data URIs Discord's image and sound fields take.
 - `shoal.gateway`: zlib-stream and zstd-stream decompression, shard routing, `max_concurrency` identify
   scheduling, persistent sessions, heartbeat tracking, the send limiter, event delay tracking, a
   resumable `Shard` that falls back from a failing resume URL to the main gateway, and `ShardManager`

@@ -17,6 +17,25 @@ async with RestClient(Token.bearer(oauth_access_token)) as rest:
   `TokenInvalidatedError` is raised for every request after a bot token was rejected, and
   `ClientClosedError` after `close()`.
 
+## Files and images
+
+Endpoints that take files have a `files=` argument; Shoal sends the request as `multipart/form-data`
+and, for messages, describes each file in `attachments`.
+
+```python
+from shoal.payloads import CreateMessageParams
+from shoal.rest import File
+
+report = await File.from_path("report.png", description="Weekly report")  # read off the event loop
+await rest.create_message(channel_id, CreateMessageParams(content="This week"), files=[report])
+```
+
+When editing a message, files passed are added to it. To remove attachments, list the ones to keep
+in `attachments`.
+
+Fields that take an image or a sound inline (an avatar, an emoji, a soundboard sound) take a data URI:
+`image_data(png_bytes)` and `sound_data(ogg_bytes)` build one and check the format.
+
 ## Rate limits that protect your IP
 
 - Requests are bucketed by Discord's `X-RateLimit-Bucket` and the route's top-level resource.
