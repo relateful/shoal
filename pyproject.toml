@@ -125,6 +125,8 @@ known-first-party = ["shoal"]
 
 [tool.pyright]
 include = ["src", "tests", "scripts"]
+# scripts/ is not a package: the scripts, and their tests, import them by module name.
+extraPaths = ["scripts"]
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"

@@ -66,16 +66,36 @@ jobs:
           path: coverage.xml
 
   discord-docs:
-    name: Links and routes match the Discord docs
+    name: Links, routes and coverage match the pinned Discord docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2
       - run: uv sync --locked
-      - name: Fetch the Discord docs source
-        run: git clone --depth 1 https://github.com/discord/discord-api-docs ../discord-api-docs
-      - name: Check every docs link and route
-        run: uv run python scripts/check_docs.py --docs-repo ../discord-api-docs
+      - name: Fetch the Discord docs revision discord-api-docs.lock pins
+        run: |
+          git init --quiet ../discord-api-docs
+          git -C ../discord-api-docs fetch --quiet --depth 1 https://github.com/discord/discord-api-docs "$(cat discord-api-docs.lock)"
+          git -C ../discord-api-docs checkout --quiet --detach FETCH_HEAD
+      - name: Check every docs link and route, and docs/coverage.md
+        run: uv run python scripts/check_docs.py --docs-repo ../discord-api-docs --check-coverage docs/coverage.md
+      # A mirror pull request pins an upstream change before Discord merges it; this keeps it from merging
+      # early. It runs even when the steps above fail, so an unfetchable pin still says why.
+      - name: The pinned revision is on Discord's main branch
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pin=$(cat discord-api-docs.lock)
+          if ! [[ "$pin" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::discord-api-docs.lock must hold one full commit hash"
+            exit 1
+          fi
+          status=$(gh api "repos/discord/discord-api-docs/compare/main...$pin" --jq .status)
+          if [ "$status" != behind ] && [ "$status" != identical ]; then
+            echo "::error::discord-api-docs.lock pins a revision that is not on Discord's main branch ($status)"
+            exit 1
+          fi
 
   docs-site:
     name: Documentation site builds
