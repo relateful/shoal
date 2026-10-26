@@ -14,10 +14,13 @@ from shoal.gateway.defaults import RESUMABLE_CLOSE_CODE
 from shoal.gateway.session import GatewaySession, MemorySessionStore, SessionStore
 from shoal.gateway.shard import GatewayFatalError, Shard, ShardNotConnectedError, ShardState
 from shoal.payloads import (
+    ChannelInfoField,
     GatewayCapabilities,
     GatewayOpcode,
     Intents,
+    RequestChannelInfo,
     RequestGuildMembers,
+    RequestSoundboardSounds,
     StatusType,
     TransportCompression,
     UpdatePresence,
@@ -605,3 +608,35 @@ async def test_ending_a_session_wins_over_a_save_still_in_flight() -> None:
     assert harness.task is not None
     await asyncio.wait_for(harness.task, timeout=1)
     assert await store.inner.load(0, 1) is None
+
+
+async def test_soundboard_and_channel_info_requests_use_their_opcodes() -> None:
+    connection = FakeConnection()
+    connection.push(HELLO)
+    connection.push(ready())
+    harness = Harness(connection)
+    await harness.start()
+    await harness.shard.request_soundboard_sounds(RequestSoundboardSounds(guild_ids=[Snowflake(2)]))
+    assert sent(connection)[-1] == {"op": 31, "d": {"guild_ids": ["2"]}}
+    await harness.shard.request_channel_info(
+        RequestChannelInfo(guild_id=Snowflake(2), fields=[ChannelInfoField.STATUS])
+    )
+    assert sent(connection)[-1] == {"op": 43, "d": {"guild_id": "2", "fields": ["status"]}}
+    await harness.stop()
+
+
+async def test_a_rate_limited_command_is_logged_and_still_dispatched(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    connection = FakeConnection()
+    connection.push(HELLO)
+    connection.push(ready())
+    limited = {"opcode": 8, "retry_after": 27.5, "meta": {"guild_id": "2"}}
+    connection.push(gateway_message(0, limited, s=2, t="RATE_LIMITED"))
+    harness = Harness(connection)
+    with caplog.at_level(logging.WARNING, logger="shoal.gateway"):
+        await harness.start()
+        await settle()
+    assert "rate limited REQUEST_GUILD_MEMBERS; retry after 27.5s" in caplog.text
+    assert [event.name for event in harness.events][-1] == "RATE_LIMITED"
+    await harness.stop()

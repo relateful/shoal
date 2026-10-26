@@ -36,9 +36,11 @@ from shoal.payloads import (
 from tests.support.json_payloads import (
     CHANNEL,
     GUILD,
+    INTEGRATION,
     INVITE_WITH_METADATA,
     MEMBER,
     REGION,
+    ROLE,
     THREAD,
     THREAD_MEMBER,
     USER,
@@ -46,18 +48,6 @@ from tests.support.json_payloads import (
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
 G = "/guilds/2"
-ROLE: dict[str, object] = {
-    "id": "5",
-    "name": "mods",
-    "color": 0,
-    "colors": {"primary_color": 0, "secondary_color": None, "tertiary_color": None},
-    "hoist": True,
-    "position": 1,
-    "permissions": "8",
-    "managed": False,
-    "mentionable": True,
-    "flags": 0,
-}
 PREVIEW: dict[str, object] = {
     "id": "197038439483310086",
     "name": "Discord Testers",
@@ -73,21 +63,6 @@ PREVIEW: dict[str, object] = {
 }
 """Discord's example, with fewer features."""
 BAN: dict[str, object] = {"reason": "mentioning b1nzy", "user": USER}
-INTEGRATION: dict[str, object] = {
-    "id": "33",
-    "name": "Twitch",
-    "type": "twitch",
-    "enabled": True,
-    "syncing": False,
-    "role_id": "5",
-    "expire_behavior": 0,
-    "expire_grace_period": 7,
-    "user": USER,
-    "account": {"id": "a1", "name": "streamer"},
-    "synced_at": "2024-01-01T00:00:00+00:00",
-    "subscriber_count": 12,
-    "revoked": False,
-}
 BOT_INTEGRATION: dict[str, object] = {
     "id": "34",
     "name": "Shoal",

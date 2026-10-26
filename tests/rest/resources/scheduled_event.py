@@ -13,39 +13,9 @@ from shoal.payloads import (
     ScheduledEventPrivacyLevel,
     ScheduledEventStatus,
 )
-from tests.support.json_payloads import MEMBER, USER
+from tests.support.json_payloads import MEMBER, SCHEDULED_EVENT, USER
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
-EVENT: dict[str, object] = {
-    "id": "40",
-    "guild_id": "2",
-    "channel_id": None,
-    "creator_id": "1",
-    "name": "Meetup",
-    "description": "Bring snacks",
-    "scheduled_start_time": "2026-02-01T18:00:00+00:00",
-    "scheduled_end_time": "2026-02-01T20:00:00+00:00",
-    "privacy_level": 2,
-    "status": 1,
-    "entity_type": 3,
-    "entity_id": None,
-    "entity_metadata": {"location": "Town hall"},
-    "creator": USER,
-    "user_count": 12,
-    "image": None,
-    "recurrence_rule": {
-        "start": "2026-02-01T18:00:00+00:00",
-        "end": None,
-        "frequency": 2,
-        "interval": 1,
-        "by_weekday": [6],
-        "by_n_weekday": None,
-        "by_month": None,
-        "by_month_day": None,
-        "by_year_day": None,
-        "count": None,
-    },
-}
 EVENTS = "/guilds/2/scheduled-events"
 
 CASES = [
@@ -54,7 +24,7 @@ CASES = [
         call=lambda client: client.scheduled_events.list(2, with_user_count=True),
         method="GET",
         path=f"{EVENTS}?with_user_count=true",
-        response=[EVENT],
+        response=[SCHEDULED_EVENT],
     ),
     EndpointCase(
         name="create",
@@ -92,7 +62,7 @@ CASES = [
                 "by_weekday": [6],
             },
         },
-        response=EVENT,
+        response=SCHEDULED_EVENT,
         reason="community night",
     ),
     EndpointCase(
@@ -100,7 +70,7 @@ CASES = [
         call=lambda client: client.scheduled_events.get(2, 40),
         method="GET",
         path=f"{EVENTS}/40",
-        response=EVENT,
+        response=SCHEDULED_EVENT,
     ),
     EndpointCase(
         name="start",
@@ -110,7 +80,7 @@ CASES = [
         method="PATCH",
         path=f"{EVENTS}/40",
         body={"status": 2, "recurrence_rule": None},
-        response=EVENT,
+        response=SCHEDULED_EVENT,
     ),
     EndpointCase(
         name="delete",

@@ -3,30 +3,41 @@
 Discord: https://docs.discord.com/developers/events/gateway-events
 
 Dispatch event bodies that are plain resources (`CHANNEL_CREATE` is a `Channel`) reuse the resource
-type; only events with their own shape are declared here. Not yet modeled: the events of scheduled
-events, stage instances, stickers, soundboard sounds, Auto Moderation, integrations, entitlements and
-subscriptions; `docs/roadmap.md` tracks them.
+type; only events with their own shape are declared here. `DISPATCH_PAYLOADS` maps every dispatch
+Discord documents to the type its data decodes into.
 """
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Final, override
 
 import msgspec
 from msgspec import UNSET, Raw, UnsetType
 
+from shoal.core.codec import decode_json
 from shoal.core.enums import DiscordIntEnum, DiscordStrEnum
 from shoal.core.flags import BaseFlags, flag
 from shoal.core.snowflake import Snowflake
+from shoal.payloads.application_commands import GuildApplicationCommandPermissions
+from shoal.payloads.audit_log import AuditLogEntry
+from shoal.payloads.auto_moderation import (
+    AutoModerationAction,
+    AutoModerationRule,
+    AutoModerationTriggerType,
+)
 from shoal.payloads.base import Payload
 from shoal.payloads.channel import Channel, ChannelType, ThreadMember
 from shoal.payloads.emoji import Emoji
 from shoal.payloads.gateway import GatewayOpcode, Intents
-from shoal.payloads.guild import Guild, GuildMember, GuildMemberFlags, UnavailableGuild
+from shoal.payloads.guild import Guild, GuildMember, GuildMemberFlags, Integration, UnavailableGuild
+from shoal.payloads.invite import InviteTargetType
 from shoal.payloads.message import Message, ReactionType
+from shoal.payloads.monetization import Entitlement, Subscription
 from shoal.payloads.permissions import Role
 from shoal.payloads.scheduled_event import GuildScheduledEvent
 from shoal.payloads.soundboard import SoundboardSound
 from shoal.payloads.stage_instance import StageInstance
+from shoal.payloads.sticker import Sticker
 from shoal.payloads.user import AvatarDecorationData, Collectibles, User
 from shoal.payloads.voice import VoiceState
 
@@ -282,6 +293,35 @@ class RequestGuildMembers(Payload):
     nonce: str | UnsetType = UNSET
 
 
+class RequestSoundboardSounds(Payload):
+    """Opcode 31 body: ask for the soundboard sounds of guilds (answered by `SOUNDBOARD_SOUNDS`).
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#request-soundboard-sounds
+    """
+
+    guild_ids: list[Snowflake]
+
+
+class ChannelInfoField(DiscordStrEnum):
+    """Ephemeral channel data that Request Channel Info can ask for.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#request-channel-info
+    """
+
+    STATUS = "status"
+    VOICE_START_TIME = "voice_start_time"
+
+
+class RequestChannelInfo(Payload):
+    """Opcode 43 body: ask for ephemeral data of a guild's channels (answered by `CHANNEL_INFO`).
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#request-channel-info
+    """
+
+    guild_id: Snowflake
+    fields: list[ChannelInfoField]
+
+
 class UpdateVoiceState(Payload):
     """Opcode 4 body: join, move or leave a voice channel.
 
@@ -422,13 +462,20 @@ class GuildMembersChunk(Payload):
 
 
 class GuildRoleCreate(Payload):
-    """`GUILD_ROLE_CREATE` dispatch. `GUILD_ROLE_UPDATE` has the same shape.
+    """`GUILD_ROLE_CREATE` dispatch.
 
     Discord: https://docs.discord.com/developers/events/gateway-events#guild-role-create
     """
 
     guild_id: Snowflake
     role: Role
+
+
+class GuildRoleUpdate(GuildRoleCreate):
+    """`GUILD_ROLE_UPDATE` dispatch: the role's new state.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-role-update
+    """
 
 
 class GuildRoleDelete(Payload):
@@ -621,6 +668,15 @@ class ThreadListSync(Payload):
     members: list[ThreadMember]
 
 
+class AddedThreadMember(ThreadMember):
+    """A thread member in `THREAD_MEMBERS_UPDATE`, with the user's guild member and presence.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#thread-members-update
+    """
+
+    presence: Presence | UnsetType | None = UNSET
+
+
 class ThreadMembersUpdate(Payload):
     """`THREAD_MEMBERS_UPDATE` dispatch.
 
@@ -630,5 +686,481 @@ class ThreadMembersUpdate(Payload):
     id: Snowflake
     guild_id: Snowflake
     member_count: int
-    added_members: list[ThreadMember] | UnsetType = UNSET
+    """Approximate, capped at 50."""
+    added_members: list[AddedThreadMember] | UnsetType = UNSET
     removed_member_ids: list[Snowflake] | UnsetType = UNSET
+
+
+class ThreadCreate(Channel):
+    """`THREAD_CREATE` dispatch: the thread, plus whether it is new.
+
+    It is also sent when the bot is added to an existing private thread; `member` is then set.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#thread-create
+    """
+
+    newly_created: bool | UnsetType = UNSET
+
+
+class ThreadMemberUpdate(ThreadMember):
+    """`THREAD_MEMBER_UPDATE` dispatch: the bot's own thread membership changed.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#thread-member-update
+    """
+
+    guild_id: Snowflake
+
+
+class AutoModerationActionExecution(Payload):
+    """`AUTO_MODERATION_ACTION_EXECUTION` dispatch: a rule matched and one of its actions ran.
+
+    `content` and `matched_content` are empty without the `message_content` intent.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#auto-moderation-action-execution
+    """
+
+    guild_id: Snowflake
+    action: AutoModerationAction
+    rule_id: Snowflake
+    rule_trigger_type: AutoModerationTriggerType
+    user_id: Snowflake
+    channel_id: Snowflake | UnsetType = UNSET
+    message_id: Snowflake | UnsetType = UNSET
+    """Absent when the message was blocked or the content was not part of a message."""
+    alert_system_message_id: Snowflake | UnsetType = UNSET
+    """Only for a `SEND_ALERT_MESSAGE` action."""
+    content: str
+    matched_keyword: str | None
+    matched_content: str | None
+
+
+class ChannelInfoChannel(Payload):
+    """One channel's ephemeral data in `CHANNEL_INFO`.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#channel-info-channel-info-channel-structure
+    """
+
+    id: Snowflake
+    status: str | UnsetType | None = UNSET
+    """The voice channel status."""
+    voice_start_time: int | UnsetType | None = UNSET
+    """Unix time in seconds when the voice session started."""
+
+
+class ChannelInfo(Payload):
+    """`CHANNEL_INFO` dispatch, the answer to `RequestChannelInfo`.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#channel-info
+    """
+
+    guild_id: Snowflake
+    channels: list[ChannelInfoChannel]
+
+
+class VoiceChannelStatusUpdate(Payload):
+    """`VOICE_CHANNEL_STATUS_UPDATE` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#voice-channel-status-update
+    """
+
+    id: Snowflake
+    guild_id: Snowflake
+    status: str | None
+
+
+class VoiceChannelStartTimeUpdate(Payload):
+    """`VOICE_CHANNEL_START_TIME_UPDATE` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#voice-channel-start-time-update
+    """
+
+    id: Snowflake
+    guild_id: Snowflake
+    voice_start_time: int | UnsetType | None = UNSET
+    """Unix time in seconds when the voice session started."""
+
+
+class GuildAuditLogEntryCreate(AuditLogEntry):
+    """`GUILD_AUDIT_LOG_ENTRY_CREATE` dispatch: the entry plus its guild.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-audit-log-entry-create
+    """
+
+    guild_id: Snowflake
+
+
+class GuildBanAdd(Payload):
+    """`GUILD_BAN_ADD` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-ban-add
+    """
+
+    guild_id: Snowflake
+    user: User
+
+
+class GuildBanRemove(Payload):
+    """`GUILD_BAN_REMOVE` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-ban-remove
+    """
+
+    guild_id: Snowflake
+    user: User
+
+
+class GuildStickersUpdate(Payload):
+    """`GUILD_STICKERS_UPDATE` dispatch: the guild's complete sticker list.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-stickers-update
+    """
+
+    guild_id: Snowflake
+    stickers: list[Sticker]
+
+
+class GuildIntegrationsUpdate(Payload):
+    """`GUILD_INTEGRATIONS_UPDATE` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-integrations-update
+    """
+
+    guild_id: Snowflake
+
+
+class GuildScheduledEventUserAdd(Payload):
+    """`GUILD_SCHEDULED_EVENT_USER_ADD` dispatch: a user subscribed to an event.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-scheduled-event-user-add
+    """
+
+    guild_scheduled_event_id: Snowflake
+    user_id: Snowflake
+    guild_id: Snowflake
+
+
+class GuildScheduledEventUserRemove(Payload):
+    """`GUILD_SCHEDULED_EVENT_USER_REMOVE` dispatch: a user unsubscribed from an event.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-scheduled-event-user-remove
+    """
+
+    guild_scheduled_event_id: Snowflake
+    user_id: Snowflake
+    guild_id: Snowflake
+
+
+class GuildSoundboardSoundDelete(Payload):
+    """`GUILD_SOUNDBOARD_SOUND_DELETE` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-soundboard-sound-delete
+    """
+
+    sound_id: Snowflake
+    guild_id: Snowflake
+
+
+class GuildSoundboardSoundsUpdate(Payload):
+    """`GUILD_SOUNDBOARD_SOUNDS_UPDATE` dispatch: several of the guild's sounds changed.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#guild-soundboard-sounds-update
+    """
+
+    soundboard_sounds: list[SoundboardSound]
+    guild_id: Snowflake
+
+
+class SoundboardSounds(Payload):
+    """`SOUNDBOARD_SOUNDS` dispatch: a guild's complete sound list, the answer to `RequestSoundboardSounds`.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#soundboard-sounds
+    """
+
+    soundboard_sounds: list[SoundboardSound]
+    guild_id: Snowflake
+
+
+class IntegrationCreate(Integration):
+    """`INTEGRATION_CREATE` dispatch: the integration (without `user`) plus its guild.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#integration-create
+    """
+
+    guild_id: Snowflake
+
+
+class IntegrationUpdate(IntegrationCreate):
+    """`INTEGRATION_UPDATE` dispatch: the integration (without `user`) plus its guild.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#integration-update
+    """
+
+
+class IntegrationDelete(Payload):
+    """`INTEGRATION_DELETE` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#integration-delete
+    """
+
+    id: Snowflake
+    guild_id: Snowflake
+    application_id: Snowflake | UnsetType = UNSET
+    """The bot or OAuth2 application, for a Discord integration."""
+
+
+class InviteCreate(Payload):
+    """`INVITE_CREATE` dispatch.
+
+    `target_application` (a partial application) is not modeled yet, as on `Invite`.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#invite-create
+    """
+
+    REDACTED_FIELDS = frozenset({"code"})
+
+    channel_id: Snowflake
+    code: str
+    created_at: datetime
+    guild_id: Snowflake | UnsetType = UNSET
+    inviter: User | UnsetType = UNSET
+    max_age: int
+    """Seconds."""
+    max_uses: int
+    target_type: InviteTargetType | UnsetType = UNSET
+    target_user: User | UnsetType = UNSET
+    temporary: bool
+    uses: int
+    """Always 0."""
+    expires_at: datetime | None
+    role_ids: list[Snowflake] | UnsetType = UNSET
+
+
+class InviteDelete(Payload):
+    """`INVITE_DELETE` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#invite-delete
+    """
+
+    REDACTED_FIELDS = frozenset({"code"})
+
+    channel_id: Snowflake
+    guild_id: Snowflake | UnsetType = UNSET
+    code: str
+
+
+class TypingStart(Payload):
+    """`TYPING_START` dispatch.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#typing-start
+    """
+
+    channel_id: Snowflake
+    guild_id: Snowflake | UnsetType = UNSET
+    user_id: Snowflake
+    timestamp: int
+    """Unix time in seconds."""
+    member: GuildMember | UnsetType = UNSET
+
+
+class VoiceChannelEffectAnimationType(DiscordIntEnum):
+    """How a voice channel effect is animated.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#voice-channel-effect-send-animation-types
+    """
+
+    PREMIUM = 0
+    """A fun animation, sent by a Nitro subscriber."""
+    BASIC = 1
+
+
+class VoiceChannelEffectSend(Payload):
+    """`VOICE_CHANNEL_EFFECT_SEND` dispatch: an emoji or soundboard effect in the bot's voice channel.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#voice-channel-effect-send
+    """
+
+    channel_id: Snowflake
+    guild_id: Snowflake
+    user_id: Snowflake
+    emoji: Emoji | UnsetType | None = UNSET
+    animation_type: VoiceChannelEffectAnimationType | UnsetType | None = UNSET
+    animation_id: int | UnsetType = UNSET
+    sound_id: Snowflake | UnsetType = UNSET
+    """Discord documents a snowflake or an integer; both decode to a `Snowflake`."""
+    sound_volume: float | UnsetType = UNSET
+    """From 0 to 1."""
+
+
+class VoiceServerUpdate(Payload):
+    """`VOICE_SERVER_UPDATE` dispatch: where to connect for voice, and the token to connect with.
+
+    A `None` endpoint means the voice server went away: disconnect, and wait for the next update.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#voice-server-update
+    """
+
+    REDACTED_FIELDS = frozenset({"token"})
+
+    token: str
+    guild_id: Snowflake
+    endpoint: str | None
+
+
+class WebhooksUpdate(Payload):
+    """`WEBHOOKS_UPDATE` dispatch: a webhook of the channel was created, updated or deleted.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#webhooks-update
+    """
+
+    guild_id: Snowflake
+    channel_id: Snowflake
+
+
+class MessagePollVoteAdd(Payload):
+    """`MESSAGE_POLL_VOTE_ADD` dispatch: one per answer chosen.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#message-poll-vote-add
+    """
+
+    user_id: Snowflake
+    channel_id: Snowflake
+    message_id: Snowflake
+    guild_id: Snowflake | UnsetType = UNSET
+    answer_id: int
+
+
+class MessagePollVoteRemove(Payload):
+    """`MESSAGE_POLL_VOTE_REMOVE` dispatch: one per answer withdrawn.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#message-poll-vote-remove
+    """
+
+    user_id: Snowflake
+    channel_id: Snowflake
+    message_id: Snowflake
+    guild_id: Snowflake | UnsetType = UNSET
+    answer_id: int
+
+
+class RequestGuildMembersRateLimitMetadata(Payload):
+    """`RateLimited.meta` when the limited command was Request Guild Members.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#rate-limited-request-guild-member-rate-limit-metadata-structure
+    """
+
+    guild_id: Snowflake
+    nonce: str | UnsetType = UNSET
+
+
+class RateLimited(Payload):
+    """`RATE_LIMITED` dispatch: a gateway command was refused until `retry_after` has passed.
+
+    `meta` depends on the opcode, so it stays raw; `guild_members_metadata` reads the one kind
+    Discord documents.
+
+    Discord: https://docs.discord.com/developers/events/gateway-events#rate-limited
+    """
+
+    opcode: GatewayOpcode
+    retry_after: float
+    """Seconds."""
+    meta: Raw
+
+    def guild_members_metadata(self) -> RequestGuildMembersRateLimitMetadata | None:
+        """The metadata of a limited Request Guild Members, or `None` for another opcode.
+
+        Raises:
+            PayloadDecodeError: The opcode is Request Guild Members but `meta` does not match.
+        """
+        if self.opcode is not GatewayOpcode.REQUEST_GUILD_MEMBERS:
+            return None
+        return decode_json(self.meta, RequestGuildMembersRateLimitMetadata)
+
+
+DISPATCH_PAYLOADS: Final[Mapping[str, type[Payload]]] = {
+    "APPLICATION_COMMAND_PERMISSIONS_UPDATE": GuildApplicationCommandPermissions,
+    "AUTO_MODERATION_ACTION_EXECUTION": AutoModerationActionExecution,
+    "AUTO_MODERATION_RULE_CREATE": AutoModerationRule,
+    "AUTO_MODERATION_RULE_DELETE": AutoModerationRule,
+    "AUTO_MODERATION_RULE_UPDATE": AutoModerationRule,
+    "CHANNEL_CREATE": Channel,
+    "CHANNEL_DELETE": Channel,
+    "CHANNEL_INFO": ChannelInfo,
+    "CHANNEL_PINS_UPDATE": ChannelPinsUpdate,
+    "CHANNEL_UPDATE": Channel,
+    "ENTITLEMENT_CREATE": Entitlement,
+    "ENTITLEMENT_DELETE": Entitlement,
+    "ENTITLEMENT_UPDATE": Entitlement,
+    "GUILD_AUDIT_LOG_ENTRY_CREATE": GuildAuditLogEntryCreate,
+    "GUILD_BAN_ADD": GuildBanAdd,
+    "GUILD_BAN_REMOVE": GuildBanRemove,
+    "GUILD_CREATE": GuildCreate,
+    "GUILD_DELETE": GuildDelete,
+    "GUILD_EMOJIS_UPDATE": GuildEmojisUpdate,
+    "GUILD_INTEGRATIONS_UPDATE": GuildIntegrationsUpdate,
+    "GUILD_MEMBERS_CHUNK": GuildMembersChunk,
+    "GUILD_MEMBER_ADD": GuildMemberAdd,
+    "GUILD_MEMBER_REMOVE": GuildMemberRemove,
+    "GUILD_MEMBER_UPDATE": GuildMemberUpdate,
+    "GUILD_ROLE_CREATE": GuildRoleCreate,
+    "GUILD_ROLE_DELETE": GuildRoleDelete,
+    "GUILD_ROLE_UPDATE": GuildRoleUpdate,
+    "GUILD_SCHEDULED_EVENT_CREATE": GuildScheduledEvent,
+    "GUILD_SCHEDULED_EVENT_DELETE": GuildScheduledEvent,
+    "GUILD_SCHEDULED_EVENT_UPDATE": GuildScheduledEvent,
+    "GUILD_SCHEDULED_EVENT_USER_ADD": GuildScheduledEventUserAdd,
+    "GUILD_SCHEDULED_EVENT_USER_REMOVE": GuildScheduledEventUserRemove,
+    "GUILD_SOUNDBOARD_SOUNDS_UPDATE": GuildSoundboardSoundsUpdate,
+    "GUILD_SOUNDBOARD_SOUND_CREATE": SoundboardSound,
+    "GUILD_SOUNDBOARD_SOUND_DELETE": GuildSoundboardSoundDelete,
+    "GUILD_SOUNDBOARD_SOUND_UPDATE": SoundboardSound,
+    "GUILD_STICKERS_UPDATE": GuildStickersUpdate,
+    "GUILD_UPDATE": Guild,
+    "INTEGRATION_CREATE": IntegrationCreate,
+    "INTEGRATION_DELETE": IntegrationDelete,
+    "INTEGRATION_UPDATE": IntegrationUpdate,
+    "INVITE_CREATE": InviteCreate,
+    "INVITE_DELETE": InviteDelete,
+    "MESSAGE_CREATE": MessageCreate,
+    "MESSAGE_DELETE": MessageDelete,
+    "MESSAGE_DELETE_BULK": MessageDeleteBulk,
+    "MESSAGE_POLL_VOTE_ADD": MessagePollVoteAdd,
+    "MESSAGE_POLL_VOTE_REMOVE": MessagePollVoteRemove,
+    "MESSAGE_REACTION_ADD": MessageReactionAdd,
+    "MESSAGE_REACTION_REMOVE": MessageReactionRemove,
+    "MESSAGE_REACTION_REMOVE_ALL": MessageReactionRemoveAll,
+    "MESSAGE_REACTION_REMOVE_EMOJI": MessageReactionRemoveEmoji,
+    "MESSAGE_UPDATE": MessageUpdate,
+    "PRESENCE_UPDATE": PresenceUpdate,
+    "RATE_LIMITED": RateLimited,
+    "READY": Ready,
+    "SOUNDBOARD_SOUNDS": SoundboardSounds,
+    "STAGE_INSTANCE_CREATE": StageInstance,
+    "STAGE_INSTANCE_DELETE": StageInstance,
+    "STAGE_INSTANCE_UPDATE": StageInstance,
+    "SUBSCRIPTION_CREATE": Subscription,
+    "SUBSCRIPTION_DELETE": Subscription,
+    "SUBSCRIPTION_UPDATE": Subscription,
+    "THREAD_CREATE": ThreadCreate,
+    "THREAD_DELETE": Channel,
+    "THREAD_LIST_SYNC": ThreadListSync,
+    "THREAD_MEMBERS_UPDATE": ThreadMembersUpdate,
+    "THREAD_MEMBER_UPDATE": ThreadMemberUpdate,
+    "THREAD_UPDATE": Channel,
+    "TYPING_START": TypingStart,
+    "USER_UPDATE": User,
+    "VOICE_CHANNEL_EFFECT_SEND": VoiceChannelEffectSend,
+    "VOICE_CHANNEL_START_TIME_UPDATE": VoiceChannelStartTimeUpdate,
+    "VOICE_CHANNEL_STATUS_UPDATE": VoiceChannelStatusUpdate,
+    "VOICE_SERVER_UPDATE": VoiceServerUpdate,
+    "VOICE_STATE_UPDATE": VoiceState,
+    "WEBHOOKS_UPDATE": WebhooksUpdate,
+}
+"""The type each documented dispatch decodes into, for `DispatchEvent.decode`.
+
+Not listed: `RESUMED`, which carries no data, and `INTERACTION_CREATE`, whose type depends on the
+interaction's `type` and is decoded by `parse_interaction`. A `GUILD_CREATE` for a guild in an outage
+is an `UnavailableGuild`; `GuildCreate` documents how to tell.
+
+Discord: https://docs.discord.com/developers/events/gateway-events#receive-events
+"""

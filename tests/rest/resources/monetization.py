@@ -5,21 +5,9 @@ from shoal.payloads import (
     ListEntitlementsParams,
     ListSubscriptionsParams,
 )
+from tests.support.json_payloads import ENTITLEMENT, SUBSCRIPTION
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
-ENTITLEMENT: dict[str, object] = {
-    "id": "1019653849998299136",
-    "sku_id": "1019475255913222144",
-    "application_id": "1019370614521200640",
-    "user_id": "771129655544643584",
-    "type": 8,
-    "deleted": False,
-    "starts_at": "2022-09-14T17:00:18.704163+00:00",
-    "ends_at": "2022-10-14T17:00:18.704163+00:00",
-    "guild_id": "1015034326372454400",
-    "consumed": False,
-}
-"""Discord's example, in the field table's order and without the fields the table leaves out."""
 SKU: dict[str, object] = {
     "id": "1088510058284990888",
     "type": 5,
@@ -28,18 +16,6 @@ SKU: dict[str, object] = {
     "slug": "test-premium",
     "flags": 128,
 }
-SUBSCRIPTION: dict[str, object] = {
-    "id": "1278078770116427839",
-    "user_id": "1088605110638227537",
-    "sku_ids": ["1158857122189168803"],
-    "entitlement_ids": [],
-    "renewal_sku_ids": None,
-    "current_period_start": "2024-08-27T19:48:44.406602+00:00",
-    "current_period_end": "2024-09-27T19:48:44.406602+00:00",
-    "status": 0,
-    "canceled_at": None,
-}
-"""Discord's example."""
 ENTITLEMENTS = "/applications/1019370614521200640/entitlements"
 
 CASES = [

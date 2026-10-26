@@ -1,6 +1,7 @@
 import asyncio
 from typing import override
 
+import msgspec
 import pytest
 
 from shoal.core.dispatch import DispatchEvent
@@ -146,3 +147,35 @@ def test_rejects_empty_or_duplicate_shard_ids() -> None:
         ShardManager(token="t", intents=Intents.none(), dispatch=dispatch, shard_count=2, shard_ids=[])
     with pytest.raises(ValueError, match="duplicates"):
         ShardManager(token="t", intents=Intents.none(), dispatch=dispatch, shard_count=2, shard_ids=[1, 1])
+
+
+async def test_soundboard_requests_go_to_each_guilds_shard() -> None:
+    async def dispatch(event: DispatchEvent) -> None:
+        del event
+
+    clock = ManualClock()
+    two, three = connection_for(2, 4), connection_for(3, 4)
+    manager = ShardManager(
+        token="t",
+        intents=Intents.none(),
+        dispatch=dispatch,
+        shard_count=4,
+        shard_ids=[2, 3],
+        connector=FakeConnector(two, three),
+        compression=None,
+        clock=clock,
+    )
+    task = asyncio.create_task(manager.run())
+    await settle()
+    await clock.advance(5)
+    on_two, on_three, also_on_two = 2 << 22, 3 << 22, (6 << 22) | 2 << 22
+    await manager.request_soundboard_sounds([on_two, on_three, also_on_two])
+    assert msgspec.json.decode(two.sent[-1]) == {
+        "op": 31,
+        "d": {"guild_ids": [str(on_two), str(also_on_two)]},
+    }
+    assert msgspec.json.decode(three.sent[-1]) == {"op": 31, "d": {"guild_ids": [str(on_three)]}}
+    with pytest.raises(ValueError, match="does not run"):
+        await manager.request_soundboard_sounds([0])
+    await manager.close()
+    await asyncio.wait_for(task, timeout=2)

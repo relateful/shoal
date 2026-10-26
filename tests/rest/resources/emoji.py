@@ -5,19 +5,9 @@ from shoal.payloads import (
     EditApplicationEmojiParams,
     EditEmojiParams,
 )
-from tests.support.json_payloads import USER
+from tests.support.json_payloads import EMOJI
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
-EMOJI: dict[str, object] = {
-    "id": "41771983429993937",
-    "name": "LUL",
-    "roles": ["41771983429993000"],
-    "user": USER,
-    "require_colons": True,
-    "managed": False,
-    "animated": False,
-    "available": True,
-}
 IMAGE = "data:image/png;base64,iVBORw0KGgo="
 GUILD_EMOJIS = "/guilds/2/emojis"
 APPLICATION_EMOJIS = "/applications/7/emojis"

@@ -25,6 +25,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   instances, templates, Auto Moderation, audit logs, applications, monetization, OAuth2 information,
   lobbies and application identity profiles, each with its payloads. The four endpoints Discord has
   deprecated or disabled are left out.
+- Every gateway event Discord documents (82) is typed: `DISPATCH_PAYLOADS` maps each dispatch name
+  to the type its data decodes into, and the coverage page lists them. Includes Auto Moderation,
+  audit log entries, bans, stickers, integrations, invites, scheduled event subscribers, soundboard
+  sounds, polls, typing, voice channel effects and status, voice server updates and `RATE_LIMITED`
+  (which the shard logs). Shards send the new Request Soundboard Sounds and Request Channel Info
+  commands; `ShardManager.request_soundboard_sounds` splits a guild list across shards.
 - File uploads: `File` (bytes, or read off the event loop with `File.from_path`) on every endpoint
   that takes files. Message-like requests describe new files in `attachments` themselves; edits only
   append, so existing attachments are never dropped by accident. `image_data` and `sound_data` build

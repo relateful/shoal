@@ -247,6 +247,71 @@ def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) 
     return "\n".join(lines) + "\n"
 
 
+GATEWAY_EVENTS_PAGE = "events/gateway-events"
+EVENT_ROW = re.compile(r"^\| \[([^\]]+)\]\(/developers/events/gateway-events#([a-z0-9-]+)\)")
+CONNECTION_EVENTS = {
+    "HELLO": "handled by the shard (opcode 10)",
+    "RECONNECT": "handled by the shard (opcode 7)",
+    "INVALID_SESSION": "handled by the shard (opcode 9)",
+    "RESUMED": "no data; the shard and cache act on it",
+    "INTERACTION_CREATE": "`parse_interaction`",
+}
+"""Receive events that have no entry in `DISPATCH_PAYLOADS`, and what handles them instead."""
+
+
+def documented_events(repository: Path) -> list[tuple[str, str]]:
+    """`(EVENT_NAME, anchor)` for every row of the docs' Receive Events table, in the docs' order."""
+    text = (repository / "developers" / f"{GATEWAY_EVENTS_PAGE}.mdx").read_text(encoding="utf-8")
+    section = text.split("## Receive Events", 1)[1].split("\n## ", 1)[0]
+    events: list[tuple[str, str]] = []
+    for line in section.splitlines():
+        match = EVENT_ROW.match(line)
+        if match:
+            events.append((match.group(1).upper().replace(" ", "_"), match.group(2)))
+    return events
+
+
+def dispatch_payloads() -> dict[str, str]:
+    """`DISPATCH_PAYLOADS`, with each type's name."""
+    sys.path.insert(0, str(SOURCE.parent))
+    from shoal.payloads.gateway_events import DISPATCH_PAYLOADS  # noqa: PLC0415
+
+    return {name: payload.__name__ for name, payload in DISPATCH_PAYLOADS.items()}
+
+
+def check_events(events: list[tuple[str, str]], decoded: dict[str, str]) -> list[str]:
+    """Events Shoal decodes that Discord does not document (renamed or removed upstream)."""
+    documented = {name for name, _ in events}
+    return [
+        f"{name}: in DISPATCH_PAYLOADS but not a documented event"
+        for name in decoded
+        if name not in documented
+    ]
+
+
+def events_report(events: list[tuple[str, str]], decoded: dict[str, str]) -> str:
+    """Markdown listing every documented receive event and the type Shoal decodes it into."""
+    done = sum(name in decoded or name in CONNECTION_EVENTS for name, _ in events)
+    lines = [
+        "",
+        "## Gateway events",
+        "",
+        f"Shoal handles **{done} of {len(events)}** documented receive events.",
+        "",
+        "| | Event | Shoal |",
+        "| --- | --- | --- |",
+    ]
+    for name, anchor in sorted(events):
+        if name in decoded:
+            mark, shoal = "yes", f"`{decoded[name]}`"
+        elif name in CONNECTION_EVENTS:
+            mark, shoal = "yes", CONNECTION_EVENTS[name]
+        else:
+            mark, shoal = "no", ""
+        lines.append(f"| {mark} | [`{name}`]({DOCS_BASE}{GATEWAY_EVENTS_PAGE}#{anchor}) | {shoal} |")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     """Run the checks; see the module docstring for the options."""
     parser = argparse.ArgumentParser(description="Check Shoal against the Discord docs source.")
@@ -257,10 +322,12 @@ def main() -> int:
 
     pages = load_docs(options.docs_repo)
     routes = implemented_routes()
-    problems = check_links(pages) + check_routes(pages, routes)
+    events = documented_events(options.docs_repo)
+    decoded = dispatch_payloads()
+    problems = check_links(pages) + check_routes(pages, routes) + check_events(events, decoded)
     for problem in problems:
         print(problem)
-    report = coverage_report(pages, routes)
+    report = coverage_report(pages, routes) + events_report(events, decoded)
     if options.coverage is not None:
         options.coverage.write_text(report, encoding="utf-8", newline="\n")
     stale = False
@@ -270,7 +337,7 @@ def main() -> int:
         if stale:
             print(f"{target} is out of date; rerun with --coverage")
     links = len(links_in_source())
-    print(f"checked {links} links and {len(routes)} routes: {len(problems)} problems")
+    print(f"checked {links} links, {len(routes)} routes and {len(events)} events: {len(problems)} problems")
     return 1 if problems or stale else 0
 
 

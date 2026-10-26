@@ -2,22 +2,8 @@ from datetime import UTC, datetime
 
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import EditCurrentVoiceStateParams, EditVoiceStateParams
-from tests.support.json_payloads import REGION
+from tests.support.json_payloads import REGION, VOICE_STATE
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
-
-VOICE_STATE: dict[str, object] = {
-    "guild_id": "2",
-    "channel_id": "6",
-    "user_id": "1",
-    "session_id": "abc",
-    "deaf": False,
-    "mute": False,
-    "self_deaf": False,
-    "self_mute": True,
-    "self_video": False,
-    "suppress": True,
-    "request_to_speak_timestamp": None,
-}
 
 CASES = [
     EndpointCase(

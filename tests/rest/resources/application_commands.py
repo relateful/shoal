@@ -9,6 +9,7 @@ from shoal.payloads import (
     EditGuildCommandParams,
     OverwriteCommandParams,
 )
+from tests.support.json_payloads import COMMAND_PERMISSIONS
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
 COMMAND: dict[str, object] = {
@@ -18,12 +19,6 @@ COMMAND: dict[str, object] = {
     "description": "Check the bot",
     "default_member_permissions": None,
     "version": "1",
-}
-PERMISSIONS: dict[str, object] = {
-    "id": "5",
-    "application_id": "7",
-    "guild_id": "2",
-    "permissions": [{"id": "2", "type": 1, "permission": True}],
 }
 GLOBAL_COMMANDS = "/applications/7/commands"
 GUILD_COMMANDS = "/applications/7/guilds/2/commands"
@@ -128,14 +123,14 @@ CASES = [
         call=lambda client: client.commands.list_permissions(7, 2),
         method="GET",
         path=f"{GUILD_COMMANDS}/permissions",
-        response=[PERMISSIONS],
+        response=[COMMAND_PERMISSIONS],
     ),
     EndpointCase(
         name="command permissions",
         call=lambda client: client.commands.get_permissions(7, 2, 5),
         method="GET",
         path=f"{GUILD_COMMANDS}/5/permissions",
-        response=PERMISSIONS,
+        response=COMMAND_PERMISSIONS,
     ),
     EndpointCase(
         name="edit permissions",
@@ -154,7 +149,7 @@ CASES = [
         method="PUT",
         path=f"{GUILD_COMMANDS}/5/permissions",
         body={"permissions": [{"id": "2", "type": 1, "permission": True}]},
-        response=PERMISSIONS,
+        response=COMMAND_PERMISSIONS,
     ),
 ]
 

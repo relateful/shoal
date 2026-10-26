@@ -1,17 +1,7 @@
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import CreateStageInstanceParams, EditStageInstanceParams
+from tests.support.json_payloads import STAGE_INSTANCE
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
-
-STAGE: dict[str, object] = {
-    "id": "840647391636226060",
-    "guild_id": "197038439483310086",
-    "channel_id": "733488538393510049",
-    "topic": "Testing Testing, 123",
-    "privacy_level": 1,
-    "discoverable_disabled": False,
-    "guild_scheduled_event_id": "947656305244532806",
-}
-"""Discord's example."""
 
 CASES = [
     EndpointCase(
@@ -31,7 +21,7 @@ CASES = [
             "topic": "Testing Testing, 123",
             "send_start_notification": True,
         },
-        response=STAGE,
+        response=STAGE_INSTANCE,
         reason="town hall",
     ),
     EndpointCase(
@@ -39,7 +29,7 @@ CASES = [
         call=lambda client: client.stage_instances.get(733488538393510049),
         method="GET",
         path="/stage-instances/733488538393510049",
-        response=STAGE,
+        response=STAGE_INSTANCE,
     ),
     EndpointCase(
         name="modify",
@@ -49,7 +39,7 @@ CASES = [
         method="PATCH",
         path="/stage-instances/733488538393510049",
         body={"topic": "Q&A"},
-        response=STAGE,
+        response=STAGE_INSTANCE,
     ),
     EndpointCase(
         name="delete",

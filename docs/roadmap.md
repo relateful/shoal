@@ -34,11 +34,10 @@ Built from what running greed taught us:
 
 ## 4. The rest of the Discord API
 
-Every HTTP endpoint Discord documents is implemented; `docs/coverage.md` shows it and CI fails when
-Discord documents something new. Still to come: the gateway events of the newer resources
-(scheduled events, stage instances, stickers, soundboard, Auto Moderation, integrations, entitlements
-and subscriptions) with their cache handling, the outgoing webhook events Discord sends to an app,
-and voice messages.
+Every HTTP endpoint and every gateway event Discord documents is implemented; `docs/coverage.md`
+shows both and CI fails when Discord documents something new. Still to come: caching the newer
+resources (scheduled events, stage instances, stickers, soundboard sounds), the outgoing webhook
+events Discord sends to an app, and voice messages.
 
 ## 5. Voice
 

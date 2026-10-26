@@ -4,6 +4,7 @@ from shoal.payloads import (
     EditSoundboardSoundParams,
     SendSoundboardSoundParams,
 )
+from tests.support.json_payloads import GUILD_SOUND
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
 DEFAULT_SOUND: dict[str, object] = {
@@ -12,16 +13,6 @@ DEFAULT_SOUND: dict[str, object] = {
     "volume": 1.0,
     "emoji_id": None,
     "emoji_name": "\N{DUCK}",
-    "available": True,
-}
-"""Discord's example."""
-GUILD_SOUND: dict[str, object] = {
-    "name": "Yay",
-    "sound_id": "1106714396018884649",
-    "volume": 1,
-    "emoji_id": "989193655938064464",
-    "emoji_name": None,
-    "guild_id": "613425648685547541",
     "available": True,
 }
 """Discord's example."""

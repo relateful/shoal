@@ -1,6 +1,6 @@
 from shoal.payloads import CreateStickerParams, EditStickerParams
 from shoal.rest.files import File
-from tests.support.json_payloads import USER
+from tests.support.json_payloads import GUILD_STICKER
 from tests.support.multipart import FormPart
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -15,17 +15,6 @@ STANDARD: dict[str, object] = {
     "sort_value": 12,
 }
 """Discord's example, with fewer tags."""
-GUILD_STICKER: dict[str, object] = {
-    "id": "8",
-    "name": "party",
-    "description": None,
-    "tags": "tada",
-    "type": 2,
-    "format_type": 1,
-    "available": True,
-    "guild_id": "2",
-    "user": USER,
-}
 PACK: dict[str, object] = {
     "id": "847199849233514549",
     "stickers": [STANDARD],

@@ -1,15 +1,25 @@
 import msgspec
+import pytest
 
 from shoal.core import UNSET
 from shoal.core.codec import decode_json, encode_json
+from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
+    DISPATCH_PAYLOADS,
+    ChannelInfoField,
+    GatewayOpcode,
     GuildCreate,
     Identify,
     IdentifyConnectionProperties,
     Intents,
     MessageCreate,
+    RateLimited,
     Ready,
+    RequestChannelInfo,
+    RequestSoundboardSounds,
+    VoiceChannelEffectSend,
 )
+from tests.support.dispatches import DISPATCH_SAMPLES
 
 
 def test_identify_encodes_shard_tuple_and_intents_as_integer() -> None:
@@ -65,3 +75,72 @@ def test_message_create_extra_fields_are_optional() -> None:
     )
     assert message.guild_id == 4
     assert message.member is UNSET
+
+
+@pytest.mark.parametrize("name", sorted(DISPATCH_PAYLOADS))
+def test_every_dispatch_decodes_and_encodes_back(name: str) -> None:
+    sample = DISPATCH_SAMPLES[name]
+    decoded = decode_json(msgspec.json.encode(sample), DISPATCH_PAYLOADS[name])
+    expected = msgspec.json.encode(sample).replace(b"+00:00", b"Z")
+    assert msgspec.json.decode(encode_json(decoded)) == msgspec.json.decode(expected)
+
+
+def test_every_sample_is_a_dispatch() -> None:
+    assert sorted(DISPATCH_SAMPLES) == sorted(DISPATCH_PAYLOADS)
+
+
+def test_resumed_and_interaction_create_are_decoded_elsewhere() -> None:
+    assert "RESUMED" not in DISPATCH_PAYLOADS
+    assert "INTERACTION_CREATE" not in DISPATCH_PAYLOADS
+
+
+def test_rate_limited_reads_guild_member_metadata() -> None:
+    limited = decode_json(msgspec.json.encode(DISPATCH_SAMPLES["RATE_LIMITED"]), RateLimited)
+    assert limited.opcode is GatewayOpcode.REQUEST_GUILD_MEMBERS
+    metadata = limited.guild_members_metadata()
+    assert metadata is not None
+    assert metadata.guild_id == 2
+    assert metadata.nonce == "chunk-1"
+
+
+def test_rate_limited_for_another_opcode_has_no_member_metadata() -> None:
+    limited = decode_json(b'{"opcode":31,"retry_after":1.0,"meta":{"something":"new"}}', RateLimited)
+    assert limited.guild_members_metadata() is None
+
+
+def test_voice_effect_sound_id_may_be_an_integer() -> None:
+    effect = decode_json(
+        b'{"channel_id":"6","guild_id":"2","user_id":"1","sound_id":3,"sound_volume":1.0}',
+        VoiceChannelEffectSend,
+    )
+    assert effect.sound_id == 3
+
+
+@pytest.mark.parametrize(
+    ("payload", "secret"),
+    [
+        (DISPATCH_SAMPLES["VOICE_SERVER_UPDATE"], "my_token"),
+        (DISPATCH_SAMPLES["INVITE_CREATE"], "0vCdhLbwjZZTWZLD"),
+        (DISPATCH_SAMPLES["INVITE_DELETE"], "0vCdhLbwjZZTWZLD"),
+    ],
+    ids=["voice token", "created invite code", "deleted invite code"],
+)
+def test_credentials_in_events_stay_out_of_repr(payload: dict[str, object], secret: str) -> None:
+    name = next(key for key, value in DISPATCH_SAMPLES.items() if value is payload)
+    decoded = decode_json(msgspec.json.encode(payload), DISPATCH_PAYLOADS[name])
+    assert secret not in repr(decoded)
+
+
+def test_soundboard_and_channel_info_requests_encode() -> None:
+    sounds = RequestSoundboardSounds(guild_ids=[Snowflake(613425648685547541), Snowflake(81384788765712384)])
+    assert msgspec.json.decode(encode_json(sounds)) == {
+        "guild_ids": ["613425648685547541", "81384788765712384"]
+    }
+    info = RequestChannelInfo(
+        guild_id=Snowflake(613425648685547541),
+        fields=[ChannelInfoField.STATUS, ChannelInfoField.VOICE_START_TIME],
+    )
+    assert msgspec.json.decode(encode_json(info)) == {
+        "guild_id": "613425648685547541",
+        "fields": ["status", "voice_start_time"],
+    }

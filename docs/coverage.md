@@ -387,3 +387,92 @@ Shoal implements **239 of 239** documented HTTP endpoints. The 4 endpoints Disco
 | --- | --- | --- | --- |
 | yes | [Get Current Authorization Information](https://docs.discord.com/developers/topics/oauth2#get-current-authorization-information) | `rest.oauth2.get_authorization` | `GET /oauth2/@me` |
 | yes | [Get Current Bot Application Information](https://docs.discord.com/developers/topics/oauth2#get-current-bot-application-information) | `rest.oauth2.get_application` | `GET /oauth2/applications/@me` |
+
+## Gateway events
+
+Shoal handles **82 of 82** documented receive events.
+
+| | Event | Shoal |
+| --- | --- | --- |
+| yes | [`APPLICATION_COMMAND_PERMISSIONS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#application-command-permissions-update) | `GuildApplicationCommandPermissions` |
+| yes | [`AUTO_MODERATION_ACTION_EXECUTION`](https://docs.discord.com/developers/events/gateway-events#auto-moderation-action-execution) | `AutoModerationActionExecution` |
+| yes | [`AUTO_MODERATION_RULE_CREATE`](https://docs.discord.com/developers/events/gateway-events#auto-moderation-rule-create) | `AutoModerationRule` |
+| yes | [`AUTO_MODERATION_RULE_DELETE`](https://docs.discord.com/developers/events/gateway-events#auto-moderation-rule-delete) | `AutoModerationRule` |
+| yes | [`AUTO_MODERATION_RULE_UPDATE`](https://docs.discord.com/developers/events/gateway-events#auto-moderation-rule-update) | `AutoModerationRule` |
+| yes | [`CHANNEL_CREATE`](https://docs.discord.com/developers/events/gateway-events#channel-create) | `Channel` |
+| yes | [`CHANNEL_DELETE`](https://docs.discord.com/developers/events/gateway-events#channel-delete) | `Channel` |
+| yes | [`CHANNEL_INFO`](https://docs.discord.com/developers/events/gateway-events#channel-info) | `ChannelInfo` |
+| yes | [`CHANNEL_PINS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#channel-pins-update) | `ChannelPinsUpdate` |
+| yes | [`CHANNEL_UPDATE`](https://docs.discord.com/developers/events/gateway-events#channel-update) | `Channel` |
+| yes | [`ENTITLEMENT_CREATE`](https://docs.discord.com/developers/events/gateway-events#entitlement-create) | `Entitlement` |
+| yes | [`ENTITLEMENT_DELETE`](https://docs.discord.com/developers/events/gateway-events#entitlement-delete) | `Entitlement` |
+| yes | [`ENTITLEMENT_UPDATE`](https://docs.discord.com/developers/events/gateway-events#entitlement-update) | `Entitlement` |
+| yes | [`GUILD_AUDIT_LOG_ENTRY_CREATE`](https://docs.discord.com/developers/events/gateway-events#guild-audit-log-entry-create) | `GuildAuditLogEntryCreate` |
+| yes | [`GUILD_BAN_ADD`](https://docs.discord.com/developers/events/gateway-events#guild-ban-add) | `GuildBanAdd` |
+| yes | [`GUILD_BAN_REMOVE`](https://docs.discord.com/developers/events/gateway-events#guild-ban-remove) | `GuildBanRemove` |
+| yes | [`GUILD_CREATE`](https://docs.discord.com/developers/events/gateway-events#guild-create) | `GuildCreate` |
+| yes | [`GUILD_DELETE`](https://docs.discord.com/developers/events/gateway-events#guild-delete) | `GuildDelete` |
+| yes | [`GUILD_EMOJIS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-emojis-update) | `GuildEmojisUpdate` |
+| yes | [`GUILD_INTEGRATIONS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-integrations-update) | `GuildIntegrationsUpdate` |
+| yes | [`GUILD_MEMBERS_CHUNK`](https://docs.discord.com/developers/events/gateway-events#guild-members-chunk) | `GuildMembersChunk` |
+| yes | [`GUILD_MEMBER_ADD`](https://docs.discord.com/developers/events/gateway-events#guild-member-add) | `GuildMemberAdd` |
+| yes | [`GUILD_MEMBER_REMOVE`](https://docs.discord.com/developers/events/gateway-events#guild-member-remove) | `GuildMemberRemove` |
+| yes | [`GUILD_MEMBER_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-member-update) | `GuildMemberUpdate` |
+| yes | [`GUILD_ROLE_CREATE`](https://docs.discord.com/developers/events/gateway-events#guild-role-create) | `GuildRoleCreate` |
+| yes | [`GUILD_ROLE_DELETE`](https://docs.discord.com/developers/events/gateway-events#guild-role-delete) | `GuildRoleDelete` |
+| yes | [`GUILD_ROLE_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-role-update) | `GuildRoleUpdate` |
+| yes | [`GUILD_SCHEDULED_EVENT_CREATE`](https://docs.discord.com/developers/events/gateway-events#guild-scheduled-event-create) | `GuildScheduledEvent` |
+| yes | [`GUILD_SCHEDULED_EVENT_DELETE`](https://docs.discord.com/developers/events/gateway-events#guild-scheduled-event-delete) | `GuildScheduledEvent` |
+| yes | [`GUILD_SCHEDULED_EVENT_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-scheduled-event-update) | `GuildScheduledEvent` |
+| yes | [`GUILD_SCHEDULED_EVENT_USER_ADD`](https://docs.discord.com/developers/events/gateway-events#guild-scheduled-event-user-add) | `GuildScheduledEventUserAdd` |
+| yes | [`GUILD_SCHEDULED_EVENT_USER_REMOVE`](https://docs.discord.com/developers/events/gateway-events#guild-scheduled-event-user-remove) | `GuildScheduledEventUserRemove` |
+| yes | [`GUILD_SOUNDBOARD_SOUNDS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-soundboard-sounds-update) | `GuildSoundboardSoundsUpdate` |
+| yes | [`GUILD_SOUNDBOARD_SOUND_CREATE`](https://docs.discord.com/developers/events/gateway-events#guild-soundboard-sound-create) | `SoundboardSound` |
+| yes | [`GUILD_SOUNDBOARD_SOUND_DELETE`](https://docs.discord.com/developers/events/gateway-events#guild-soundboard-sound-delete) | `GuildSoundboardSoundDelete` |
+| yes | [`GUILD_SOUNDBOARD_SOUND_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-soundboard-sound-update) | `SoundboardSound` |
+| yes | [`GUILD_STICKERS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-stickers-update) | `GuildStickersUpdate` |
+| yes | [`GUILD_UPDATE`](https://docs.discord.com/developers/events/gateway-events#guild-update) | `Guild` |
+| yes | [`HELLO`](https://docs.discord.com/developers/events/gateway-events#hello) | handled by the shard (opcode 10) |
+| yes | [`INTEGRATION_CREATE`](https://docs.discord.com/developers/events/gateway-events#integration-create) | `IntegrationCreate` |
+| yes | [`INTEGRATION_DELETE`](https://docs.discord.com/developers/events/gateway-events#integration-delete) | `IntegrationDelete` |
+| yes | [`INTEGRATION_UPDATE`](https://docs.discord.com/developers/events/gateway-events#integration-update) | `IntegrationUpdate` |
+| yes | [`INTERACTION_CREATE`](https://docs.discord.com/developers/events/gateway-events#interaction-create) | `parse_interaction` |
+| yes | [`INVALID_SESSION`](https://docs.discord.com/developers/events/gateway-events#invalid-session) | handled by the shard (opcode 9) |
+| yes | [`INVITE_CREATE`](https://docs.discord.com/developers/events/gateway-events#invite-create) | `InviteCreate` |
+| yes | [`INVITE_DELETE`](https://docs.discord.com/developers/events/gateway-events#invite-delete) | `InviteDelete` |
+| yes | [`MESSAGE_CREATE`](https://docs.discord.com/developers/events/gateway-events#message-create) | `MessageCreate` |
+| yes | [`MESSAGE_DELETE`](https://docs.discord.com/developers/events/gateway-events#message-delete) | `MessageDelete` |
+| yes | [`MESSAGE_DELETE_BULK`](https://docs.discord.com/developers/events/gateway-events#message-delete-bulk) | `MessageDeleteBulk` |
+| yes | [`MESSAGE_POLL_VOTE_ADD`](https://docs.discord.com/developers/events/gateway-events#message-poll-vote-add) | `MessagePollVoteAdd` |
+| yes | [`MESSAGE_POLL_VOTE_REMOVE`](https://docs.discord.com/developers/events/gateway-events#message-poll-vote-remove) | `MessagePollVoteRemove` |
+| yes | [`MESSAGE_REACTION_ADD`](https://docs.discord.com/developers/events/gateway-events#message-reaction-add) | `MessageReactionAdd` |
+| yes | [`MESSAGE_REACTION_REMOVE`](https://docs.discord.com/developers/events/gateway-events#message-reaction-remove) | `MessageReactionRemove` |
+| yes | [`MESSAGE_REACTION_REMOVE_ALL`](https://docs.discord.com/developers/events/gateway-events#message-reaction-remove-all) | `MessageReactionRemoveAll` |
+| yes | [`MESSAGE_REACTION_REMOVE_EMOJI`](https://docs.discord.com/developers/events/gateway-events#message-reaction-remove-emoji) | `MessageReactionRemoveEmoji` |
+| yes | [`MESSAGE_UPDATE`](https://docs.discord.com/developers/events/gateway-events#message-update) | `MessageUpdate` |
+| yes | [`PRESENCE_UPDATE`](https://docs.discord.com/developers/events/gateway-events#presence-update) | `PresenceUpdate` |
+| yes | [`RATE_LIMITED`](https://docs.discord.com/developers/events/gateway-events#rate-limited) | `RateLimited` |
+| yes | [`READY`](https://docs.discord.com/developers/events/gateway-events#ready) | `Ready` |
+| yes | [`RECONNECT`](https://docs.discord.com/developers/events/gateway-events#reconnect) | handled by the shard (opcode 7) |
+| yes | [`RESUMED`](https://docs.discord.com/developers/events/gateway-events#resumed) | no data; the shard and cache act on it |
+| yes | [`SOUNDBOARD_SOUNDS`](https://docs.discord.com/developers/events/gateway-events#soundboard-sounds) | `SoundboardSounds` |
+| yes | [`STAGE_INSTANCE_CREATE`](https://docs.discord.com/developers/events/gateway-events#stage-instance-create) | `StageInstance` |
+| yes | [`STAGE_INSTANCE_DELETE`](https://docs.discord.com/developers/events/gateway-events#stage-instance-delete) | `StageInstance` |
+| yes | [`STAGE_INSTANCE_UPDATE`](https://docs.discord.com/developers/events/gateway-events#stage-instance-update) | `StageInstance` |
+| yes | [`SUBSCRIPTION_CREATE`](https://docs.discord.com/developers/events/gateway-events#subscription-create) | `Subscription` |
+| yes | [`SUBSCRIPTION_DELETE`](https://docs.discord.com/developers/events/gateway-events#subscription-delete) | `Subscription` |
+| yes | [`SUBSCRIPTION_UPDATE`](https://docs.discord.com/developers/events/gateway-events#subscription-update) | `Subscription` |
+| yes | [`THREAD_CREATE`](https://docs.discord.com/developers/events/gateway-events#thread-create) | `ThreadCreate` |
+| yes | [`THREAD_DELETE`](https://docs.discord.com/developers/events/gateway-events#thread-delete) | `Channel` |
+| yes | [`THREAD_LIST_SYNC`](https://docs.discord.com/developers/events/gateway-events#thread-list-sync) | `ThreadListSync` |
+| yes | [`THREAD_MEMBERS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#thread-members-update) | `ThreadMembersUpdate` |
+| yes | [`THREAD_MEMBER_UPDATE`](https://docs.discord.com/developers/events/gateway-events#thread-member-update) | `ThreadMemberUpdate` |
+| yes | [`THREAD_UPDATE`](https://docs.discord.com/developers/events/gateway-events#thread-update) | `Channel` |
+| yes | [`TYPING_START`](https://docs.discord.com/developers/events/gateway-events#typing-start) | `TypingStart` |
+| yes | [`USER_UPDATE`](https://docs.discord.com/developers/events/gateway-events#user-update) | `User` |
+| yes | [`VOICE_CHANNEL_EFFECT_SEND`](https://docs.discord.com/developers/events/gateway-events#voice-channel-effect-send) | `VoiceChannelEffectSend` |
+| yes | [`VOICE_CHANNEL_START_TIME_UPDATE`](https://docs.discord.com/developers/events/gateway-events#voice-channel-start-time-update) | `VoiceChannelStartTimeUpdate` |
+| yes | [`VOICE_CHANNEL_STATUS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#voice-channel-status-update) | `VoiceChannelStatusUpdate` |
+| yes | [`VOICE_SERVER_UPDATE`](https://docs.discord.com/developers/events/gateway-events#voice-server-update) | `VoiceServerUpdate` |
+| yes | [`VOICE_STATE_UPDATE`](https://docs.discord.com/developers/events/gateway-events#voice-state-update) | `VoiceState` |
+| yes | [`WEBHOOKS_UPDATE`](https://docs.discord.com/developers/events/gateway-events#webhooks-update) | `WebhooksUpdate` |

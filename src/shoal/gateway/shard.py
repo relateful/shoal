@@ -75,8 +75,11 @@ from shoal.payloads.gateway_events import (
     Hello,
     Identify,
     IdentifyConnectionProperties,
+    RateLimited,
     Ready,
+    RequestChannelInfo,
     RequestGuildMembers,
+    RequestSoundboardSounds,
     Resume,
     UpdatePresence,
     UpdateVoiceState,
@@ -438,6 +441,23 @@ class Shard:
         """
         await self.send_command(GatewayOpcode.VOICE_STATE_UPDATE, update)
 
+    async def request_soundboard_sounds(self, request: RequestSoundboardSounds) -> None:
+        """Ask for guilds' soundboard sounds; each answer arrives as a `SOUNDBOARD_SOUNDS` dispatch.
+
+        Every guild must be on this shard; `ShardManager.request_soundboard_sounds` splits a list
+        across shards.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#request-soundboard-sounds
+        """
+        await self.send_command(GatewayOpcode.REQUEST_SOUNDBOARD_SOUNDS, request)
+
+    async def request_channel_info(self, request: RequestChannelInfo) -> None:
+        """Ask for a guild's ephemeral channel data; the answer arrives as a `CHANNEL_INFO` dispatch.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#request-channel-info
+        """
+        await self.send_command(GatewayOpcode.REQUEST_CHANNEL_INFO, request)
+
     async def _serve(self, connection: GatewayConnection) -> tuple[_Next, float | None]:
         """Run one connection. Returns what to do next and, if it became ready, for how long."""
         if self._closing:
@@ -586,6 +606,8 @@ class Shard:
             self._metrics.set(GATEWAY_SHARD_READY, 1, self._labels)
             _log.info("shard %d: resumed", self._shard_id)
             await self._persist()
+        elif name == "RATE_LIMITED":
+            self._log_rate_limited(payload.d)
         self._metrics.increment(GATEWAY_EVENTS, {**self._labels, "event": name})
         if name in DELAY_TRACKED_EVENTS:
             self._track_delay(name, payload.d)
@@ -593,6 +615,19 @@ class Shard:
             await self._dispatch(DispatchEvent(self._shard_id, name, payload.s, payload.d))
         except Exception:  # noqa: BLE001 - a failing handler must never take the shard down
             _log.exception("shard %d: dispatch handler failed for %s", self._shard_id, name)
+
+    def _log_rate_limited(self, data: msgspec.Raw) -> None:
+        try:
+            limited = decode_json(data, RateLimited)
+        except PayloadDecodeError:
+            _log.warning("shard %d: a gateway command was rate limited", self._shard_id)
+            return
+        _log.warning(
+            "shard %d: Discord rate limited %s; retry after %.1fs",
+            self._shard_id,
+            limited.opcode.name,
+            limited.retry_after,
+        )
 
     def _track_delay(self, name: str, data: msgspec.Raw) -> None:
         try:

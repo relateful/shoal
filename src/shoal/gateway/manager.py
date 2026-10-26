@@ -24,18 +24,19 @@ Discord: https://docs.discord.com/developers/events/gateway#sharding
 
 import asyncio
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import final
 
 from shoal.core.clock import Clock
 from shoal.core.dispatch import DispatchHandler
 from shoal.core.metrics import Metrics
+from shoal.core.snowflake import Snowflake
 from shoal.gateway.connection import AiohttpGatewayConnector, GatewayConnector
 from shoal.gateway.session import SessionStore
 from shoal.gateway.shard import GatewayFatalError, Shard
 from shoal.gateway.sharding import IdentifyLimiter, LocalIdentifyLimiter, shard_for_guild
 from shoal.payloads.gateway import DEFAULT_GATEWAY_URL, Intents, TransportCompression
-from shoal.payloads.gateway_events import UpdatePresence
+from shoal.payloads.gateway_events import RequestSoundboardSounds, UpdatePresence
 
 _log = logging.getLogger("shoal.gateway.manager")
 
@@ -149,6 +150,28 @@ class ShardManager:
     def shard_for_guild(self, guild_id: int) -> Shard | None:
         """The shard that receives a guild's events, if this manager runs it."""
         return self._shards.get(shard_for_guild(guild_id, self._shard_count))
+
+    async def request_soundboard_sounds(self, guild_ids: Iterable[int]) -> None:
+        """Ask each guild's shard for its soundboard sounds (answered by `SOUNDBOARD_SOUNDS` dispatches).
+
+        Raises:
+            ValueError: A guild is on a shard this manager does not run.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#request-soundboard-sounds
+        """
+        by_shard: dict[int, list[Snowflake]] = {}
+        for guild_id in guild_ids:
+            shard_id = shard_for_guild(guild_id, self._shard_count)
+            if shard_id not in self._shards:
+                msg = f"guild {guild_id} is on shard {shard_id}, which this manager does not run"
+                raise ValueError(msg)
+            by_shard.setdefault(shard_id, []).append(Snowflake(guild_id))
+        await asyncio.gather(
+            *(
+                self._shards[shard_id].request_soundboard_sounds(RequestSoundboardSounds(guild_ids=ids))
+                for shard_id, ids in by_shard.items()
+            )
+        )
 
     async def run(self) -> None:
         """Run every shard until `close` is called.
