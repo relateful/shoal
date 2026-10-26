@@ -52,6 +52,7 @@ from shoal.core.replies import REPLY_WRITTEN
 from shoal.core.snowflake import Snowflake
 from shoal.core.tasks import spawn
 from shoal.emojis.registry import AppEmojis
+from shoal.gateway.cluster import CommandRouter, ShardDirectory
 from shoal.gateway.manager import ShardManager
 from shoal.gateway.session import SessionStore
 from shoal.gateway.shard import ShardOptions
@@ -68,7 +69,8 @@ from shoal.models.guild import Guild
 from shoal.models.member import Member
 from shoal.models.state import GatewayRequiredError, MemberRequestRateLimitedError, State
 from shoal.models.user import ClientUser, User
-from shoal.payloads.gateway import Intents
+from shoal.models.voice import VoiceClient
+from shoal.payloads.gateway import GatewayOpcode, Intents
 from shoal.payloads.gateway_events import (
     BotActivity,
     GuildMembersChunk,
@@ -77,6 +79,8 @@ from shoal.payloads.gateway_events import (
     RequestGuildMembers,
     StatusType,
     UpdatePresence,
+    UpdateVoiceState,
+    VoiceServerUpdate,
 )
 from shoal.payloads.guild import GuildMember, UnavailableGuild
 from shoal.payloads.interactions import (
@@ -90,6 +94,7 @@ from shoal.payloads.interactions import Interaction as ReceivedInteraction
 from shoal.payloads.interactions import InteractionResponse as ResponsePayload
 from shoal.payloads.stage_instance import StageInstance
 from shoal.payloads.user import User as UserPayload
+from shoal.payloads.voice import VoiceState
 from shoal.payloads.webhook_events import WEBHOOK_EVENT_PAYLOADS, WebhookEventPayload
 from shoal.rest.client import RestClient, Token
 from shoal.rest.files import File
@@ -106,6 +111,9 @@ type InteractionHandler = Callable[[Interaction], Awaitable[bool]]
 """Takes an interaction (an application command tree does); returns whether it handled it."""
 
 _CONNECTION_EVENTS: Final = frozenset({"READY", "RESUMED", "INTERACTION_CREATE"})
+
+_VOICE_EVENTS: Final = frozenset({"VOICE_SERVER_UPDATE", "VOICE_STATE_UPDATE"})
+"""Dispatches the guilds' voice clients wait for when joining."""
 
 
 class ClientError(ShoalError):
@@ -150,6 +158,9 @@ class ClientOptions(ShardOptions, total=False):
     session_store: SessionStore | None
     cache_snapshot: str | Path | None
     identify_limiter: IdentifyLimiter | None
+    shard_directory: ShardDirectory | None
+    command_router: CommandRouter | None
+    cluster_name: str
     clock: Clock | None
 
 
@@ -174,8 +185,13 @@ class Client:
         session_store: Where shard sessions are saved, so a restart resumes instead of identifying.
         cache_snapshot: A file for the cache: loaded before connecting and written after the shards
             close, so a restart answers from a warm cache (see the caching guide).
-        identify_limiter: Shared by the shards; pass one every cluster shares (`shoal.ipc`) so
+        identify_limiter: Shared by the shards; pass one every cluster shares (`shoal.redis`) so
             clusters together keep to `max_concurrency`. By default a local one.
+        shard_directory: Where this cluster reports its shards and a reshard learns that every
+            cluster's new shards are ready (`ShardManager`'s `directory`).
+        command_router: Carries gateway commands for guilds on other clusters' shards (`ShardManager`'s
+            `router`), such as joining a voice channel in a guild another cluster runs.
+        cluster_name: How this cluster appears in the shard directory.
         clock: Time source for the client's timers, the shards, the default REST client and cache, and
             the models (`delete_after`, typing). Tests pass a fake one.
         options: How every shard connects (`ShardOptions`): `gateway_url`, `compression`,
@@ -194,6 +210,8 @@ class Client:
         "_cache_snapshot",
         "_clock",
         "_closed",
+        "_cluster_name",
+        "_command_router",
         "_expected_shards",
         "_handlers",
         "_identify_limiter",
@@ -211,6 +229,7 @@ class Client:
         "_ready_timers",
         "_session_store",
         "_shard_count",
+        "_shard_directory",
         "_shard_ids",
         "_shard_options",
         "_state",
@@ -219,6 +238,7 @@ class Client:
         "_updater",
         "_user",
         "_views",
+        "_voice_clients",
         "_waiters",
         "intents",
     )
@@ -238,6 +258,9 @@ class Client:
         session_store: SessionStore | None = None,
         cache_snapshot: str | Path | None = None,
         identify_limiter: IdentifyLimiter | None = None,
+        shard_directory: ShardDirectory | None = None,
+        command_router: CommandRouter | None = None,
+        cluster_name: str = "main",
         clock: Clock | None = None,
         **options: Unpack[ShardOptions],
     ) -> None:
@@ -250,6 +273,9 @@ class Client:
         self._session_store: SessionStore | None = session_store
         self._cache_snapshot: Path | None = Path(cache_snapshot) if cache_snapshot is not None else None
         self._identify_limiter: IdentifyLimiter | None = identify_limiter
+        self._shard_directory: ShardDirectory | None = shard_directory
+        self._command_router: CommandRouter | None = command_router
+        self._cluster_name: str = cluster_name
         self._shard_options: ShardOptions = options
         self._cache: CacheStore = cache or CacheStore(metrics=self._metrics, clock=self._clock)
         self._updater: CacheUpdater = CacheUpdater(self._cache, intents=intents, metrics=self._metrics)
@@ -275,6 +301,7 @@ class Client:
         self._handlers: dict[str, Listener] = {}
         self._listeners: dict[str, list[Listener]] = {}
         self._waiters: dict[str, list[_Waiter]] = {}
+        self._voice_clients: dict[int, VoiceClient] = {}
         self._interaction_handlers: list[InteractionHandler] = []
         self._ready: asyncio.Event | None = None
         self._expected_shards: set[int] | None = None
@@ -331,7 +358,12 @@ class Client:
             raise ClientError(msg)
         rest = self._make_rest(Token.bot(token))
         state = State(
-            rest=rest, cache=self._cache, views=self._views, clock=self._clock, member_requests=self
+            rest=rest,
+            cache=self._cache,
+            views=self._views,
+            clock=self._clock,
+            member_requests=self,
+            voice=self,
         )
         try:
             me = await rest.users.get_me()
@@ -381,9 +413,32 @@ class Client:
             presence=self._presence,
             metrics=self._metrics,
             clock=self._clock,
+            directory=self._shard_directory,
+            router=self._command_router,
+            name=self._cluster_name,
             **self._shard_options,
         )
         await self._manager.run()
+
+    async def reshard(self, shard_count: int, shard_ids: Sequence[int] | None = None) -> None:
+        """Move to `shard_count` shards without downtime (`ShardManager.reshard`).
+
+        In clusters, call it in every cluster with the cluster's share of the new shards
+        (`cluster_shard_ids`) and give them a shared `shard_directory`, so they hand over together.
+
+        Raises:
+            GatewayRequiredError: The client is not connected to the gateway.
+            RuntimeError: Another reshard is in progress.
+        """
+        if self._manager is None:
+            what = "resharding"
+            raise GatewayRequiredError(what)
+        gateway = await self.rest.gateway.get_bot()
+        needed = len(shard_ids) if shard_ids is not None else shard_count
+        await wait_for_session_starts(gateway.session_start_limit, needed)
+        await self._manager.reshard(shard_count, shard_ids)
+        self._cache.resharded()
+        self._expected_shards = set(self._manager.shards)
 
     async def start(self, token: str) -> None:
         """`login`, then `connect`."""
@@ -397,6 +452,8 @@ class Client:
         self._closed = True
         for timer in self._ready_timers.values():
             timer.cancel()
+        # Together: each waits on its voice server, and a few unreachable ones must not add up.
+        await asyncio.gather(*(voice.disconnect() for voice in list(self._voice_clients.values())))
         if self._manager is not None:
             await self._manager.close()
             if self._cache_snapshot is not None:
@@ -404,6 +461,82 @@ class Client:
                 await self._cache.save_snapshot(self._cache_snapshot, shard_count=self._manager.shard_count)
         if self._state is not None:
             await self._state.rest.close()
+
+    @property
+    def voice_clients(self) -> list[VoiceClient]:
+        """The bot's voice clients, one per guild where it is in a voice channel."""
+        return list(self._voice_clients.values())
+
+    def voice_client(self, guild_id: int, /) -> VoiceClient | None:
+        """The guild's voice client, while the bot is in one of its voice channels."""
+        return self._voice_clients.get(guild_id)
+
+    async def connect_voice(
+        self, guild_id: int, channel_id: int, /, *, self_mute: bool, self_deaf: bool
+    ) -> VoiceClient:
+        """Join (or move to) a voice channel; `VoiceChannel.connect` calls this.
+
+        The voice state update goes out on the guild's shard; with a `command_router`, through the
+        cluster running it. The answers arrive there, so voice is joined from that cluster.
+
+        Raises:
+            GatewayRequiredError: The client is not connected to the gateway.
+            TimeoutError: Discord did not answer, or the voice handshake did not finish, in time.
+            VoiceConnectionClosedError: The voice server refused the connection.
+
+        Discord: https://docs.discord.com/developers/topics/voice-connections#connecting-to-voice
+        """
+        voice = self._voice_clients.get(guild_id)
+        if voice is None:
+            voice = VoiceClient(
+                self.state,
+                guild_id,
+                send_state=self._send_voice_state,
+                forget=self._forget_voice,
+                metrics=self._metrics,
+            )
+            self._voice_clients[guild_id] = voice
+        try:
+            await voice.connect(channel_id, self_mute=self_mute, self_deaf=self_deaf)
+        except BaseException:
+            if not voice.is_connected():
+                await voice.disconnect()
+            raise
+        return voice
+
+    async def _send_voice_state(
+        self, guild_id: int, channel_id: int | None, *, self_mute: bool, self_deaf: bool
+    ) -> None:
+        manager = self._manager
+        if manager is None:
+            what = "joining a voice channel"
+            raise GatewayRequiredError(what)
+        update = UpdateVoiceState(
+            guild_id=Snowflake(guild_id),
+            channel_id=None if channel_id is None else Snowflake(channel_id),
+            self_mute=self_mute,
+            self_deaf=self_deaf,
+        )
+        await manager.send_to_guild(guild_id, GatewayOpcode.VOICE_STATE_UPDATE, update)
+
+    def _forget_voice(self, voice: VoiceClient) -> None:
+        if self._voice_clients.get(int(voice.guild_id)) is voice:
+            del self._voice_clients[int(voice.guild_id)]
+
+    def _voice_event(self, event: DispatchEvent) -> None:
+        """Hand the bot's own voice state and voice server updates to the guild's voice client."""
+        if event.name == "VOICE_SERVER_UPDATE":
+            server = event.decode(VoiceServerUpdate)
+            voice = self._voice_clients.get(int(server.guild_id))
+            if voice is not None:
+                voice.on_voice_server(server)
+            return
+        update = event.decode(VoiceState)
+        if not isinstance(update.guild_id, Snowflake) or update.user_id != self.state.user_id:
+            return
+        voice = self._voice_clients.get(int(update.guild_id))
+        if voice is not None:
+            voice.on_voice_state(update)
 
     def is_closed(self) -> bool:
         """Whether `close` was called."""
@@ -580,6 +713,8 @@ class Client:
             self._user.refresh(event.decode(UserPayload))
         if event.name == "RATE_LIMITED" and self._member_requests:
             self._member_request_refused(event.decode(RateLimited))
+        if event.name in _VOICE_EVENTS and self._voice_clients:
+            self._voice_event(event)
         if event.name == "READY":
             await self._handle_ready(event)
         elif event.name == "RESUMED":
@@ -997,6 +1132,15 @@ class Client:
         return channel_from_payload(self.state, await self.rest.channels.get(channel_id))
 
     @property
+    def shard_manager(self) -> ShardManager | None:
+        """The shards this process runs, once connected; `None` before.
+
+        Send a gateway command for any guild through it (`send_to_guild`): with a `command_router`
+        it reaches guilds on the bot's other clusters too.
+        """
+        return self._manager
+
+    @property
     def latency(self) -> float | None:
         """The average heartbeat round trip of the shards, in seconds, once measured."""
         if self._manager is None:
@@ -1015,6 +1159,4 @@ class Client:
             since=None, activities=[activity] if activity is not None else [], status=status, afk=False
         )
         if self._manager is not None:
-            await asyncio.gather(
-                *(shard.update_presence(self._presence) for shard in self._manager.shards.values())
-            )
+            await self._manager.update_presence(self._presence)

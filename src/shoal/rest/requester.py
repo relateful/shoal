@@ -7,6 +7,7 @@ client, which implements `Requester` with rate limiting, retries and errors.
 Discord: https://docs.discord.com/developers/reference#http-api
 """
 
+import base64
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -279,4 +280,6 @@ def _describe(index: int, file: File) -> AttachmentRequest:
         id=index,
         filename=file.upload_name,
         description=msgspec.UNSET if file.description is None else file.description,
+        duration_secs=msgspec.UNSET if file.duration is None else file.duration,
+        waveform=msgspec.UNSET if file.waveform is None else base64.b64encode(file.waveform).decode(),
     )

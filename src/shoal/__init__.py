@@ -11,19 +11,22 @@ The package is split into layers that can be used on their own:
 
 - `shoal.core`: dependency-free primitives (snowflakes, flags, enums, the codec).
 - `shoal.payloads`: typed mirrors of every Discord JSON object, one module per docs page.
-- `shoal.rest`: the HTTP client and rate limiter, usable without a gateway (dashboards, workers).
+- `shoal.rest`: the HTTP client, rate limiter and REST proxy, usable without a gateway.
 - `shoal.gateway`: shards, compression, identify scheduling and resumable sessions.
 - `shoal.cache`: a policy-driven cache that survives restarts and knows how fresh each entry is.
 - `shoal.ipc`: streams gateway events from gateway processes to worker processes.
 - `shoal.metrics`: exporters for the metrics every layer records (Prometheus).
 - `shoal.diagnostics`: event loop health (`LoopMonitor`).
 - `shoal.endpoint`: receives interactions over HTTP, for bots without a gateway.
+- `shoal.redis`: what a bot's processes share: limits, sessions, cache, events, shard directory.
+- `shoal.voice`: voice connections, end-to-end encrypted, and the audio they play.
 - `shoal.models`: `Guild`, `Member`, `Message` and the rest, with methods.
 - `shoal.emojis`: the application's emojis, used across the bot by name.
 - `shoal.client`: `Client`, which connects, caches and turns events into models.
 - `shoal.ui`: views, buttons, selects and modals.
 - `shoal.app_commands`: slash commands and context menus.
 - `shoal.commands`: prefix and hybrid commands, `Bot`, cogs and extensions.
+- `shoal.compat`: familiar names for bots moving over (`import shoal.compat as discord`).
 """
 
 import importlib
@@ -48,7 +51,7 @@ if TYPE_CHECKING:
         User,
     )
     from shoal.payloads import AllowedMentions, ButtonStyle, Intents, Permissions, StatusType
-    from shoal.rest import File
+    from shoal.rest import File, VoiceMessage
 
 _LAZY: Final[dict[str, str]] = {
     "AllowedMentions": "shoal.payloads",
@@ -70,6 +73,7 @@ _LAZY: Final[dict[str, str]] = {
     "TextChannel": "shoal.models",
     "Thread": "shoal.models",
     "User": "shoal.models",
+    "VoiceMessage": "shoal.rest",
     "app_commands": "shoal.app_commands",
     "commands": "shoal.commands",
     "ui": "shoal.ui",
@@ -109,6 +113,7 @@ __all__ = [
     "TextChannel",
     "Thread",
     "User",
+    "VoiceMessage",
     "__version__",
     "app_commands",
     "commands",

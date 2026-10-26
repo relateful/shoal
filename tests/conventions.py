@@ -12,6 +12,7 @@ import inspect
 import re
 import subprocess
 import sys
+import tomllib
 import typing
 from collections import Counter
 from enum import Enum
@@ -463,8 +464,9 @@ def test_queues_are_bounded(path: Path) -> None:
     assert unbounded == [], "a queue takes a size, or says on its line what bounds it"
 
 
-SECRET_FIELD = re.compile(r"(?:^|_)(?:token|secret|password|email)$")
-"""Struct fields whose value must never appear in a repr: credentials and email addresses."""
+SECRET_FIELD = re.compile(r"(?:^|_)(?:token|secret(?:_key)?|password|email)$")
+"""Struct and dataclass fields whose value must never appear in a repr: credentials, keys and email
+addresses."""
 
 
 def secret_fields_shown_in_reprs() -> list[str]:
@@ -472,11 +474,15 @@ def secret_fields_shown_in_reprs() -> list[str]:
     for path in source_modules():
         module = importlib.import_module(module_name(path))
         for value in vars(module).values():
-            if not (
-                inspect.isclass(value)
-                and issubclass(value, msgspec.Struct)
-                and value.__module__ == module.__name__
-            ):
+            if not inspect.isclass(value) or value.__module__ != module.__name__:
+                continue
+            if dataclasses.is_dataclass(value):
+                fields = [field for field in dataclasses.fields(value) if SECRET_FIELD.search(field.name)]
+                # A generated repr is wrapped (`reprlib.recursive_repr`); a written one is not.
+                if hasattr(vars(value).get("__repr__"), "__wrapped__"):
+                    shown.extend(f"{value.__qualname__}.{field.name}" for field in fields if field.repr)
+                continue
+            if not issubclass(value, msgspec.Struct):
                 continue
             secrets = [name for name in value.__struct_fields__ if SECRET_FIELD.search(name)]
             if not secrets:
@@ -493,3 +499,26 @@ def secret_fields_shown_in_reprs() -> list[str]:
 def test_credentials_and_emails_are_hidden_from_reprs() -> None:
     # A payload lists such fields in `REDACTED_FIELDS`; any other struct writes its own `__repr__`.
     assert secret_fields_shown_in_reprs() == []
+
+
+def test_the_all_extra_installs_every_other_extra() -> None:
+    extras = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "optional-dependencies"
+    ]
+    others = sorted(name for name in extras if name != "all")
+    assert extras["all"] == [f"shoal[{','.join(others)}]"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert all(f'"shoal[{name}]"' in readme for name in [*others, "all"])
+
+
+@pytest.mark.parametrize("package", ["commands", "app_commands"])
+def test_compat_re_exports_every_name_of_the_package_it_mirrors(package: str) -> None:
+    source = importlib.import_module(f"shoal.{package}")
+    mirror = importlib.import_module(f"shoal.compat.{package}")
+    missing = sorted(set(source.__all__) - set(mirror.__all__))
+    assert missing == [], f"shoal.compat.{package} lacks {missing}; add them to its imports and __all__"
+    for name in mirror.__all__:
+        assert hasattr(mirror, name), name
+    for name in set(mirror.__all__) - set(source.__all__):
+        # Every extra name is another name for something the package has, without "Error".
+        assert getattr(mirror, name) is getattr(source, f"{name}Error"), name

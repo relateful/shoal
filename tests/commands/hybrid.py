@@ -10,17 +10,15 @@ from shoal.commands import Cog, Context, HybridCommand, HybridGroup
 from shoal.commands.errors import BadArgumentError, CheckFailureError, HybridCommandError
 from shoal.core.codec import encode_json
 from shoal.models.member import Member
+from shoal.models.user import User
+from shoal.payloads import Attachment
 from shoal.payloads.permissions import Permissions
 from tests.support.client import Recorder
 from tests.support.commands import bot_started, say
 from tests.support.fakes import settle
 from tests.support.interactions import command as slash
-from tests.support.interactions import payload
-from tests.support.models import BOB, member, user
-
-
-def option(name: str, value: object, kind: int = 3) -> dict[str, object]:
-    return {"name": name, "type": kind, "value": value}
+from tests.support.interactions import option, payload
+from tests.support.models import ALICE, BOB, member, user
 
 
 class Shout(commands.Converter[str]):
@@ -273,3 +271,43 @@ async def test_settings_made_on_the_slash_side_survive_a_copy() -> None:
     assert copied.app_command is not ping.app_command
     assert copied.app_command.guild_only
     assert copied.app_command.guild_ids == [5]
+
+
+async def test_param_defaults_and_descriptions_work_both_ways() -> None:
+    bot, transport = await bot_started()
+    seen: list[tuple[str, object, object]] = []
+
+    @bot.hybrid_command()
+    @app_commands.describe(count="Overridden by describe")
+    async def greet(
+        ctx: Context,
+        count: int = commands.param(default=2, description="How many"),
+        person: Member | User = commands.Author,
+        note: str = commands.param(default=lambda ctx: f"from {ctx.author.id}", description="A note"),
+    ) -> None:
+        seen.append(("slash" if ctx.interaction else "prefix", person.id, (count, note)))
+
+    await say(bot, transport, "!greet")
+    await bot.process_interaction(payload(slash("greet")))
+    await settle()
+    assert seen == [("prefix", ALICE, (2, f"from {ALICE}")), ("slash", ALICE, (2, f"from {ALICE}"))]
+    options = msgspec.json.decode(encode_json(greet.app_command.to_payload()))["options"]
+    assert [(entry["name"], entry["description"], entry.get("required", False)) for entry in options] == [
+        ("count", "Overridden by describe", False),
+        ("person", NO_DESCRIPTION, False),
+        ("note", "A note", False),
+    ]
+
+
+async def test_an_attachment_parameter_is_a_slash_attachment_option() -> None:
+    bot, _ = await bot_started()
+
+    @bot.hybrid_command()
+    async def upload(ctx: Context, file: Attachment, note: str | None = None) -> None:
+        del ctx, file, note
+
+    options = msgspec.json.decode(encode_json(upload.app_command.to_payload()))["options"]
+    assert [(entry["name"], entry["type"], entry.get("required", False)) for entry in options] == [
+        ("file", 11, True),
+        ("note", 3, False),
+    ]

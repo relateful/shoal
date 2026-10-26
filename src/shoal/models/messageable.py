@@ -32,7 +32,7 @@ from shoal.payloads.message import (
 )
 from shoal.payloads.poll import PollCreateRequest
 from shoal.rest.errors import HTTPError
-from shoal.rest.files import File
+from shoal.rest.files import File, VoiceMessage
 
 if TYPE_CHECKING:
     from shoal.models.message import Message, PartialMessage
@@ -87,15 +87,18 @@ class Messageable:
         suppress_embeds: bool = False,
         silent: bool = False,
         poll: PollCreateRequest | None = None,
+        voice_message: VoiceMessage | None = None,
     ) -> "Message":
         """Send a message.
 
         `reference` makes it a reply; `mention_author=False` replies without pinging. `view`'s
         components are sent and, when it has callbacks, its interactions are routed to it.
-        `delete_after` deletes the message after that many seconds.
+        `delete_after` deletes the message after that many seconds. A `voice_message` is sent on its
+        own: no content, embeds, files, view, poll or stickers.
 
         Raises:
-            TypeError: Both `embed` and `embeds`, or both `file` and `files`, were given.
+            TypeError: Both `embed` and `embeds`, or both `file` and `files`, were given, or
+                something else with a voice message.
             HTTPError: Discord refused the message.
 
         Discord: https://docs.discord.com/developers/resources/message#create-message
@@ -121,6 +124,7 @@ class Messageable:
             suppress_embeds=suppress_embeds,
             silent=silent,
             poll=poll,
+            voice_message=voice_message,
         )
         reply: MessageReference | None = None
         if isinstance(reference, Message | PartialMessage):

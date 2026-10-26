@@ -3,6 +3,40 @@
 Shoal keeps discord.py's names wherever they are good, so most bots change their imports and little
 else. [Writing a bot](bot.md) shows the whole bot API.
 
+## Moving over step by step
+
+`shoal.compat` holds the names discord.py code is written with, so a bot can switch its imports first
+and rename later:
+
+```python
+import shoal.compat as discord
+from shoal.compat import app_commands, commands
+
+try:
+    await member.send("hi")
+except discord.Forbidden:  # shoal.rest.errors.ForbiddenError
+    ...
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):  # MissingRequiredArgumentError
+        ...
+```
+
+Everything in it is the same object as in Shoal: `discord.Member` is `shoal.Member`, and every error
+name without `Error` is the error with it. Renamed things keep their old names here too
+(`discord.Status` is `StatusType`, `discord.ScheduledEvent` is `GuildScheduledEvent`), and
+`discord.utils` has `get`, `find`, `oauth_url`, `snowflake_time`, `format_dt` and the markdown
+helpers. New code reads better with Shoal's own names.
+
+The `ext.commands` and `app_commands` surface is all there: `FlagConverter` and `flag()`,
+`commands.param()` with `Author`, `CurrentChannel` and `CurrentGuild`, `clean_content`, every
+converter class (`MemberConverter`, `ColourConverter`, `Timestamp`, ...), `Attachment` parameters,
+`dynamic_cooldown`, `GroupCog`, `MinimalHelpCommand` and `Paginator`; `app_commands.Transformer` and
+`Transform`, `Translator` and `locale_str`, and `guild_install`, `user_install`, `dm_only` and
+`private_channel_only`.
+
 ## Same idea, same name
 
 | discord.py | Shoal |
@@ -12,6 +46,8 @@ else. [Writing a bot](bot.md) shows the whole bot API.
 | `commands.Cog`, `@commands.Cog.listener()`, `bot.load_extension` | the same, from `shoal.commands` |
 | `app_commands.CommandTree(client)`, `@tree.command()`, `tree.sync()` | the same, from `shoal.app_commands` |
 | `discord.ui.View`, `@ui.button`, `ui.Modal`, `ui.TextInput` | the same, from `shoal.ui` |
+| `ui.LayoutView`, `ui.Container`, `ui.Section`, `ui.TextDisplay`, `@row.button` | the same, from `shoal.ui` |
+| `ui.Label`, `ui.FileUpload`, `ui.RadioGroup`, `ui.CheckboxGroup`, `ui.Checkbox` | the same, from `shoal.ui` |
 | `interaction.response.send_message(..., ephemeral=True)`, `followup.send` | the same |
 | `client.wait_for("message", check=..., timeout=...)` | the same |
 | `await guild.chunk()`, `await guild.query_members(...)` | the same; `chunk` also drops cached members who left |
@@ -27,16 +63,21 @@ else. [Writing a bot](bot.md) shows the whole bot API.
 | discord.py | Shoal | Why |
 | --- | --- | --- |
 | A missing field and `null` both become `None` | `UNSET` (absent) and `None` (null) | updates can tell "leave it" from "clear it" |
-| `discord.NotFound`, `discord.Forbidden` | `NotFoundError`, `ForbiddenError` | every exception name ends in `Error` (a compatibility layer with discord.py's names is [planned](../roadmap.md)) |
-| `AutoShardedClient` identifies one shard per 5 s | `ShardManager` uses `max_concurrency` | much faster startup for large bots |
+| `discord.NotFound`, `discord.Forbidden` | `NotFoundError`, `ForbiddenError` | every exception name ends in `Error` (`shoal.compat` has the old names) |
+| `AutoShardedClient` identifies one shard per 5 s | every `Client` shards, identifying `max_concurrency` at once | much faster startup for large bots |
+| `commands.param(description=...)` without a default | `Annotated[str, commands.param(description=...)]` | the annotation stays the parameter's real type for type checkers |
+| `commands.clean_content` annotation | `Annotated[str, commands.clean_content()]` reads as a `str` | the same, typed |
 | Cache lost on restart | snapshots plus resumable sessions | warm restarts |
 | `Client.http` (undocumented) | `RestClient` (public, standalone) | dashboards and workers |
 | One process | gateway and workers can be split with `shoal.ipc` | scaling and zero-downtime deploys |
+| `FFmpegPCMAudio`, `FFmpegOpusAudio` | `FFmpegSource` (encodes to Opus), `OggOpusSource` | Shoal sends Opus as encoded and needs no audio library |
+| `discord.ClientException` when already playing | `AudioPlayingError` (a `ShoalError`, not a `ClientError`) | voice sits below the client, so its errors cannot derive from the client's |
+| No built-in voice receive | `voice.listen()` yields decrypted Opus packets | built in, with end-to-end encryption ([voice](voice.md)) |
 
-## Interactions
+## Without a client
 
-Until the command framework lands, these are the building blocks underneath it. The
-[interactions guide](interactions.md) covers them in full.
+The bot API is built on these, and they work alone: a dashboard or a worker can answer interactions
+with no client at all. The [interactions guide](interactions.md) covers them in full.
 
 | discord.py | Shoal |
 | --- | --- |

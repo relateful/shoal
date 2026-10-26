@@ -106,8 +106,10 @@ class Bot(Client):
         owner_id: The owner, for `is_owner`; by default the application's owner (or its team).
         owner_ids: Several owners instead.
         context_class: The `Context` subclass commands receive.
-        options: `Client`'s other keywords (`ClientOptions`): cache, sharding, presence, metrics,
-            sessions, the cache snapshot, the clock and the shards' connection settings.
+        options: `Client`'s other keywords (`ClientOptions`): cache, sharding, presence, the REST
+            client, the application's emojis, metrics, sessions, the cache snapshot, the identify
+            limiter, the shard directory, the command router, the cluster name, the clock and the
+            shards' connection settings.
     """
 
     __slots__ = (
@@ -195,13 +197,14 @@ class Bot(Client):
             CommandRegistrationError: Its name or an alias is taken.
             ValueError: The slash side's name is taken in `tree`.
         """
-        if isinstance(command, HybridCommand | HybridGroup):
-            self.tree.add_command(command.app_command)
+        slash = _top_level_slash(command)
+        if slash is not None:
+            self.tree.add_command(slash)
         try:
             register_command(self._commands, command, case_insensitive=self.case_insensitive)
         except CommandError:
-            if isinstance(command, HybridCommand | HybridGroup):
-                self.tree.discard(command.app_command)
+            if slash is not None:
+                self.tree.discard(slash)
             raise
 
     def remove_command(self, name: str, /) -> Command | None:
@@ -210,8 +213,9 @@ class Bot(Client):
         if removed is None:
             return None
         unregister_command(self._commands, removed, case_insensitive=self.case_insensitive)
-        if isinstance(removed, HybridCommand | HybridGroup):
-            self.tree.discard(removed.app_command)
+        slash = _top_level_slash(removed)
+        if slash is not None:
+            self.tree.discard(slash)
         return removed
 
     def command(self, **options: Unpack[CommandOptions]) -> Callable[[CommandCallback], Command]:
@@ -631,6 +635,17 @@ async def _call(command: Command, handler: Callable[..., Awaitable[None]], *args
         await handler(command.cog, *args)
     else:
         await handler(*args)
+
+
+AutoShardedBot = Bot
+"""The same as `Bot`: every bot runs as many shards as Discord recommends, or as it is told."""
+
+
+def _top_level_slash(command: Command) -> AppCommandBase | AppGroup | None:
+    """A hybrid command's slash side, unless it is in a slash group (a `GroupCog`'s) the tree gets."""
+    if isinstance(command, HybridCommand | HybridGroup) and command.app_command.parent is None:
+        return command.app_command
+    return None
 
 
 def _attach_cog(app_command: AppCommandBase | AppGroup, cog: Cog) -> None:

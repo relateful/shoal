@@ -4,8 +4,9 @@ A gateway process runs the shards and an `EventServer`; any number of worker pro
 an `EventClient` and receive the dispatches they subscribe to (by shard and by event name). Workers
 can restart, deploy and scale without touching the gateway connection, which keeps its sessions.
 
-No broker is required: the protocol is length-prefixed msgpack over TCP, authenticated with a shared
-secret. Workers send their HTTP requests through `shoal.rest` directly or through a REST proxy.
+No broker is required: the protocol is length-prefixed msgpack over TCP or a Unix socket,
+authenticated with a shared secret (`shoal.redis` has a Redis stream for a broker instead).
+Workers send their HTTP requests through `shoal.rest` directly or through a REST proxy.
 """
 
 from shoal.ipc import defaults

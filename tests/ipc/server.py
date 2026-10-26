@@ -1,11 +1,16 @@
 import asyncio
 import contextlib
 import logging
+import stat
 import struct
+import sys
+import tempfile
+from pathlib import Path
 
 import pytest
 
 from shoal.core.metrics import IPC_DISCONNECTS, IPC_SUBSCRIBERS, InMemoryMetrics
+from shoal.ipc.client import EventClient
 from shoal.ipc.protocol import Subscribe, encode_frame
 from shoal.ipc.server import EventServer
 from tests.ipc.conftest import TOKEN, client, event, wait_for_subscribers
@@ -125,3 +130,36 @@ async def test_data_a_subscriber_sends_after_the_handshake_is_ignored(server: Ev
     assert server.subscriber_count == 1
     writer.close()
     await wait_for_subscribers(server, 0)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix sockets")
+async def test_a_unix_socket_carries_events_and_only_its_owner_can_open_it() -> None:
+    # A short directory: a socket path is limited to about 100 bytes, and macOS's temp paths are long.
+    with tempfile.TemporaryDirectory(dir="/tmp") as directory:
+        path = str(Path(directory) / "events.sock")
+        server = EventServer(token=TOKEN, path=path)
+        await server.start()
+        try:
+            assert server.path == path
+            mode = (await asyncio.to_thread(Path(path).stat)).st_mode
+            assert stat.S_IMODE(mode) == 0o600
+            with pytest.raises(RuntimeError, match="host and port"):
+                _ = server.address
+            receiver = EventClient.unix(path, token=TOKEN)
+            stream = receiver.events()
+            first = asyncio.ensure_future(anext(stream))
+            await wait_for_subscribers(server, 1)
+            await server.publish(event(0, "READY"))
+            assert await asyncio.wait_for(first, timeout=5) == event(0, "READY")
+            await receiver.close()
+            await stream.aclose()
+        finally:
+            await asyncio.wait_for(server.close(), timeout=5)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows has no Unix sockets")
+def test_windows_refuses_a_unix_socket() -> None:
+    with pytest.raises(ValueError, match="not available on Windows"):
+        EventServer(token=TOKEN, path="events.sock")
+    with pytest.raises(ValueError, match="not available on Windows"):
+        EventClient.unix("events.sock", token=TOKEN)

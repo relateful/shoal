@@ -21,9 +21,11 @@ import asyncio
 import logging
 from collections import deque
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http import HTTPStatus
 from typing import Protocol, final, override
+
+import msgspec
 
 from shoal.core.clock import Clock, SystemClock
 from shoal.core.errors import ShoalError
@@ -33,6 +35,7 @@ from shoal.payloads.rate_limits import (
     INVALID_REQUEST_LIMIT,
     INVALID_REQUEST_STATUSES,
     INVALID_REQUEST_WINDOW,
+    RateLimitResponse,
     RateLimitScope,
 )
 from shoal.rest.defaults import BUCKET_PRUNE_INTERVAL, BUCKET_PRUNE_THRESHOLD, INVALID_REQUEST_SAFETY_MARGIN
@@ -260,6 +263,16 @@ class _GlobalLimiter:
         self._paused_until = max(self._paused_until, self._clock.monotonic() + seconds)
 
 
+def is_invalid(status: int, scope: RateLimitScope | None) -> bool:
+    """Whether Discord counts a response toward the invalid request limit (shared-scope 429s are free).
+
+    Discord: https://docs.discord.com/developers/topics/rate-limits#invalid-request-limit-aka-cloudflare-bans
+    """
+    return status in INVALID_REQUEST_STATUSES and not (
+        status == HTTPStatus.TOO_MANY_REQUESTS and scope is RateLimitScope.SHARED
+    )
+
+
 @final
 class InvalidRequestGuard:
     """Counts invalid responses in a sliding window and holds requests back near the ban threshold.
@@ -306,9 +319,7 @@ class InvalidRequestGuard:
 
     def record(self, status: int, scope: RateLimitScope | None) -> None:
         """Count a response if Discord counts it as invalid (shared-scope 429s are free)."""
-        if status not in INVALID_REQUEST_STATUSES or (
-            status == HTTPStatus.TOO_MANY_REQUESTS and scope is RateLimitScope.SHARED
-        ):
+        if not is_invalid(status, scope):
             return
         now = self._clock.monotonic()
         self._expire(now)
@@ -480,3 +491,27 @@ class LocalRateLimiter(RateLimiter):
         self._pruned_at = now
         for key in [key for key, bucket in self._buckets.items() if bucket.is_idle(now)]:
             del self._buckets[key]
+
+
+def rate_limit_of(
+    status: int, headers: Mapping[str, str], body: bytes
+) -> tuple[RateLimitHeaders, float | None]:
+    """A response's rate limit headers and, for a 429, how many seconds to wait.
+
+    `headers` are lower-cased. A 429 whose body is not Discord's JSON (a Cloudflare page) falls back
+    to the `Retry-After` header, then to one second.
+    """
+    limits = RateLimitHeaders.parse(headers)
+    if status != HTTPStatus.TOO_MANY_REQUESTS:
+        return limits, None
+    try:
+        answer = msgspec.json.decode(body, type=RateLimitResponse)
+    except (msgspec.DecodeError, msgspec.ValidationError):
+        try:
+            return limits, max(float(headers.get("retry-after", "1")), 0.0)
+        except ValueError:
+            return limits, 1.0
+    if answer.global_ and not limits.is_global:
+        # Discord marks a global limit in the header and the body; either one is enough.
+        limits = replace(limits, is_global=True)
+    return limits, max(answer.retry_after, 0.0)

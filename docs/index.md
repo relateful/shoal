@@ -18,7 +18,7 @@ secondary_link: reference/shoal/index.md
 
 <p class="status-tag">Pre-alpha</p>
 
-<p markdown="span">Built and tested: typed payloads, a REST client that covers every endpoint Discord documents, the gateway, the cache, IPC, metrics and diagnostics, and the bot API on top: a `Client` with models, slash, prefix and hybrid commands, cogs, views and modals, and the application's emojis. Start with [writing a bot](guide/bot.md); the [roadmap](roadmap.md) has what comes next.</p>
+<p markdown="span">Built and tested: typed payloads, a REST client that covers every endpoint Discord documents, the gateway, the cache, IPC, state shared through Redis, a REST proxy, resharding without downtime, metrics and diagnostics, and the bot API on top: a `Client` with models, slash, prefix and hybrid commands, cogs, views, modals and layouts, voice messages, end-to-end encrypted voice, and the application's emojis. Start with [writing a bot](guide/bot.md); the [roadmap](roadmap.md) has what comes next.</p>
 
 </div>
 

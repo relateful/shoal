@@ -51,11 +51,15 @@ class SessionStore(Protocol):
         ...
 
     async def save(self, session: GatewaySession) -> None:
-        """Store a session, replacing any previous one for the shard."""
+        """Store a session, replacing any previous one for the shard and shard count."""
         ...
 
-    async def delete(self, shard_id: int) -> None:
-        """Forget the session for a shard (it was invalidated)."""
+    async def delete(self, shard_id: int, shard_count: int) -> None:
+        """Forget the session of a shard of `shard_count` (it was invalidated or ended).
+
+        Sessions are kept per shard count: during a reshard both counts run, and neither may
+        replace or delete the other's.
+        """
         ...
 
 
@@ -67,22 +71,19 @@ class MemorySessionStore(SessionStore):
 
     def __init__(self) -> None:
         """Create an empty store."""
-        self._sessions: dict[int, GatewaySession] = {}
+        self._sessions: dict[tuple[int, int], GatewaySession] = {}
 
     @override
     async def load(self, shard_id: int, shard_count: int) -> GatewaySession | None:
-        session = self._sessions.get(shard_id)
-        if session is None or session.shard_count != shard_count:
-            return None
-        return session
+        return self._sessions.get((shard_count, shard_id))
 
     @override
     async def save(self, session: GatewaySession) -> None:
-        self._sessions[session.shard_id] = session
+        self._sessions[session.shard_count, session.shard_id] = session
 
     @override
-    async def delete(self, shard_id: int) -> None:
-        self._sessions.pop(shard_id, None)
+    async def delete(self, shard_id: int, shard_count: int) -> None:
+        self._sessions.pop((shard_count, shard_id), None)
 
 
 @final
@@ -90,7 +91,7 @@ class FileSessionStore(SessionStore):
     """One JSON file per shard in a directory, written atomically.
 
     Args:
-        directory: Where `shard-<id>.json` files live. Created if missing.
+        directory: Where `shard-<count>-<id>.json` files live. Created if missing.
         max_age: Seconds after which a saved session is not worth trying. Shoal's heuristic, not a
             documented Discord limit.
         clock: Time source.
@@ -110,12 +111,12 @@ class FileSessionStore(SessionStore):
         self._max_age: float = max_age
         self._clock: Clock = clock or SystemClock()
 
-    def _path(self, shard_id: int) -> Path:
-        return self._directory / f"shard-{shard_id}.json"
+    def _path(self, shard_id: int, shard_count: int) -> Path:
+        return self._directory / f"shard-{shard_count}-{shard_id}.json"
 
     @override
     async def load(self, shard_id: int, shard_count: int) -> GatewaySession | None:
-        path = self._path(shard_id)
+        path = self._path(shard_id, shard_count)
         try:
             data = await asyncio.to_thread(path.read_bytes)
         except FileNotFoundError:
@@ -127,26 +128,27 @@ class FileSessionStore(SessionStore):
             session = decode_json(data, GatewaySession)
         except PayloadDecodeError:
             _log.warning("session file %s is corrupt; deleting it and identifying a new session", path)
-            await self._discard(shard_id)
+            await self._discard(shard_id, shard_count)
             return None
         age = self._clock.wall() - session.saved_at
         # A negative age means the clock moved backwards; the file cannot be dated, so it is not trusted.
         if session.shard_count != shard_count or not 0 <= age <= self._max_age:
-            await self._discard(shard_id)
+            await self._discard(shard_id, shard_count)
             return None
         return session
 
     @override
     async def save(self, session: GatewaySession) -> None:
-        await asyncio.to_thread(write_private, self._path(session.shard_id), encode_json(session))
+        path = self._path(session.shard_id, session.shard_count)
+        await asyncio.to_thread(write_private, path, encode_json(session))
 
     @override
-    async def delete(self, shard_id: int) -> None:
-        await asyncio.to_thread(self._path(shard_id).unlink, missing_ok=True)
+    async def delete(self, shard_id: int, shard_count: int) -> None:
+        await asyncio.to_thread(self._path(shard_id, shard_count).unlink, missing_ok=True)
 
-    async def _discard(self, shard_id: int) -> None:
+    async def _discard(self, shard_id: int, shard_count: int) -> None:
         """Delete a file `load` cannot use; failing to only means trying again on the next start."""
         try:
-            await self.delete(shard_id)
+            await self.delete(shard_id, shard_count)
         except OSError:
             _log.exception("session file for shard %d could not be deleted", shard_id)

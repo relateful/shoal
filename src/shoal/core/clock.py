@@ -63,11 +63,17 @@ async def sleep_unless(clock: Clock, seconds: float, stop: asyncio.Event) -> Non
 
 
 async def within[T](clock: Clock, seconds: float, work: Awaitable[T]) -> T:
-    """`work`'s result, or `TimeoutError` (with `work` cancelled) once `seconds` pass on `clock`."""
+    """`work`'s result, or `TimeoutError` (with `work` cancelled) once `seconds` pass on `clock`.
+
+    Cancelling the caller cancels `work` too: nothing it started outlives the wait.
+    """
     task = asyncio.ensure_future(work)
     sleeper = asyncio.ensure_future(clock.sleep(seconds))
     try:
         await asyncio.wait({task, sleeper}, return_when=asyncio.FIRST_COMPLETED)
+    except BaseException:
+        task.cancel()
+        raise
     finally:
         sleeper.cancel()
     if not task.done():

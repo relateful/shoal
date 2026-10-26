@@ -4,11 +4,14 @@ import pytest
 from shoal.commands import Context, command
 from shoal.models.member import Member
 from shoal.models.message import Message
+from shoal.payloads import MessageFlags
+from shoal.rest.files import VoiceMessage
 from tests.support.commands import PrefixBot, bot_started, context_in
 from tests.support.fakes import FakeTransport, SentRequest, settle
 from tests.support.interactions import command as slash
 from tests.support.interactions import common, payload
 from tests.support.models import ALICE, APPLICATION, BOT, GENERAL, GUILD, message, user
+from tests.support.multipart import parse_form
 
 
 def body(request: SentRequest) -> dict[str, object]:
@@ -37,9 +40,11 @@ async def test_a_message_context_knows_where_and_who() -> None:
     assert me.id == BOT
     assert ctx.state is bot.state
     assert not ctx.valid
+    assert ctx.voice_client is None  # not in a voice channel
     dm = context_in(bot, in_guild=False)
     assert dm.guild is None
     assert dm.me is bot.user
+    assert dm.voice_client is None
 
 
 async def test_send_and_reply_post_to_the_channel() -> None:
@@ -131,3 +136,33 @@ async def test_an_interaction_without_a_channel_has_no_context() -> None:
     interaction = await bot.process_interaction(payload(data))
     with pytest.raises(ValueError, match="without a channel"):
         Context(bot, interaction)
+
+
+def form_json(request: SentRequest) -> dict[str, object]:
+    assert request.body is not None
+    parts = parse_form(request.body, request.headers["Content-Type"])
+    assert [part.content_type for part in parts[1:]] == ["audio/ogg"]
+    return msgspec.json.decode(parts[0].data, type=dict[str, object])
+
+
+async def test_a_voice_message_goes_out_from_a_prefix_and_a_slash_command() -> None:
+    voice = VoiceMessage(b"OggS", 1.5, b"\x80")
+    bot, transport = await bot_started()
+    ctx = context_in(bot, "!ping")
+    transport.queue(200, message(1, author=user(BOT, "shoalbot")))
+    await ctx.reply(voice_message=voice, silent=True)
+    sent = form_json(transport.requests[-1])
+    assert sent["flags"] == int(MessageFlags(is_voice_message=True, suppress_notifications=True))
+    assert sent["attachments"] == [
+        {"id": 0, "filename": "voice-message.ogg", "duration_secs": 1.5, "waveform": "gA=="}
+    ]
+    assert isinstance(sent["message_reference"], dict)
+    _, transport, slash_ctx = await slash_context()
+    transport.queue(204)
+    transport.queue(200, message(10, author=user(BOT, "shoalbot")))
+    await slash_ctx.send(voice_message=voice)
+    answered = form_json(transport.requests[-2])
+    assert answered["data"] == {
+        "flags": int(MessageFlags(is_voice_message=True)),
+        "attachments": [{"id": 0, "filename": "voice-message.ogg", "duration_secs": 1.5, "waveform": "gA=="}],
+    }

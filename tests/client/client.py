@@ -20,16 +20,19 @@ from shoal.core.dispatch import DispatchEvent, DispatchHandler
 from shoal.core.metrics import InMemoryMetrics
 from shoal.core.replies import REPLY_WRITTEN
 from shoal.core.snowflake import Snowflake
+from shoal.gateway.cluster import MemoryCommandRouter, MemoryShardDirectory
 from shoal.gateway.session import MemorySessionStore
 from shoal.gateway.shard import ShardOptions
 from shoal.gateway.sharding import LocalIdentifyLimiter
 from shoal.models.activity import Game
 from shoal.models.channel import PartialMessageable, TextChannel
 from shoal.models.state import GatewayRequiredError, MemberRequestRateLimitedError
+from shoal.models.voice import SendVoiceState
 from shoal.payloads import (
     ActivityType,
     ApplicationDeauthorized,
     DeferredMessageResponse,
+    GatewayOpcode,
     Intents,
     MessageResponse,
     RequestGuildMembers,
@@ -386,6 +389,8 @@ class FakeManager:
         self.presence = presence
         self.shards = {shard_id: FakeShard() for shard_id in shard_ids}
         self.closed = False
+        self.resharded: tuple[int, Sequence[int] | None] | None = None
+        self.voice_states: list[tuple[int, object]] = []
         FakeManager.made.append(self)
 
     async def run(self) -> None:
@@ -397,6 +402,19 @@ class FakeManager:
     def shard_for_guild(self, guild_id: int) -> FakeShard | None:
         del guild_id
         return self.shards[0]
+
+    async def send_to_guild(self, guild_id: int, opcode: GatewayOpcode, data: msgspec.Struct) -> None:
+        assert opcode is GatewayOpcode.VOICE_STATE_UPDATE
+        self.voice_states.append((guild_id, msgspec.json.decode(encode_json(data))))
+
+    async def update_presence(self, presence: UpdatePresence) -> None:
+        for shard in self.shards.values():
+            await shard.update_presence(presence)
+
+    async def reshard(self, shard_count: int, shard_ids: Sequence[int] | None) -> None:
+        self.resharded = (shard_count, shard_ids)
+        self.shard_count = shard_count
+        self.shards = {shard_id: FakeShard() for shard_id in shard_ids or range(shard_count)}
 
 
 GATEWAY_BOT = {
@@ -507,6 +525,47 @@ async def test_a_cluster_runs_only_its_shards(monkeypatch: pytest.MonkeyPatch) -
     await clustered.connect("token")
     assert list(FakeManager.made[-1].shard_ids) == [2, 3]
     assert FakeManager.made[-1].shard_count == 4
+
+
+def shard_manager_of(client: Client) -> object:
+    """Read through a function: checkers narrow a property across the awaits in between."""
+    return client.shard_manager
+
+
+async def test_a_reshard_goes_to_the_manager_once_session_starts_allow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    directory, router = MemoryShardDirectory(), MemoryCommandRouter()
+
+    class Cluster(Client):
+        def __init__(self, *, intents: Intents, rest: Callable[[Token], RestClient]) -> None:
+            super().__init__(
+                intents=intents,
+                rest=rest,
+                shard_directory=directory,
+                command_router=router,
+                cluster_name="cluster-1",
+            )
+
+    clustered, transport = await logged_in(Cluster)
+    with pytest.raises(GatewayRequiredError):
+        await clustered.reshard(4)
+    assert shard_manager_of(clustered) is None
+    transport.queue(200, GATEWAY_BOT)
+    await clustered.connect("token")
+    manager = FakeManager.made[-1]
+    assert shard_manager_of(clustered) is manager
+    assert (manager.options["directory"], manager.options["router"], manager.options["name"]) == (
+        directory,
+        router,
+        "cluster-1",
+    )
+    transport.queue(200, GATEWAY_BOT)
+    await clustered.reshard(4, [2, 3])
+    assert manager.resharded == (4, [2, 3])
+    assert clustered.cache.revision > 0  # the cache was told
+    await clustered.close()
 
 
 def test_run_closes_the_client() -> None:
@@ -814,3 +873,132 @@ async def test_member_requests_need_their_intents_a_gateway_and_an_answer(
     monkeypatch.setattr(client_module, "MEMBER_QUERY_TIMEOUT", 0.01)
     with pytest.raises(TimeoutError):
         await online.query_members("nobody")
+
+
+class StubVoice:
+    """Stands in for a guild's voice client: records what the client hands it."""
+
+    made: ClassVar[list["StubVoice"]] = []
+    failing: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        state: object,
+        guild_id: int,
+        *,
+        send_state: SendVoiceState,
+        forget: Callable[[object], None],
+        metrics: object,
+    ) -> None:
+        del state
+        self.guild_id = Snowflake(guild_id)
+        self.send_state = send_state
+        self.forget = forget
+        self.metrics = metrics
+        self.states: list[object] = []
+        self.servers: list[object] = []
+        self.joined: list[int] = []
+        self.left = False
+        StubVoice.made.append(self)
+
+    async def connect(self, channel_id: int, *, self_mute: bool, self_deaf: bool) -> None:
+        del self_mute, self_deaf
+        if self.failing:
+            msg = "no answer"
+            raise TimeoutError(msg)
+        self.joined.append(channel_id)
+
+    def is_connected(self) -> bool:
+        return bool(self.joined)
+
+    def on_voice_state(self, state: object) -> None:
+        self.states.append(state)
+
+    def on_voice_server(self, server: object) -> None:
+        self.servers.append(server)
+
+    async def disconnect(self) -> None:
+        self.left = True
+        self.forget(self)
+
+
+def voice_state_of(user: int, guild: int | None = GUILD, channel: int | None = 20) -> dict[str, object]:
+    state: dict[str, object] = {
+        "channel_id": None if channel is None else str(channel),
+        "user_id": str(user),
+        "session_id": "voice-session",
+        "deaf": False,
+        "mute": False,
+        "self_deaf": False,
+        "self_mute": False,
+        "self_video": False,
+        "suppress": False,
+        "request_to_speak_timestamp": None,
+    }
+    if guild is not None:
+        state["guild_id"] = str(guild)
+    return state
+
+
+async def test_voice_joins_through_the_guilds_shard_and_gets_its_answers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "VoiceClient", StubVoice)
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=True)
+    voice = StubVoice.made[-1]
+    with pytest.raises(GatewayRequiredError, match="joining a voice channel"):
+        await voice.send_state(GUILD, 20, self_mute=False, self_deaf=False)  # before connecting
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    manager = FakeManager.made[-1]
+    assert client.voice_client(GUILD) is not None
+    assert len(client.voice_clients) == 1
+    await client.connect_voice(GUILD, 21, self_mute=False, self_deaf=False)
+    assert StubVoice.made[-1] is voice  # one per guild
+    assert voice.joined == [20, 21]
+    # The voice state update goes out through the manager, to the guild's shard.
+    await voice.send_state(GUILD, 20, self_mute=True, self_deaf=False)
+    sent = {"guild_id": str(GUILD), "channel_id": "20", "self_mute": True, "self_deaf": False}
+    assert manager.voice_states[-1] == (GUILD, sent)
+    # Only the bot's own voice states reach the voice client, and only of its guild.
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(BOT))
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(ALICE))
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(BOT, guild=None))
+    await feed(
+        client, "VOICE_SERVER_UPDATE", {"token": "t", "guild_id": str(GUILD), "endpoint": "voice.test"}
+    )
+    await feed(client, "VOICE_SERVER_UPDATE", {"token": "t", "guild_id": "999", "endpoint": "voice.test"})
+    assert (len(voice.states), len(voice.servers)) == (1, 1)
+    await client.close()
+    assert voice.left
+    assert client.voice_clients == []
+
+
+async def test_voice_clients_get_the_clients_metrics_and_all_leave_on_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "VoiceClient", StubVoice)
+    metrics, transport = InMemoryMetrics(), FakeTransport()
+    client = Client(intents=INTENTS, rest=lambda token: make_client(transport, token=token), metrics=metrics)
+    queue_login(transport)
+    await client.login("token")
+    await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=False)
+    await client.connect_voice(GUILD + 1, 30, self_mute=False, self_deaf=False)
+    first, second = StubVoice.made[-2:]
+    assert first.metrics is metrics
+    await client.close()
+    assert first.left
+    assert second.left
+    assert client.voice_clients == []
+
+
+async def test_a_failed_join_leaves_nothing_behind(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(client_module, "VoiceClient", StubVoice)
+    monkeypatch.setattr(StubVoice, "failing", True)
+    client, _ = await started()
+    with pytest.raises(TimeoutError):
+        await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=False)
+    assert client.voice_client(GUILD) is None
+    await client.close()

@@ -186,7 +186,9 @@ other response raises `TypeError`.
 
 ## Components and modals
 
-Components are built from typed structs; the `type` number is never written by hand.
+With a client, build them with `shoal.ui` ([writing a bot](bot.md#buttons-selects-and-modals)):
+views and layouts route their interactions back to your methods. Without one, components are typed
+structs; the `type` number is never written by hand.
 
 ```python
 from shoal.payloads import (

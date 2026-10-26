@@ -114,11 +114,24 @@ class ShardState(StrEnum):
 class GatewayFatalError(ShoalError):
     """Discord closed the connection with a code that reconnecting cannot fix (bad token, intents)."""
 
-    def __init__(self, shard_id: int, code: GatewayCloseCode) -> None:
-        """Report the shard and the close code."""
-        super().__init__(f"shard {shard_id} closed with {code.name} ({int(code)}); not reconnecting")
+    def __init__(self, shard_id: int, code: GatewayCloseCode, *, advice: str = "not reconnecting") -> None:
+        """Report the shard and the close code, then `advice`."""
+        super().__init__(f"shard {shard_id} closed with {code.name} ({int(code)}); {advice}")
         self.shard_id: int = shard_id
         self.code: GatewayCloseCode = code
+
+
+class PrivilegedIntentsRequiredError(GatewayFatalError):
+    """Discord refused intents the bot is not allowed: enable them in the Developer Portal."""
+
+    def __init__(self, shard_id: int) -> None:
+        """Shard `shard_id` asked for privileged intents the application has not enabled."""
+        super().__init__(
+            shard_id,
+            GatewayCloseCode.DISALLOWED_INTENTS,
+            advice="enable the privileged intents it uses (members, presences, message content) "
+            "under Bot in the Developer Portal",
+        )
 
 
 class ShardNotConnectedError(ShoalError):
@@ -308,6 +321,11 @@ class Shard:
         return self._shard_id
 
     @property
+    def shard_count(self) -> int:
+        """The shard count this shard identifies with."""
+        return self._shard_count
+
+    @property
     def state(self) -> ShardState:
         """The current lifecycle state."""
         return self._state
@@ -435,6 +453,15 @@ class Shard:
         else:
             # Ended for good: a later `close()` must not save it again.
             await self._forget_session()
+
+    async def keep_sessions(self, store: SessionStore) -> None:
+        """Save this shard's session in `store` from now on, starting now.
+
+        A reshard starts its shards without a store, so they never overwrite the sessions of the
+        shards they replace, and hands them the store once those are gone.
+        """
+        self._store = store
+        await self._persist()
 
     async def send_command(self, opcode: GatewayOpcode, data: msgspec.Struct) -> None:
         """Send a gateway command (presence, voice state, member and soundboard requests).
@@ -574,7 +601,12 @@ class Shard:
             await self._send(connection, limiter, GatewayOpcode.RESUME, resume)
             return
         self._state = ShardState.IDENTIFYING
-        identify = Identify(
+        async with self._identify_limiter.slot(self._shard_id):
+            # Built once the slot is ours: a presence set while waiting goes out with it.
+            await self._send(connection, limiter, GatewayOpcode.IDENTIFY, self._identify())
+
+    def _identify(self) -> Identify:
+        return Identify(
             token=self._token,
             properties=IdentifyConnectionProperties(
                 os=platform.system().lower() or "unknown",
@@ -587,8 +619,6 @@ class Shard:
             intents=self._intents,
             capabilities=self._capabilities if self._capabilities is not None else UNSET,
         )
-        async with self._identify_limiter.slot(self._shard_id):
-            await self._send(connection, limiter, GatewayOpcode.IDENTIFY, identify)
 
     async def _handle(
         self,
@@ -766,6 +796,8 @@ class Shard:
             return _Next.STOP
         if code is not None and GatewayCloseCode.is_gateway_code(code) and code != RESUMABLE_CLOSE_CODE:
             close_code = GatewayCloseCode(code)
+            if close_code is GatewayCloseCode.DISALLOWED_INTENTS:
+                raise PrivilegedIntentsRequiredError(self._shard_id)
             if not close_code.can_reconnect:
                 raise GatewayFatalError(self._shard_id, close_code)
             _log.info("shard %d: closed with %s; reconnecting", self._shard_id, close_code.name)
@@ -803,7 +835,7 @@ class Shard:
                 "shard %d: saved resume URL is not a secure gateway URL; starting a new session",
                 self._shard_id,
             )
-            await store.delete(self._shard_id)
+            await store.delete(self._shard_id, self._shard_count)
             return
         _log.info("shard %d: resuming saved session from before the restart", self._shard_id)
         self._session_id = saved.session_id
@@ -847,7 +879,7 @@ class Shard:
             return
         async with self._store_lock:
             try:
-                await self._store.delete(self._shard_id)
+                await self._store.delete(self._shard_id, self._shard_count)
             except Exception:  # noqa: BLE001 - a stale file only costs one failed resume
                 _log.exception("shard %d: could not delete the saved session", self._shard_id)
 

@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from shoal.models.role import Role
     from shoal.models.thread import Thread
     from shoal.models.user import User
+    from shoal.models.voice import VoiceClient
 
 
 def _value[T](value: T | UnsetType) -> T | None:
@@ -495,6 +496,22 @@ class VoiceChannel(_GuildMessageable):
 
         found = (Member.from_cache(self._state, self.guild_id, user_id) for user_id in self.voice_states)
         return [member for member in found if member is not None]
+
+    async def connect(self, *, self_mute: bool = False, self_deaf: bool = False) -> "VoiceClient":
+        """Join the channel (or move the bot here), and return the guild's voice client.
+
+        Needs `pip install 'shoal[voice]'` and a `Client` running the guild's shard.
+
+        Raises:
+            GatewayRequiredError: There is no gateway connection for the guild.
+            TimeoutError: Discord did not answer, or the voice handshake did not finish, in time.
+            VoiceConnectionClosedError: The voice server refused the connection.
+
+        Discord: https://docs.discord.com/developers/topics/voice-connections#connecting-to-voice
+        """
+        return await self._state.voice.connect_voice(
+            self.guild_id, self.id, self_mute=self_mute, self_deaf=self_deaf
+        )
 
 
 class StageChannel(VoiceChannel):

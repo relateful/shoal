@@ -20,14 +20,13 @@ from shoal.models.base import unset_if_none
 from shoal.models.emoji import EmojiLike, partial_emoji
 from shoal.payloads.components import BUTTON_LABEL_MAX_LENGTH, BUTTON_URL_MAX_LENGTH, ButtonStyle
 from shoal.payloads.components import Button as ButtonPayload
-from shoal.ui.item import ITEM_FACTORY, Item, check_length
+from shoal.ui.item import ITEM_FACTORY, InteractiveItem, check_length
 
 if TYPE_CHECKING:
     from shoal.payloads.emoji import PartialEmoji
-    from shoal.ui.view import View
 
 
-class Button(Item):
+class Button(InteractiveItem):
     """A button. A link button (`url`) or a premium button (`sku_id`) sends no interaction.
 
     Discord: https://docs.discord.com/developers/components/reference#button
@@ -46,6 +45,7 @@ class Button(Item):
         emoji: EmojiLike | None = None,
         row: int | None = None,
         sku_id: int | None = None,
+        id: int | None = None,
     ) -> None:
         """A button; giving `url` makes it a link button, `sku_id` a premium button.
 
@@ -55,7 +55,7 @@ class Button(Item):
         if url is not None and custom_id is not None:
             msg = "a link button cannot have a custom_id"
             raise ValueError(msg)
-        super().__init__(custom_id=custom_id, row=row)
+        super().__init__(custom_id=custom_id, row=row, id=id)
         self.style: ButtonStyle = (
             ButtonStyle.LINK if url is not None else ButtonStyle.PREMIUM if sku_id else style
         )
@@ -80,6 +80,7 @@ class Button(Item):
         """The button as Discord takes it."""
         dispatchable = self.is_dispatchable()
         return ButtonPayload(
+            id=unset_if_none(self.id),
             style=self.style,
             label=unset_if_none(self.label),
             emoji=unset_if_none(self.emoji),
@@ -94,11 +95,31 @@ class Button(Item):
         return f"<Button style={self.style.name} label={self.label!r} custom_id={self.custom_id!r}>"
 
 
-type ButtonCallback[V: View] = Callable[[V, Interaction, Button], Awaitable[None]]
-"""A view method decorated with `@ui.button`."""
+type ButtonCallback[O] = Callable[[O, Interaction, Button], Awaitable[None]]
+"""A method decorated with `@ui.button`, on a view, an action row or a container."""
 
 
-def button[V: View](
+def button_factory(
+    *,
+    label: str | None,
+    custom_id: str | None,
+    disabled: bool,
+    style: ButtonStyle,
+    emoji: EmojiLike | None,
+    row: int | None,
+    id: int | None,
+) -> Callable[[], Button]:
+    """A function making the button `@ui.button` and `ActionRow.button` describe, once per instance."""
+
+    def make() -> Button:
+        return Button(
+            label=label, custom_id=custom_id, disabled=disabled, style=style, emoji=emoji, row=row, id=id
+        )
+
+    return make
+
+
+def button[O](
     *,
     label: str | None = None,
     custom_id: str | None = None,
@@ -106,18 +127,17 @@ def button[V: View](
     style: ButtonStyle = ButtonStyle.SECONDARY,
     emoji: EmojiLike | None = None,
     row: int | None = None,
-) -> Callable[[ButtonCallback[V]], ButtonCallback[V]]:
-    """Turn a view method into a button; the method runs when the button is pressed.
+    id: int | None = None,
+) -> Callable[[ButtonCallback[O]], ButtonCallback[O]]:
+    """Turn a method of a `View` or an `ActionRow` subclass into a button, run when it is pressed.
 
-    The method takes `(self, interaction, button)`. Each view instance gets its own button.
+    The method takes `(self, interaction, button)`. Each instance gets its own button.
     """
+    make = button_factory(
+        label=label, custom_id=custom_id, disabled=disabled, style=style, emoji=emoji, row=row, id=id
+    )
 
-    def decorator(function: ButtonCallback[V]) -> ButtonCallback[V]:
-        def make() -> Button:
-            return Button(
-                label=label, custom_id=custom_id, disabled=disabled, style=style, emoji=emoji, row=row
-            )
-
+    def decorator(function: ButtonCallback[O]) -> ButtonCallback[O]:
         setattr(function, ITEM_FACTORY, make)
         return function
 

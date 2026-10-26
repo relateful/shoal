@@ -17,6 +17,7 @@ from collections.abc import Hashable
 from typing import Protocol, final, override
 
 from shoal.cache.entry import Entry
+from shoal.cache.policy import CachePolicy, EntityKind
 from shoal.core.clock import Clock
 from shoal.core.snowflake import Snowflake
 
@@ -217,3 +218,52 @@ class NullCollection[K: Hashable, V](CacheCollection[K, V]):
     @override
     def peek_items(self) -> list[tuple[K, Entry[V]]]:
         return []
+
+
+class CollectionFactory(Protocol):
+    """Makes the collection an enabled entity kind is stored in: `CacheStore(collections=...)`.
+
+    `key` and `entry` are the kind's key type and entry type, for a collection that stores entries
+    outside the process and has to decode them again (`shoal.redis.RedisCollections`).
+    """
+
+    __slots__ = ()
+
+    @property
+    def shared(self) -> bool:
+        """Whether other processes read and write the same entries (Redis, a database).
+
+        A store over shared collections numbers its writes on from the wall clock, so a restarted
+        process never writes below what is already stored, and saves and loads no snapshots: the
+        entries outlive the process already.
+        """
+        ...
+
+    def __call__[K: Hashable, V](
+        self, kind: EntityKind, policy: CachePolicy, key: type[K], entry: type[Entry[V]]
+    ) -> CacheCollection[K, V]:
+        """The collection `kind` is stored in, bounded as `policy` says."""
+        ...
+
+
+@final
+class MemoryCollections(CollectionFactory):
+    """Every kind in a `MemoryCollection` in this process: the default."""
+
+    __slots__ = ("_clock",)
+
+    def __init__(self, clock: Clock) -> None:
+        """Collections timing their entries on `clock`."""
+        self._clock: Clock = clock
+
+    @property
+    @override
+    def shared(self) -> bool:
+        return False
+
+    @override
+    def __call__[K: Hashable, V](
+        self, kind: EntityKind, policy: CachePolicy, key: type[K], entry: type[Entry[V]]
+    ) -> CacheCollection[K, V]:
+        del kind, key, entry
+        return MemoryCollection[K, V](self._clock, max_entries=policy.max_entries, ttl=policy.ttl)

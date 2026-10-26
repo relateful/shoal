@@ -96,3 +96,11 @@ def test_forms_refuse_values_they_cannot_carry() -> None:
     with pytest.raises(TypeError, match="value cannot be sent as text"):
         form_of(Untyped(value=[1]))
     assert form_of(Untyped(value=datetime(2026, 1, 1, tzinfo=UTC))) == {"value": "2026-01-01T00:00:00+00:00"}
+
+
+def test_a_voice_messages_metadata_goes_in_its_attachment() -> None:
+    voice = File("v.ogg", b"x", content_type="audio/ogg", duration=1.5, waveform=b"\x00\xff")
+    params, _ = with_attachments(CreateMessageParams(), [voice])
+    assert params.attachments == [
+        AttachmentRequest(id=0, filename="v.ogg", duration_secs=1.5, waveform="AP8=")
+    ]

@@ -6,6 +6,7 @@ from shoal import commands
 from shoal.commands import Context
 from shoal.commands.checks import DM_PERMISSIONS, CheckDecorator, channel_permissions
 from shoal.commands.errors import (
+    BotMissingAnyRoleError,
     BotMissingPermissionsError,
     BotMissingRoleError,
     CheckAnyFailureError,
@@ -22,7 +23,20 @@ from tests.support.commands import PrefixBot, bot_started, context_in
 from tests.support.interactions import command as slash
 from tests.support.interactions import payload
 from tests.support.json_payloads import APPLICATION
-from tests.support.models import ALICE, BOB, CATEGORY, GENERAL, GUILD, MODS, OWNER, RED, THREAD, channel, user
+from tests.support.models import (
+    ALICE,
+    BOB,
+    BOT,
+    CATEGORY,
+    GENERAL,
+    GUILD,
+    MODS,
+    OWNER,
+    RED,
+    THREAD,
+    channel,
+    user,
+)
 
 
 async def passes(decorator: CheckDecorator, ctx: Context) -> bool:
@@ -72,6 +86,12 @@ async def test_role_checks_take_ids_or_names() -> None:
         await passes(commands.has_any_role(MODS), context_in(made))
     with pytest.raises(BotMissingRoleError):
         await passes(commands.bot_has_role("mods"), context_in(made))
+    with pytest.raises(BotMissingAnyRoleError) as refused:
+        await passes(commands.bot_has_any_role("mods", MODS), context_in(made))
+    assert refused.value.missing_roles == ["mods", MODS]
+    update = {"guild_id": str(GUILD), "roles": [str(MODS)], "user": user(BOT, "shoalbot"), "joined_at": None}
+    await feed(made, "GUILD_MEMBER_UPDATE", update | {"avatar": None, "banner": None})
+    assert await passes(commands.bot_has_any_role("red", MODS), context_in(made))
 
 
 async def test_place_checks() -> None:

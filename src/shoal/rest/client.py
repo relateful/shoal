@@ -10,14 +10,12 @@ Discord: https://docs.discord.com/developers/reference#http-api
 import logging
 import random
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import StrEnum
 from http import HTTPStatus
 from types import TracebackType
 from typing import Self, final, override
 from urllib.parse import quote
-
-import msgspec
 
 from shoal.core.backoff import backoff_delay
 from shoal.core.clock import Clock, SystemClock
@@ -32,11 +30,11 @@ from shoal.core.metrics import (
 )
 from shoal.payloads.api import API_BASE_URL, API_VERSION, AUDIT_LOG_REASON_MAX_LENGTH
 from shoal.payloads.message import SearchIndexNotReady
-from shoal.payloads.rate_limits import RateLimitResponse
 from shoal.rest.defaults import (
     DEFAULT_USER_AGENT,
     MAX_RATE_LIMIT_WAIT,
     MAX_RETRIES,
+    PROXY_SECRET_HEADER,
     RETRY_BACKOFF_CAP,
     RETRYABLE_STATUSES,
     SEARCH_INDEX_RETRY_DELAY,
@@ -49,7 +47,7 @@ from shoal.rest.errors import (
     TokenInvalidatedError,
 )
 from shoal.rest.files import File, encode_multipart
-from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, RateLimitHeaders, WaitTooLongError
+from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, WaitTooLongError, rate_limit_of
 from shoal.rest.requester import QueryValue, Requester, encode_query
 from shoal.rest.resources import (
     Applications,
@@ -145,6 +143,7 @@ class RestClient(Requester):
         rate_limiter: Defaults to a `LocalRateLimiter`. Pass a shared limiter when several processes
             use one token.
         base_url: The API base without version. Point it at a REST proxy to centralise rate limits.
+        proxy_secret: The secret a `RestProxy` expects, sent with every request when given.
         api_version: The API version segment.
         max_retries: Retries for rate limits, idempotent requests that hit 5xx, and network errors.
             A request that is not idempotent is retried after a network error only when it never
@@ -170,6 +169,7 @@ class RestClient(Requester):
         "_max_rate_limit_wait",
         "_max_retries",
         "_metrics",
+        "_proxy_secret",
         "_random_source",
         "_refuse_after_unauthorized",
         "_token",
@@ -217,6 +217,7 @@ class RestClient(Requester):
         transport: HTTPTransport | None = None,
         rate_limiter: RateLimiter | None = None,
         base_url: str = API_BASE_URL,
+        proxy_secret: str | None = None,
         api_version: int = API_VERSION,
         max_retries: int = MAX_RETRIES,
         max_rate_limit_wait: float = MAX_RATE_LIMIT_WAIT,
@@ -239,6 +240,7 @@ class RestClient(Requester):
             clock=self._clock, metrics=self._metrics
         )
         self._base_url: str = f"{base_url.rstrip('/')}/v{api_version}"
+        self._proxy_secret: str | None = proxy_secret
         self._max_retries: int = max_retries
         self._max_rate_limit_wait: float = max_rate_limit_wait
         self._refuse_after_unauthorized: bool = refuse_after_unauthorized
@@ -465,7 +467,7 @@ class RestClient(Requester):
             self._limiter.release(route, None, None, None)
             raise
 
-        limits, retry_after = self._rate_limit(response)
+        limits, retry_after = rate_limit_of(response.status, response.headers, response.body)
         self._limiter.release(route, response.status, limits, retry_after)
 
         labels = {"method": route.method.value, "route": template}
@@ -512,30 +514,13 @@ class RestClient(Requester):
 
     def _headers(self, reason: str | None, *, authorize: bool) -> dict[str, str]:
         headers = {"User-Agent": self._user_agent}
+        if self._proxy_secret is not None:
+            headers[PROXY_SECRET_HEADER] = self._proxy_secret
         if authorize and self._token is not None:
             headers["Authorization"] = self._token.header
         if reason:
             headers["X-Audit-Log-Reason"] = quote(reason[:AUDIT_LOG_REASON_MAX_LENGTH], safe=" ")
         return headers
-
-    @staticmethod
-    def _rate_limit(response: HTTPResponse) -> tuple[RateLimitHeaders, float | None]:
-        """The response's rate limit headers and, for a 429, how many seconds to wait."""
-        limits = RateLimitHeaders.parse(response.headers)
-        if response.status != HTTPStatus.TOO_MANY_REQUESTS:
-            return limits, None
-        try:
-            body = msgspec.json.decode(response.body, type=RateLimitResponse)
-        except (msgspec.DecodeError, msgspec.ValidationError):
-            # Not Discord's JSON (a Cloudflare page): only the standard header is left.
-            try:
-                return limits, max(float(response.headers.get("retry-after", "1")), 0.0)
-            except ValueError:
-                return limits, 1.0
-        if body.global_ and not limits.is_global:
-            # Discord marks a global limit in the header and the body; either one is enough.
-            limits = replace(limits, is_global=True)
-        return limits, max(body.retry_after, 0.0)
 
 
 def _may_have_been_sent(error: OSError) -> bool:

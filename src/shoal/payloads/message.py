@@ -840,6 +840,18 @@ MESSAGE_CONTENT_MAX_LENGTH: Final = 2000
 Discord: https://docs.discord.com/developers/resources/message#create-message-json/form-params
 """
 
+VOICE_MESSAGE_WAVEFORM_INTERVAL: Final = 0.1
+"""Seconds between the waveform points Discord's clients take of a voice message, at most.
+
+Discord: https://docs.discord.com/developers/resources/message#voice-messages
+"""
+
+VOICE_MESSAGE_WAVEFORM_MAX_POINTS: Final = 256
+"""The most points in a voice message's waveform; Discord's clients downsample to this.
+
+Discord: https://docs.discord.com/developers/resources/message#voice-messages
+"""
+
 
 class ListPinsParams(Payload):
     """Query of Get Channel Pins; page with the last pin's `pinned_at` as `before`.

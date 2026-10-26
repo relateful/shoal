@@ -1,6 +1,6 @@
 import pytest
 
-from shoal.ui.item import Item, random_custom_id
+from shoal.ui.item import InteractiveItem, Item, random_custom_id
 from tests.support.client import started
 from tests.support.interactions import command, payload
 
@@ -19,7 +19,7 @@ def test_a_bare_item_cannot_be_rendered() -> None:
 async def test_the_default_callback_does_nothing() -> None:
     client, _ = await started()
     interaction = await client.process_interaction(payload(command("x")))
-    item = Item(custom_id="x")
+    item = InteractiveItem(custom_id="x")
     item.refresh(interaction, [], None)
     await item.invoke(interaction)
     assert item.is_persistent()

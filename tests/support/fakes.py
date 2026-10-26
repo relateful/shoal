@@ -140,6 +140,7 @@ class FakeConnection(GatewayConnection):
 
     incoming: asyncio.Queue[WebSocketMessage] = field(default_factory=asyncio.Queue[WebSocketMessage])
     sent: list[bytes] = field(default_factory=list[bytes])
+    sent_binary: list[bytes] = field(default_factory=list[bytes])
     close_codes: list[int] = field(default_factory=list[int])
     sent_event: asyncio.Event = field(default_factory=asyncio.Event)
 
@@ -159,6 +160,11 @@ class FakeConnection(GatewayConnection):
     @override
     async def send(self, data: bytes) -> None:
         self.sent.append(data)
+        self.sent_event.set()
+
+    @override
+    async def send_binary(self, data: bytes) -> None:
+        self.sent_binary.append(data)
         self.sent_event.set()
 
     @override

@@ -11,6 +11,7 @@ from shoal.client.interaction import (
     InteractionPayload,
     InteractionRespondedError,
     InteractionResponse,
+    OptionNamespace,
     Responder,
 )
 from shoal.client.views import DispatchableView, SubmittableModal, ViewStore
@@ -28,6 +29,7 @@ __all__ = [
     "InteractionRespondedError",
     "InteractionResponse",
     "Listener",
+    "OptionNamespace",
     "Responder",
     "SubmittableModal",
     "ViewStore",

@@ -1,13 +1,17 @@
+import logging
 import stat
 import sys
+from collections.abc import Hashable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import override
 
 import msgspec
 import pytest
 
+from shoal.cache.collection import CacheCollection, CollectionFactory, MemoryCollections
 from shoal.cache.defaults import SNAPSHOT_FORMAT
-from shoal.cache.entry import Source
+from shoal.cache.entry import Entry, Source
 from shoal.cache.guild import CachedGuild
 from shoal.cache.policy import CacheConfig, CachePolicy, EntityKind, RestartStrategy
 from shoal.cache.store import CacheStore, Snapshot
@@ -405,3 +409,53 @@ async def test_a_detached_guild_is_a_copy_of_only_that_guild() -> None:
     assert await detached.get_channel(1) is not None
     assert await detached.get_channel(2) is None
     assert await store.get_channel(1) is None
+
+
+async def test_after_a_reshard_old_shard_numbers_neither_stale_nor_sweep_entries() -> None:
+    store = CacheStore(clock=FakeClock())
+    store.session_started(0)
+    for guild_id in (GUILD, OTHER_GUILD):
+        await store.put(
+            store.guilds, guild_id, cached_guild(guild_id), Source.GATEWAY, scope=guild_id, shard=0
+        )
+    store.resharded()
+    # Under the new count, shard 0 receives only GUILD; OTHER_GUILD moved to another shard.
+    store.session_started(0)
+    await store.put(store.guilds, GUILD, cached_guild(GUILD), Source.GATEWAY, scope=GUILD, shard=0)
+    assert await store.sweep_stale() == 0
+    assert await store.get_guild(OTHER_GUILD, fresh_only=True) is not None
+
+
+class _Shared(CollectionFactory):
+    """Memory collections that pretend to be shared with other processes."""
+
+    def __init__(self, clock: FakeClock) -> None:
+        self.memory = MemoryCollections(clock)
+
+    @property
+    @override
+    def shared(self) -> bool:
+        return True
+
+    @override
+    def __call__[K: Hashable, V](
+        self, kind: EntityKind, policy: CachePolicy, key: type[K], entry: type[Entry[V]]
+    ) -> CacheCollection[K, V]:
+        return self.memory(kind, policy, key, entry)
+
+
+async def test_a_shared_store_numbers_on_from_the_clock_and_keeps_no_snapshots(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    clock = FakeClock()
+    shared = CacheStore(clock=clock, collections=_Shared(clock))
+    assert shared.revision == round(clock.wall() * 1_000_000)
+    assert not MemoryCollections(clock).shared
+    path = tmp_path / "cache.snapshot"
+    with caplog.at_level(logging.WARNING, logger="shoal.cache"):
+        await shared.save_snapshot(path)
+        assert not path.exists()
+        await CacheStore(clock=clock).save_snapshot(path)
+        assert not await shared.load_snapshot(path)
+    assert "not saving a cache snapshot" in caplog.text
+    assert "not loading a cache snapshot" in caplog.text

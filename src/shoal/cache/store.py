@@ -34,7 +34,7 @@ from typing import Protocol, cast, final
 
 import msgspec
 
-from shoal.cache.collection import CacheCollection, MemoryCollection, NullCollection
+from shoal.cache.collection import CacheCollection, CollectionFactory, MemoryCollections, NullCollection
 from shoal.cache.defaults import SNAPSHOT_FORMAT, YIELD_EVERY
 from shoal.cache.entry import Entry, Freshness, Source
 from shoal.cache.guild import CachedGuild
@@ -160,6 +160,8 @@ class CacheStore:
         config: Policies and restart strategy. Defaults to `CacheConfig()`.
         clock: Time source.
         metrics: Receives lookup results (hit, stale, miss) per entity kind.
+        collections: Makes the collection each enabled kind is stored in; in this process by default.
+            `shoal.redis.RedisCollections` stores them in Redis, shared by several processes.
 
     Guild entries are stored without their `roles`, `emojis` and `stickers` lists; those live in their
     own collections, so each object has exactly one cached copy.
@@ -169,10 +171,12 @@ class CacheStore:
         "_clock",
         "_collections",
         "_config",
+        "_factory",
         "_first_sequence",
         "_floor",
         "_identified",
         "_kinds",
+        "_layout_since",
         "_metrics",
         "_registry",
         "_restored",
@@ -196,14 +200,24 @@ class CacheStore:
     )
 
     def __init__(
-        self, config: CacheConfig | None = None, *, clock: Clock | None = None, metrics: Metrics | None = None
+        self,
+        config: CacheConfig | None = None,
+        *,
+        clock: Clock | None = None,
+        metrics: Metrics | None = None,
+        collections: CollectionFactory | None = None,
     ) -> None:
         """Create an empty store; see the class docstring for the arguments."""
         self._config: CacheConfig = config or CacheConfig()
         self._clock: Clock = clock or SystemClock()
+        self._factory: CollectionFactory = collections or MemoryCollections(self._clock)
         self._metrics: Metrics = metrics or NoopMetrics()
-        self._revision: int = 0
+        # Shared collections hold what earlier processes wrote: number on from above all of it.
+        self._revision: int = round(self._clock.wall() * 1_000_000) if self._factory.shared else 0
         self._floor: int = 0
+        self._layout_since: int = 0
+        """Entries below this revision were written under an earlier shard count: their shard says
+        nothing about the shards running now."""
         """Entries below this revision are stale unless their shard's session says otherwise."""
         self._stale_before: dict[int, int] = {}
         """Per shard with a session in this process: entries it wrote below this revision are stale."""
@@ -219,52 +233,48 @@ class CacheStore:
         self._collections: dict[EntityKind, object] = {}
         """Each kind's collection, for another store copying into this one."""
         self.channels: CacheCollection[Snowflake, Channel] = self._register(
-            EntityKind.CHANNEL, NullCollection[Snowflake, Channel]()
+            EntityKind.CHANNEL, Snowflake, Entry[Channel]
         )
         self.emojis: CacheCollection[Snowflake, Emoji] = self._register(
-            EntityKind.EMOJI, NullCollection[Snowflake, Emoji]()
+            EntityKind.EMOJI, Snowflake, Entry[Emoji]
         )
         self.guilds: CacheCollection[Snowflake, CachedGuild] = self._register(
-            EntityKind.GUILD, NullCollection[Snowflake, CachedGuild]()
+            EntityKind.GUILD, Snowflake, Entry[CachedGuild]
         )
         self.members: CacheCollection[GuildUserKey, GuildMember] = self._register(
-            EntityKind.MEMBER, NullCollection[GuildUserKey, GuildMember]()
+            EntityKind.MEMBER, tuple[Snowflake, Snowflake], Entry[GuildMember]
         )
         self.messages: CacheCollection[Snowflake, MessageCreate] = self._register(
-            EntityKind.MESSAGE, NullCollection[Snowflake, MessageCreate]()
+            EntityKind.MESSAGE, Snowflake, Entry[MessageCreate]
         )
         self.presences: CacheCollection[GuildUserKey, Presence] = self._register(
-            EntityKind.PRESENCE, NullCollection[GuildUserKey, Presence]()
+            EntityKind.PRESENCE, tuple[Snowflake, Snowflake], Entry[Presence]
         )
-        self.roles: CacheCollection[Snowflake, Role] = self._register(
-            EntityKind.ROLE, NullCollection[Snowflake, Role]()
-        )
+        self.roles: CacheCollection[Snowflake, Role] = self._register(EntityKind.ROLE, Snowflake, Entry[Role])
         self.scheduled_events: CacheCollection[Snowflake, GuildScheduledEvent] = self._register(
-            EntityKind.SCHEDULED_EVENT, NullCollection[Snowflake, GuildScheduledEvent]()
+            EntityKind.SCHEDULED_EVENT, Snowflake, Entry[GuildScheduledEvent]
         )
         self.soundboard_sounds: CacheCollection[Snowflake, SoundboardSound] = self._register(
-            EntityKind.SOUNDBOARD_SOUND, NullCollection[Snowflake, SoundboardSound]()
+            EntityKind.SOUNDBOARD_SOUND, Snowflake, Entry[SoundboardSound]
         )
         self.stage_instances: CacheCollection[Snowflake, StageInstance] = self._register(
-            EntityKind.STAGE_INSTANCE, NullCollection[Snowflake, StageInstance]()
+            EntityKind.STAGE_INSTANCE, Snowflake, Entry[StageInstance]
         )
         self.stickers: CacheCollection[Snowflake, Sticker] = self._register(
-            EntityKind.STICKER, NullCollection[Snowflake, Sticker]()
+            EntityKind.STICKER, Snowflake, Entry[Sticker]
         )
-        self.users: CacheCollection[Snowflake, User] = self._register(
-            EntityKind.USER, NullCollection[Snowflake, User]()
-        )
+        self.users: CacheCollection[Snowflake, User] = self._register(EntityKind.USER, Snowflake, Entry[User])
         self.voice_states: CacheCollection[GuildUserKey, VoiceState] = self._register(
-            EntityKind.VOICE_STATE, NullCollection[GuildUserKey, VoiceState]()
+            EntityKind.VOICE_STATE, tuple[Snowflake, Snowflake], Entry[VoiceState]
         )
 
     def _register[K: Hashable, V](
-        self, kind: EntityKind, disabled: NullCollection[K, V]
+        self, kind: EntityKind, key_type: type[K], entry_type: type[Entry[V]]
     ) -> CacheCollection[K, V]:
         policy = self._config.policy(kind)
-        collection: CacheCollection[K, V] = disabled
-        if policy.enabled:
-            collection = MemoryCollection[K, V](self._clock, max_entries=policy.max_entries, ttl=policy.ttl)
+        collection: CacheCollection[K, V] = (
+            self._factory(kind, policy, key_type, entry_type) if policy.enabled else NullCollection[K, V]()
+        )
         self._kinds[id(collection)] = kind
 
         async def drop(scope: Snowflake | None, doomed: _Doomed, *, every_scope: bool) -> int:
@@ -315,6 +325,20 @@ class CacheStore:
         self._restored.pop(shard_id, None)
         self._first_sequence.pop(shard_id, None)
 
+    def resharded(self) -> None:
+        """The bot now runs a new shard count: what was written so far keeps its freshness.
+
+        The shards that wrote it no longer receive the same guilds, so a later new session on a
+        shard of the same number neither makes those entries stale nor lets `sweep_stale` forget
+        their guilds.
+        """
+        self._revision += 1
+        self._layout_since = self._revision
+        self._stale_before.clear()
+        self._identified.clear()
+        self._restored.clear()
+        self._first_sequence.clear()
+
     def session_resumed(self, shard_id: int) -> None:
         """`shard_id` resumed its session.
 
@@ -356,7 +380,7 @@ class CacheStore:
         return entry.freshness.revision >= self._threshold(entry.freshness)
 
     def _threshold(self, freshness: Freshness) -> int:
-        if freshness.shard is None:
+        if freshness.shard is None or freshness.revision < self._layout_since:
             return self._floor
         return self._stale_before.get(freshness.shard, self._floor)
 
@@ -582,6 +606,7 @@ class CacheStore:
             guild_id
             for guild_id, entry in await self.guilds.items()
             if guild_id not in self._unavailable
+            and entry.freshness.revision >= self._layout_since
             and entry.freshness.shard in self._identified
             and entry.freshness.revision < self._threshold(entry.freshness)
         ]
@@ -634,6 +659,11 @@ class CacheStore:
         (`ShardManager.close()`), so it ends exactly where the saved sessions resume. Pass the bot's
         total `shard_count` so `load_snapshot` can tell when the bot was resharded.
         """
+        if self._factory.shared:
+            _log.warning(
+                "not saving a cache snapshot: the cache's collections are shared and outlive the process"
+            )
+            return
         snapshot = await self.snapshot(shard_count=shard_count)
         await asyncio.to_thread(_write_snapshot, Path(path), snapshot)
 
@@ -648,6 +678,12 @@ class CacheStore:
         no session survives resharding anyway. Kinds whose policy no longer persists are not restored.
         """
         if self._config.restart is RestartStrategy.COLD:
+            return False
+        if self._factory.shared:
+            # Loading replaces every entry, and the entries are other processes' too.
+            _log.warning(
+                "not loading a cache snapshot: the cache's collections are shared and outlive the process"
+            )
             return False
         target = Path(path)
         try:

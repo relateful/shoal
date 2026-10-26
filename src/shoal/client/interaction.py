@@ -15,7 +15,7 @@ Discord: https://docs.discord.com/developers/interactions/receiving-and-respondi
 
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Final, TypeGuard, final, override
+from typing import TYPE_CHECKING, Final, Protocol, TypeGuard, final, override
 
 from msgspec import UNSET, UnsetType
 
@@ -62,7 +62,7 @@ from shoal.payloads.message import AllowedMentions, Attachment, MessageFlags
 from shoal.payloads.monetization import Entitlement
 from shoal.payloads.permissions import Permissions
 from shoal.payloads.poll import PollCreateRequest
-from shoal.rest.files import File
+from shoal.rest.files import File, VoiceMessage
 
 if TYPE_CHECKING:
     from shoal.client.client import Client
@@ -100,6 +100,23 @@ class InteractionRespondedError(ShoalError):
         self.interaction: Interaction = interaction
 
 
+class OptionNamespace(Protocol):
+    """The options of the command being run, by name: `interaction.namespace.member`.
+
+    `app_commands.Namespace` is the one a command tree sets; options left out read as `None`.
+    """
+
+    __slots__ = ()
+
+    def __getattr__(self, name: str) -> object:
+        """The value of option `name`, or `None` when it was left out."""
+        ...
+
+    def __contains__(self, name: str) -> bool:
+        """Whether the user filled in option `name`."""
+        ...
+
+
 class Interaction(Hashable):
     """Someone used a command, a component or a modal. Answer it with `response`.
 
@@ -121,7 +138,7 @@ class Interaction(Hashable):
         self.response: InteractionResponse = InteractionResponse(self, responder)
         self.followup: Followup = Followup(self)
         self.command: object | None = None
-        self.namespace: object | None = None
+        self.namespace: OptionNamespace | None = None
         self.extras: dict[str, object] = {}
 
     @property
@@ -386,8 +403,9 @@ class InteractionResponse:
         silent: bool = False,
         delete_after: float | None = None,
         poll: PollCreateRequest | None = None,
+        voice_message: VoiceMessage | None = None,
     ) -> None:
-        """Answer with a message; `ephemeral` shows it only to the user.
+        """Answer with a message; `ephemeral` shows it only to the user. A `voice_message` is sent alone.
 
         Raises:
             InteractionRespondedError: The interaction was already answered.
@@ -407,6 +425,7 @@ class InteractionResponse:
             silent=silent,
             ephemeral=ephemeral,
             poll=poll,
+            voice_message=voice_message,
         )
         dispatchable = view is not None and view.is_dispatchable()
         sent = await self._send(
@@ -531,8 +550,9 @@ class Followup:
         suppress_embeds: bool = False,
         silent: bool = False,
         poll: PollCreateRequest | None = None,
+        voice_message: VoiceMessage | None = None,
     ) -> Message:
-        """Send a follow-up message.
+        """Send a follow-up message. A `voice_message` is sent alone.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#create-followup-message
         """
@@ -550,6 +570,7 @@ class Followup:
             silent=silent,
             ephemeral=ephemeral,
             poll=poll,
+            voice_message=voice_message,
         )
         state = parent.state
         data = await state.rest.interactions.send_followup(

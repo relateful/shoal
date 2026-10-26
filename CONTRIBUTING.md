@@ -33,21 +33,25 @@ uv run python scripts/check_docs.py --docs-repo ../discord-api-docs --check-cove
 ```
 src/shoal/
   core/          primitives: snowflakes, flags, open enums, codec, clock, tasks, private files,
-                 metrics catalog, dispatch event
+                 metrics catalog, dispatch event, Ogg reading and writing
   payloads/      one module per Discord domain (user, guild, channel, message, gateway, ...)
-  rest/          HTTP client, routes, rate limiting
+  rest/          HTTP client, routes, rate limiting, the REST proxy
   gateway/       shards, sessions, compression, clusters
   cache/         cache store and updater
   ipc/           gateway-to-worker transport
   metrics/       exporters (Prometheus)
   diagnostics/   event loop health
   endpoint/      interactions over HTTP, for bots without a gateway
+  redis/         state shared by a bot's processes in Redis: rate limits, identify, sessions, cache,
+                 events, the shard directory and command routing
+  voice/         voice connections: the voice gateway, UDP, transport encryption, DAVE and audio
   models/        objects with methods (Guild, Member, Message, ...) over a cache and a REST client
   emojis/        the application's emojis: a registry used across the bot, and a sync from a folder
   client/        Client: events as models, interactions, views and modals waiting for answers
   ui/            views, buttons, selects and modals
   app_commands/  slash commands, context menus, the command tree and its checks
   commands/      prefix and hybrid commands, Bot, cogs, converters, extensions, help
+  compat/        familiar names for migrating bots (error names without Error), and their helpers
 tests/           mirrors src/shoal/: tests/rest/route.py tests src/shoal/rest/route.py
 scripts/         maintenance scripts (docs checker, export generator, constant sorter, upstream mirror)
 docs/            guides and the home page; the API reference is generated from docstrings
@@ -56,10 +60,14 @@ theme/           the docs site's own theme: templates, styles and scripts, no th
 
 `core` depends on nothing but the standard library and msgspec. `payloads` depends on `core`. The
 transport layers (`rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`) depend on
-`core` and `payloads` and **never on each other**, so each can run in its own process. Above them
-the bot layers stack in this order, each using only those below it: `models`, `emojis`, `client`,
-then `ui` and `app_commands` (beside each other), then `commands`. `import-linter` enforces this, and
-`tests/conventions.py` checks that every package is named here and in the contract.
+`core` and `payloads` and **never on each other**, so each can run in its own process. `redis`
+implements their extension points (limiters, session store, cache collections, event transport,
+shard directory, command router), and `voice` builds voice connections on the gateway's websocket;
+both sit above them, beside each other. Above them the bot layers stack in this order, each using
+only those below it: `models`, `emojis`, `client`, then `ui` and `app_commands` (beside each other),
+then `commands`, then `compat` (aliases over the rest, for migrating bots; nothing imports it).
+`import-linter` enforces this, and `tests/conventions.py` checks that every package is named here
+and in the contract.
 
 ## Where things go
 
@@ -226,7 +234,8 @@ Payloads mirror Discord's JSON exactly and hold data only.
   and template codes) are in `rest.route.SECRET_PARAMETERS`, which keeps them out of logs.
 - A value whose type depends on another field, like an audit log change's `old_value` and
   `new_value`, is `msgspec.Raw`: the caller decodes it into the type the other field names.
-- `cast` and `type: ignore` are a last resort: name the error code and say why on the same line.
+- `cast` and `type: ignore` are a last resort. Say why on the same line or the line above (a
+  conventions test checks every cast); a `type: ignore` also names its error code.
 - Use Python 3.12 syntax: `type` aliases, `class Box[T]`, `def first[T]`.
 - Protocols describe every swappable dependency (transport, connector, clock, rate limiter, identify
   limiter, session store, cache collection, metrics).
@@ -247,7 +256,8 @@ So that anything can be found without searching:
 - Docstrings explain behaviour and reasons (Google style). Comments are rare and explain why, never
   what. No section-banner comments (`# Login ------`); a module that needs them should be split.
 - Code, comments, docstrings and tests describe Shoal on its own terms and never mention other
-  libraries. Only the docs that compare directly (the migration guide) name discord.py.
+  Discord libraries. Only the docs that compare directly (the migration guide) name discord.py.
+  A dependency (aiohttp, redis-py) may be named where its behaviour is the reason for the code.
 - No unreachable or defensive dead code: pyright reports code that narrowing makes unreachable
   (`enableReachabilityAnalysis`), and a branch that cannot happen is removed, not kept "just in case".
 - Classes declare `__slots__`; dataclasses use `slots=True`.
@@ -281,5 +291,6 @@ So that anything can be found without searching:
 
 Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes are the packages
 (`core`, `payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`,
-`models`, `emojis`, `client`, `ui`, `app_commands`, `commands`) plus `docs`, `ci` and `build`. Update
+`redis`, `voice`, `models`, `emojis`, `client`, `ui`, `app_commands`, `commands`, `compat`) plus `docs`, `ci`
+and `build`. Update
 `CHANGELOG.md` under "Unreleased".

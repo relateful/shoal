@@ -35,14 +35,22 @@ from shoal.models.message import Message, PartialMessage, Reaction
 from shoal.models.messageable import Messageable, Typing
 from shoal.models.permissions import channel_permissions, guild_permissions, thread_permissions
 from shoal.models.role import Role
-from shoal.models.state import ComponentView, State, ViewRegistry
+from shoal.models.state import (
+    ComponentView,
+    GatewayRequiredError,
+    MemberRequestRateLimitedError,
+    State,
+    ViewRegistry,
+)
 from shoal.models.thread import Thread
 from shoal.models.user import BaseUser, ClientUser, User
+from shoal.models.voice import AudioPlayingError, SendVoiceState, VoiceClient, VoiceGateway
 
 __all__ = [
     "MISSING",
     "AnyGuildChannel",
     "Asset",
+    "AudioPlayingError",
     "BaseUser",
     "CategoryChannel",
     "ClientUser",
@@ -54,6 +62,7 @@ __all__ = [
     "Emoji",
     "ForumChannel",
     "Game",
+    "GatewayRequiredError",
     "GroupChannel",
     "Guild",
     "GuildChannel",
@@ -62,6 +71,7 @@ __all__ = [
     "Listening",
     "MediaChannel",
     "Member",
+    "MemberRequestRateLimitedError",
     "Message",
     "Messageable",
     "MessageableChannel",
@@ -71,6 +81,7 @@ __all__ = [
     "PartialMessageable",
     "Reaction",
     "Role",
+    "SendVoiceState",
     "StageChannel",
     "State",
     "Streaming",
@@ -81,6 +92,8 @@ __all__ = [
     "User",
     "ViewRegistry",
     "VoiceChannel",
+    "VoiceClient",
+    "VoiceGateway",
     "Watching",
     "channel_from_payload",
     "channel_permissions",

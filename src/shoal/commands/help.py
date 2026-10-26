@@ -28,6 +28,90 @@ type HelpMapping = Mapping["Cog | None", list[Command]]
 """Each cog (`None` for commands outside cogs) and its commands."""
 
 
+class Paginator:
+    """Lines split into pages that each fit a message, between `prefix` and `suffix`.
+
+    paginator = Paginator()  # a code block per page
+    for line in lines:
+        paginator.add_line(line)
+    for page in paginator.pages:
+        await channel.send(page)
+    """
+
+    __slots__ = ("_count", "_current", "_pages", "linesep", "max_size", "prefix", "suffix")
+
+    def __init__(
+        self,
+        prefix: str | None = "```",
+        suffix: str | None = "```",
+        max_size: int = MESSAGE_CONTENT_MAX_LENGTH,
+        linesep: str = "\n",
+    ) -> None:
+        """Pages of at most `max_size` characters, lines joined by `linesep`."""
+        self.prefix: str | None = prefix
+        self.suffix: str | None = suffix
+        self.max_size: int = max_size
+        self.linesep: str = linesep
+        self._pages: list[str] = []
+        self._current: list[str] = []
+        self._count: int = 0
+        self.clear()
+
+    def clear(self) -> None:
+        """Forget every page."""
+        self._pages = []
+        self._new_page()
+
+    def _new_page(self) -> None:
+        self._current = [] if self.prefix is None else [self.prefix]
+        self._count = 0 if self.prefix is None else len(self.prefix) + len(self.linesep)
+
+    @property
+    def max_line_size(self) -> int:
+        """The longest line a page can hold, with its prefix and suffix."""
+        return self.max_size - len(self.prefix or "") - len(self.suffix or "") - 2 * len(self.linesep)
+
+    def add_line(self, line: str = "", *, empty: bool = False) -> None:
+        """Add a line (and an empty one after it with `empty`), starting a page when this one is full.
+
+        Raises:
+            RuntimeError: The line is longer than a page can hold (`max_line_size`).
+        """
+        if len(line) > self.max_line_size:
+            msg = f"a line of {len(line)} characters does not fit a page of {self.max_size}"
+            raise RuntimeError(msg)
+        if self._count + len(line) + len(self.linesep) > self.max_size - len(self.suffix or ""):
+            self.close_page()
+        self._current.append(line)
+        self._count += len(line) + len(self.linesep)
+        if empty:
+            self._current.append("")
+            self._count += len(self.linesep)
+
+    def close_page(self) -> None:
+        """End the current page, whether or not it is full."""
+        if self.suffix is not None:
+            self._current.append(self.suffix)
+        self._pages.append(self.linesep.join(self._current))
+        self._new_page()
+
+    @property
+    def pages(self) -> list[str]:
+        """The pages, the current one included if it holds any line."""
+        if len(self._current) > (0 if self.prefix is None else 1):
+            closing = [] if self.suffix is None else [self.suffix]
+            return [*self._pages, self.linesep.join([*self._current, *closing])]
+        return list(self._pages)
+
+    def __len__(self) -> int:
+        """The characters in every page so far."""
+        return sum(len(page) for page in self._pages) + self._count
+
+    @override
+    def __repr__(self) -> str:
+        return f"<Paginator pages={len(self.pages)} max_size={self.max_size}>"
+
+
 class HelpCommand:
     """How `help` answers. Subclass it and override the `send_*` methods."""
 
@@ -201,28 +285,14 @@ class DefaultHelpCommand(HelpCommand):
         )
 
     async def _send(self, lines: Sequence[str]) -> None:
-        destination = self.get_destination()
-        limit = MESSAGE_CONTENT_MAX_LENGTH - len("```\n\n```")
-        page: list[str] = []
-        size = 0
-        for line in lines:
-            if size + len(line) + 1 > limit and page:
-                await destination.send("```\n" + "\n".join(page) + "\n```")
-                page, size = [], 0
-            page.append(line[:limit])
-            size += len(line) + 1
-        if page:
-            await destination.send("```\n" + "\n".join(page) + "\n```")
+        await _send_pages(self, Paginator(), lines)
 
     @override
     async def send_bot_help(self, mapping: HelpMapping) -> None:
         """Every command the user can run, under its cog's name."""
         description = self.context.bot.description
         lines = [description, ""] if description else []
-        ordered = sorted(
-            mapping.items(), key=lambda item: item[0].qualified_name if item[0] is not None else "￿"
-        )
-        for cog, commands in ordered:
+        for cog, commands in _by_category(mapping):
             shown = await self.filter_commands(commands)
             lines.extend(self._lines(cog.qualified_name if cog is not None else self.no_category, shown))
         lines.extend(["", self._ending()])
@@ -250,6 +320,123 @@ class DefaultHelpCommand(HelpCommand):
     async def send_command_help(self, command: Command) -> None:
         """A command's usage, aliases and help."""
         lines = [self.get_command_signature(command)]
+        if command.help:
+            lines.extend(["", command.help])
+        await self._send(lines)
+
+
+def _by_category(mapping: HelpMapping) -> list[tuple["Cog | None", list[Command]]]:
+    """The categories by cog name, commands outside cogs last."""
+    return sorted(
+        mapping.items(), key=lambda item: (item[0] is None, item[0].qualified_name if item[0] else "")
+    )
+
+
+async def _send_pages(help_command: HelpCommand, paginator: Paginator, lines: Sequence[str]) -> None:
+    """Send `lines` to the help command's destination, a message per page; over-long lines are cut."""
+    for line in lines:
+        paginator.add_line(line[: paginator.max_line_size])
+    destination = help_command.get_destination()
+    for page in paginator.pages:
+        await destination.send(page)
+
+
+class MinimalHelpCommand(HelpCommand):
+    """Plain help without code blocks: commands listed inline under each category.
+
+    `commands_heading` titles a list of commands, `aliases_heading` a command's aliases, and
+    `no_category` holds commands outside cogs.
+    """
+
+    __slots__ = ("aliases_heading", "commands_heading", "no_category")
+
+    def __init__(
+        self,
+        *,
+        command_name: str = "help",
+        show_hidden: bool = False,
+        verify_checks: bool = True,
+        sort_commands: bool = True,
+        commands_heading: str = "Commands",
+        aliases_heading: str = "Aliases:",
+        no_category: str = "No Category",
+    ) -> None:
+        """A minimal help; keywords as for `HelpCommand`, and the headings it writes."""
+        super().__init__(
+            command_name=command_name,
+            show_hidden=show_hidden,
+            verify_checks=verify_checks,
+            sort_commands=sort_commands,
+        )
+        self.commands_heading: str = commands_heading
+        self.aliases_heading: str = aliases_heading
+        self.no_category: str = no_category
+
+    @override
+    def get_command_signature(self, command: Command) -> str:
+        """How to use `command`, under its name alone: its aliases are listed on their own line."""
+        return f"{self.context.clean_prefix}{command.qualified_name} {command.signature}".rstrip()
+
+    def get_opening_note(self) -> str:
+        """The line before the bot's or a cog's help."""
+        name = f"{self.context.clean_prefix}{self.command_name}"
+        return f"Use `{name} [command]` for more info on a command."
+
+    def _inline(self, heading: str, commands: Sequence[Command]) -> list[str]:
+        if not commands:
+            return []
+        return [f"__**{heading}**__", " ".join(f"`{command.name}`" for command in commands)]
+
+    def _detailed(self, commands: Sequence[Command]) -> list[str]:
+        if not commands:
+            return []
+        lines = [f"__**{self.commands_heading}**__"]
+        lines.extend(
+            f"`{self.context.clean_prefix}{command.qualified_name}`"
+            + (f" — {command.short_doc}" if command.short_doc else "")
+            for command in commands
+        )
+        return lines
+
+    async def _send(self, lines: Sequence[str]) -> None:
+        await _send_pages(self, Paginator(prefix=None, suffix=None), lines)
+
+    @override
+    async def send_bot_help(self, mapping: HelpMapping) -> None:
+        """The opening note, then each category's commands on one line."""
+        description = self.context.bot.description
+        lines = [self.get_opening_note(), ""]
+        if description:
+            lines[0:0] = [description, ""]
+        for cog, commands in _by_category(mapping):
+            shown = await self.filter_commands(commands)
+            lines.extend(self._inline(cog.qualified_name if cog is not None else self.no_category, shown))
+        await self._send(lines)
+
+    @override
+    async def send_cog_help(self, cog: "Cog") -> None:
+        """A cog's description and its commands with their summaries."""
+        lines = [self.get_opening_note(), ""]
+        if cog.description:
+            lines.extend([cog.description, ""])
+        lines.extend(self._detailed(await self.filter_commands(cog.get_commands())))
+        await self._send(lines)
+
+    @override
+    async def send_group_help(self, group: Group) -> None:
+        """A group's usage, help and subcommands."""
+        lines = [f"`{self.get_command_signature(group)}`", ""]
+        if group.help:
+            lines.extend([group.help, ""])
+        lines.extend(self._detailed(await self.filter_commands(group.commands)))
+        await self._send(lines)
+
+    @override
+    async def send_command_help(self, command: Command) -> None:
+        """A command's usage, aliases and help."""
+        lines = [f"`{self.get_command_signature(command)}`"]
+        if command.aliases:
+            lines.append(f"**{self.aliases_heading}** {', '.join(command.aliases)}")
         if command.help:
             lines.extend(["", command.help])
         await self._send(lines)

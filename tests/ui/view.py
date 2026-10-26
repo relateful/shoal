@@ -2,15 +2,21 @@ import asyncio
 import logging
 from typing import override
 
+import msgspec
 import pytest
 
 from shoal.client.interaction import Interaction
-from shoal.payloads import ActionRow, ButtonStyle, SelectOption
+from shoal.core.codec import encode_json
+from shoal.models.sending import outgoing
+from shoal.payloads import ActionRow, ButtonStyle, MessageFlags, SelectOption
+from shoal.ui.action_row import ActionRow as ActionRowItem
 from shoal.ui.button import Button, button
-from shoal.ui.item import Item
+from shoal.ui.content import Separator, TextDisplay, Thumbnail
+from shoal.ui.layout import Container, Section
 from shoal.ui.select import Select, select
 from shoal.ui.text_input import TextInput
-from shoal.ui.view import View
+from shoal.ui.view import LayoutView, View
+from tests.support.calls import call_unchecked
 from tests.support.client import started
 from tests.support.fakes import settle
 from tests.support.interactions import component, payload
@@ -93,9 +99,8 @@ def test_items_can_be_removed() -> None:
 
 
 def test_text_inputs_belong_in_modals() -> None:
-    view = View().add_item(TextInput(label="Name"))
-    with pytest.raises(TypeError, match="modal"):
-        view.to_components()
+    with pytest.raises(TypeError, match="buttons and selects"):
+        call_unchecked(View().add_item, TextInput(label="Name"))
 
 
 async def test_presses_run_the_decorated_method() -> None:
@@ -230,7 +235,7 @@ async def test_the_timeout_can_change_while_running() -> None:
         (Select(options=[SelectOption(label="a", value="a")], max_values=26), "max_values"),
     ],
 )
-def test_items_discord_would_refuse_are_refused_before_sending(item: Item, problem: str) -> None:
+def test_items_discord_would_refuse_are_refused_before_sending(item: Button | Select, problem: str) -> None:
     view = View().add_item(item)
     with pytest.raises(ValueError, match=problem):
         view.to_components()
@@ -240,3 +245,115 @@ def test_two_items_cannot_share_a_custom_id() -> None:
     view = View().add_item(Button(custom_id="same")).add_item(Button(custom_id="same"))
     with pytest.raises(ValueError, match="another item of the view has custom_id 'same'"):
         view.to_components()
+
+
+class Status(LayoutView):
+    heading = TextDisplay("## Status", id=1)
+    details = Container(
+        Section("All systems normal", accessory=Thumbnail("https://e.com/ok.png")),
+        Separator(),
+        accent_colour=0x57F287,
+    )
+    row = ActionRowItem()
+
+    @row.button(label="Refresh", custom_id="status:refresh")
+    async def refresh(self, interaction: Interaction, pressed: Button) -> None:
+        del interaction, pressed
+
+
+def test_a_layout_view_sends_its_items_with_the_components_v2_flag() -> None:
+    view = Status(timeout=None)
+    message = outgoing(view=view)
+    assert isinstance(message.flags, MessageFlags)
+    assert message.flags.is_components_v2
+    assert [component["type"] for component in msgspec.json.decode(encode_json(message.components))] == [
+        10,
+        17,
+        1,
+    ]
+    assert view.has_components_v2()
+    assert view.is_persistent()
+    assert view.custom_ids() == ["status:refresh"]
+    assert view.find_item(1) is view.heading
+    assert len(list(view.walk_children())) == 8
+
+
+def test_a_layout_view_of_action_rows_only_is_an_ordinary_message() -> None:
+    view = LayoutView().add_item(ActionRowItem(Button(custom_id="a")))
+    message = outgoing("Pick one", view=view)
+    assert message.flags is msgspec.UNSET
+    for index in range(5):
+        view.add_item(ActionRowItem(Button(custom_id=f"more{index}")))
+    with pytest.raises(ValueError, match="only holds 5"):
+        view.to_components()
+
+
+def test_a_layout_view_holds_at_most_forty_components() -> None:
+    view = LayoutView()
+    for index in range(40):
+        view.add_item(TextDisplay(str(index)))
+    view.to_components()
+    view.add_item(TextDisplay("one too many"))
+    with pytest.raises(ValueError, match="at most 40 components, not 41"):
+        view.to_components()
+
+
+def test_component_ids_are_unique_but_zero_means_unset() -> None:
+    LayoutView().add_item(TextDisplay("a", id=0)).add_item(TextDisplay("b", id=0)).to_components()
+    twice = LayoutView().add_item(TextDisplay("a", id=4)).add_item(Container(TextDisplay("b", id=4)))
+    with pytest.raises(ValueError, match="another item of the view has id 4"):
+        twice.to_components()
+
+
+def test_a_layout_view_takes_only_top_level_components() -> None:
+    with pytest.raises(TypeError, match="put a button or a select in an ActionRow"):
+        call_unchecked(LayoutView().add_item, Button())
+    with pytest.raises(TypeError, match="go in an action row"):
+
+        class Wrong(LayoutView):  # pyright: ignore[reportUnusedClass] - defining it is the test
+            @button(label="x")
+            async def stray(self, interaction: Interaction, pressed: Button) -> None:
+                del interaction, pressed
+
+    class Stray(LayoutView):
+        thumbnail = Thumbnail("https://e.com/a.png")
+
+    with pytest.raises(TypeError, match="cannot be at the top"):
+        Stray()
+
+
+def test_removing_from_a_layout_view_detaches_the_whole_item() -> None:
+    view = Status()
+    view.remove_item(view.details)
+    assert view.details.view is None
+    assert all(item.view is None for item in view.details.walk())
+    view.clear_items()
+    assert view.children == []
+    assert view.heading.view is None
+
+
+def test_an_item_declared_alone_and_in_a_container_is_one_object_per_view() -> None:
+    class Shared(LayoutView):
+        row = ActionRowItem(Button(custom_id="shared:go"))
+        box = Container(TextDisplay("x"), row)
+
+    view = Shared()
+    assert view.children == [view.box]
+    assert view.row.parent is view.box
+    assert view.row is not Shared.row
+    assert view.custom_ids() == ["shared:go"]
+
+
+async def test_an_unknown_custom_id_or_a_stopped_view_does_not_dispatch() -> None:
+    client, _ = await started()
+    view = Status(timeout=None)
+    interaction = await client.process_interaction(payload(component("nobody")))
+    assert not await view.dispatch(interaction, "nobody")
+    view.stop()
+    assert not await view.dispatch(interaction, "status:refresh")
+
+
+def test_an_item_id_can_be_set_later() -> None:
+    text = TextDisplay("x")
+    text.id = 7
+    assert text.id == 7

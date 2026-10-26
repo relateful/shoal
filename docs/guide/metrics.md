@@ -42,6 +42,8 @@ localhost unless told otherwise.
 | `shoal_rest_request_seconds` | histogram | `method`, `route` |
 | `shoal_rest_requests_total` | counter | `method`, `route`, `status` |
 | `shoal_rest_retries_total` | counter | `route`, `reason` |
+| `shoal_voice_packets_dropped_total` | counter | `reason` (`behind`, `unsealed`, `undecrypted`) |
+| `shoal_voice_reconnects_total` | counter | `mode` (`resume`, `rejoin`) |
 
 Routes are labelled by template (`GET /channels/{channel_id}`), never by filled-in path, so the number
 of series stays bounded however busy the bot is.

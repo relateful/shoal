@@ -180,6 +180,21 @@ REST_RETRIES: Final = MetricSpec(
     ("route", "reason"),
 )
 
+VOICE_PACKETS_DROPPED: Final = MetricSpec(
+    "shoal_voice_packets_dropped_total",
+    MetricKind.COUNTER,
+    "Received voice packets dropped, by reason (behind: a listener fell behind; unsealed: transport "
+    "decryption failed; undecrypted: end-to-end decryption failed or the sender is not known yet).",
+    ("reason",),
+)
+
+VOICE_RECONNECTS: Final = MetricSpec(
+    "shoal_voice_reconnects_total",
+    MetricKind.COUNTER,
+    "Voice connections restored, by how (resume: the session went on; rejoin: a new session).",
+    ("mode",),
+)
+
 ALL_METRICS: Final = (
     CACHE_LOOKUPS,
     EVENTS_DROPPED,
@@ -202,6 +217,8 @@ ALL_METRICS: Final = (
     REST_REQUESTS,
     REST_REQUEST_SECONDS,
     REST_RETRIES,
+    VOICE_PACKETS_DROPPED,
+    VOICE_RECONNECTS,
 )
 """Every metric Shoal reports. Exporters register these up front."""
 

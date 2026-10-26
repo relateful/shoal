@@ -26,8 +26,10 @@ from typing import TYPE_CHECKING, ClassVar, Final, cast, override
 from shoal.app_commands.commands import Command as AppCommandBase
 from shoal.app_commands.commands import ContextMenu
 from shoal.app_commands.commands import Group as AppGroup
+from shoal.app_commands.parameters import NO_DESCRIPTION
 from shoal.client.interaction import Interaction
 from shoal.commands.core import Command, Group
+from shoal.commands.hybrid import HybridCommand, HybridGroup
 
 if TYPE_CHECKING:
     from shoal.commands.context import Context
@@ -187,3 +189,69 @@ class Cog:
     @override
     def __repr__(self) -> str:
         return f"<{type(self).__name__} name={self.qualified_name!r}>"
+
+
+class GroupCog(Cog):
+    """A cog whose slash commands (and hybrid commands' slash sides) are one slash group's subcommands.
+
+        class Tags(commands.GroupCog, group_name="tags", group_description="Saved answers"):
+            @app_commands.command()
+            async def show(self, interaction: Interaction, name: str) -> None: ...  # /tags show
+
+    Class keywords as for `Cog`, and `group_name` (default: the cog's name, lowercased, spaces as
+    dashes), `group_description` (default: the cog's description) and `group_nsfw`.
+    """
+
+    __slots__ = ()
+
+    __cog_group_name__: ClassVar[str] = "cog"
+    __cog_group_description__: ClassVar[str] = NO_DESCRIPTION
+    __cog_group_nsfw__: ClassVar[bool] = False
+
+    _group: AppGroup | None = None
+
+    @override
+    def __init_subclass__(
+        cls,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        group_name: str | None = None,
+        group_description: str | None = None,
+        group_nsfw: bool = False,
+    ) -> None:
+        """Collect the class's commands as `Cog` does, and remember the slash group's details."""
+        super().__init_subclass__(name=name, description=description)
+        cls.__cog_group_name__ = group_name or cls.__cog_name__.lower().replace(" ", "-")
+        cls.__cog_group_description__ = group_description or cls.__cog_description__ or NO_DESCRIPTION
+        cls.__cog_group_nsfw__ = group_nsfw
+
+    @override
+    def bind(self) -> None:
+        """Bind the commands as `Cog` does, then gather the slash ones in the cog's slash group."""
+        super().bind()
+        group = AppGroup(name=self.__cog_group_name__, description=self.__cog_group_description__)
+        group.nsfw = self.__cog_group_nsfw__
+        for app_command in super().get_app_commands():
+            group.add_command(app_command)
+        for command in self.get_commands():
+            if isinstance(command, HybridCommand | HybridGroup):
+                group.add_command(command.app_command)
+        self._group = group
+
+    @property
+    def app_command(self) -> AppGroup:
+        """The cog's slash group.
+
+        Raises:
+            RuntimeError: The cog is not added to a bot yet; the group is made then.
+        """
+        if self._group is None:
+            msg = f"{type(self).__name__} has no slash group until it is added to a bot"
+            raise RuntimeError(msg)
+        return self._group
+
+    @override
+    def get_app_commands(self) -> list[AppCommand]:
+        """The cog's slash group, holding its slash commands."""
+        return [self.app_command]

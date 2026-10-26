@@ -1,6 +1,6 @@
 import pytest
 
-from shoal.core.cooldown import Cooldown
+from shoal.core.cooldown import Cooldown, DynamicCooldown
 from shoal.core.defaults import COOLDOWN_PRUNE_ABOVE, COOLDOWN_PRUNE_INTERVAL
 from tests.support.fakes import ManualClock
 
@@ -79,3 +79,44 @@ async def test_a_long_window_is_still_pruned_regularly() -> None:
     await clock.advance(COOLDOWN_PRUNE_INTERVAL)
     cooldown.update_rate_limit("late")
     assert cooldown.tracked == COOLDOWN_PRUNE_ABOVE + 3
+
+
+def per_name(name: str) -> Cooldown[str] | None:
+    return None if name == "vip" else Cooldown(1, 10.0 if name.startswith("slow") else 2.0)
+
+
+async def test_a_dynamic_cooldown_takes_each_keys_limit_from_its_first_use() -> None:
+    clock = ManualClock()
+    cooldown = DynamicCooldown[str](per_name, key=by_name, clock=clock)
+    assert cooldown.update_rate_limit("ada") == 0.0
+    assert cooldown.update_rate_limit("ada") == 2.0
+    assert cooldown.update_rate_limit("slowpoke") == 0.0
+    assert cooldown.update_rate_limit("slowpoke") == 10.0
+    assert cooldown.get_retry_after("slowpoke") == 10.0
+    for _ in range(5):
+        assert cooldown.update_rate_limit("vip") == 0.0
+    assert cooldown.get_retry_after("vip") == 0.0
+    assert cooldown.tracked == 2
+    cooldown.reset("ada")
+    assert cooldown.update_rate_limit("ada") == 0.0
+
+
+async def test_without_a_key_every_subject_shares_one_count() -> None:
+    clock = ManualClock()
+    shared = Cooldown[str](1, 5.0, clock=clock)
+    assert shared.update_rate_limit("ada") == 0.0
+    assert shared.update_rate_limit("grace") == 5.0
+    dynamic = DynamicCooldown[str](lambda _: Cooldown(1, 5.0), clock=clock)
+    assert dynamic.update_rate_limit("ada") == 0.0
+    assert dynamic.update_rate_limit("grace") == 5.0
+
+
+async def test_a_busy_dynamic_cooldown_forgets_idle_keys() -> None:
+    clock = ManualClock()
+    cooldown = DynamicCooldown[str](lambda _: Cooldown(1, 1.0), key=by_name, clock=clock)
+    await clock.advance(COOLDOWN_PRUNE_INTERVAL)
+    for index in range(COOLDOWN_PRUNE_ABOVE + 1):
+        cooldown.update_rate_limit(str(index))
+    await clock.advance(COOLDOWN_PRUNE_INTERVAL)
+    cooldown.update_rate_limit("fresh")
+    assert cooldown.tracked == 1

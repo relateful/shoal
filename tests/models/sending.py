@@ -12,8 +12,10 @@ from shoal.payloads import (
     TextDisplay,
 )
 from shoal.payloads import Embed as EmbedPayload
-from shoal.rest.files import File
-from tests.support.models import ROW_VIEW, StaticView
+from shoal.payloads.poll import PollCreateRequest, PollMedia
+from shoal.rest.files import File, VoiceMessage
+from tests.support.calls import call_unchecked
+from tests.support.models import ROW, ROW_VIEW, StaticView
 
 
 def json(value: object) -> object:
@@ -57,6 +59,36 @@ def test_components_v2_set_their_flag() -> None:
     message = outgoing(view=StaticView(TextDisplay(content="hi")))
     assert isinstance(message.flags, MessageFlags)
     assert message.flags.is_components_v2
+
+
+def test_components_v2_replace_content_embeds_polls_and_stickers() -> None:
+    v2 = StaticView(TextDisplay(content="hi"))
+    with pytest.raises(TypeError, match="Components V2"):
+        outgoing("hi", view=v2)
+    with pytest.raises(TypeError, match="Components V2"):
+        outgoing(embed=Embed(title="t"), view=v2)
+    with pytest.raises(TypeError, match="Components V2"):
+        outgoing(embeds=[], view=v2)
+    with pytest.raises(TypeError, match="stickers"):
+        outgoing(view=v2).message_params(sticker_ids=[1])
+    with pytest.raises(TypeError, match="Components V2"):
+        edit(view=v2, content="hi")
+    with pytest.raises(TypeError, match="Components V2"):
+        edit(view=v2, embed=Embed(title="t"))
+    # Clearing them is what a message turning into Components V2 needs.
+    assert json(edit(view=v2, content=None).message_params()) == {
+        "content": None,
+        "components": [{"type": 10, "content": "hi"}],
+        "flags": int(MessageFlags(is_components_v2=True)),
+    }
+    # A message already in Components V2 keeps its flag; text cannot be added back.
+    with pytest.raises(TypeError, match="Components V2"):
+        edit(view=v2, content="hi", flags=MessageFlags(is_components_v2=True))
+    # Action rows only: content is fine.
+    assert json(outgoing("hi", view=ROW_VIEW).message_params()) == {
+        "content": "hi",
+        "components": [json(ROW)],
+    }
 
 
 def test_ephemeral_is_a_flag_for_interaction_responses() -> None:
@@ -110,3 +142,26 @@ def test_new_files_ride_along_with_an_edit() -> None:
     changes = edit(attachments=[File("b.txt", b"b")])
     assert [file.filename for file in changes.files] == ["b.txt"]
     assert changes.view is None
+
+
+def test_a_voice_message_is_sent_alone_with_its_flag() -> None:
+    voice = VoiceMessage(b"ogg", 1.0, b"\x80")
+    message = outgoing(voice_message=voice, silent=True)
+    assert message.flags == MessageFlags(is_voice_message=True, suppress_notifications=True)
+    assert [file.duration for file in message.files] == [1.0]
+    extras: list[dict[str, object]] = [
+        {"content": "hi"},
+        {"embed": Embed()},
+        {"embeds": []},
+        {"file": File("a.txt", b"a")},
+        {"files": []},
+        {"view": ROW_VIEW},
+        {"poll": PollCreateRequest(question=PollMedia(text="?"), answers=[])},
+        {"tts": True},
+        {"suppress_embeds": True},
+    ]
+    for extra in extras:
+        with pytest.raises(TypeError, match="single audio attachment"):
+            call_unchecked(outgoing, voice_message=voice, **extra)
+    with pytest.raises(TypeError, match="single audio attachment"):
+        message.message_params(sticker_ids=[1])

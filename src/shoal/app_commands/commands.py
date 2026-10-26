@@ -26,7 +26,13 @@ from typing import ClassVar, Final, Self, cast, final, override
 
 from msgspec import UNSET, UnsetType
 
-from shoal.app_commands.errors import CheckFailureError, NoPrivateMessageError, TransformerError
+from shoal.app_commands.errors import (
+    AppCommandError,
+    CheckFailureError,
+    CommandSignatureMismatchError,
+    NoPrivateMessageError,
+    TransformerError,
+)
 from shoal.app_commands.models import AnyChoice
 from shoal.app_commands.parameters import (
     NO_DESCRIPTION,
@@ -398,22 +404,47 @@ class Command(_CommandBase):
         """The keyword arguments the callback receives for these options.
 
         Raises:
-            TransformerError: A required option is missing, or a value cannot be what its parameter
-                asks for.
+            CommandSignatureMismatchError: A required option is missing, or one the command does not
+                have was sent: Discord's copy of the command is out of date.
+            TransformerError: A value cannot be what its parameter asks for.
         """
         given = {option.name: option.value for option in options}
+        if not given.keys() <= {parameter.display_name for parameter in self.parameters}:
+            raise CommandSignatureMismatchError(self.qualified_name)
         arguments: dict[str, object] = {}
         for parameter in self.parameters:
             value = given.get(parameter.display_name, UNSET)
             if not isinstance(value, UnsetType):
                 arguments[parameter.name] = parameter.convert(interaction, value, resolved)
             elif parameter.required:
-                raise TransformerError(
-                    parameter.display_name, None, "the option is required but was not sent"
-                )
+                raise CommandSignatureMismatchError(self.qualified_name)
             else:
                 arguments[parameter.name] = parameter.default
         return arguments
+
+    async def transform(
+        self,
+        interaction: Interaction,
+        arguments: dict[str, object],
+        options: Sequence[ApplicationCommandInteractionDataOption],
+    ) -> None:
+        """Run the transformers of the options given, in place; after the checks, as they may do work.
+
+        Raises:
+            AppCommandError: A transformer refused its value; anything else it raises becomes a
+                `TransformerError`.
+        """
+        given = {option.name for option in options}
+        for parameter in self.parameters:
+            if parameter.transformer is None or parameter.display_name not in given:
+                continue
+            value = arguments[parameter.name]
+            try:
+                arguments[parameter.name] = await parameter.transformer.transform(interaction, value)
+            except AppCommandError:
+                raise
+            except Exception as error:
+                raise TransformerError(parameter.display_name, value, str(error)) from error
 
     async def invoke(self, interaction: Interaction, arguments: dict[str, object]) -> None:
         """Run the callback with `arguments`."""
@@ -977,6 +1008,51 @@ def allowed_installs[T: Decoratable](*, guilds: bool = False, users: bool = Fals
 
     def built(target: AppCommand) -> None:
         target.allowed_installs = installs
+
+    return lambda target: _apply(target, settle, built)
+
+
+def guild_install[T: Decoratable]() -> Callable[[T], T]:
+    """Offer the command where the app is installed to a guild; stacks with `user_install`."""
+    return _add_install(ApplicationIntegrationType.GUILD_INSTALL)
+
+
+def user_install[T: Decoratable]() -> Callable[[T], T]:
+    """Offer the command where the app is installed to a user's account; stacks with `guild_install`."""
+    return _add_install(ApplicationIntegrationType.USER_INSTALL)
+
+
+def dm_only[T: Decoratable]() -> Callable[[T], T]:
+    """Allow the command in DMs with the bot; stacks with the other context decorators."""
+    return _add_context(InteractionContextType.BOT_DM)
+
+
+def private_channel_only[T: Decoratable]() -> Callable[[T], T]:
+    """Allow the command in other DMs and group DMs (a user install); stacks with the others."""
+    return _add_context(InteractionContextType.PRIVATE_CHANNEL)
+
+
+def _with[K](current: list[K] | None, added: K) -> list[K]:
+    found = list(current or [])
+    return found if added in found else [*found, added]
+
+
+def _add_install[T: Decoratable](install: ApplicationIntegrationType) -> Callable[[T], T]:
+    def settle(pending: _Pending) -> None:
+        pending.installs = _with(pending.installs, install)
+
+    def built(target: AppCommand) -> None:
+        target.allowed_installs = _with(target.allowed_installs, install)
+
+    return lambda target: _apply(target, settle, built)
+
+
+def _add_context[T: Decoratable](context: InteractionContextType) -> Callable[[T], T]:
+    def settle(pending: _Pending) -> None:
+        pending.contexts = _with(pending.contexts, context)
+
+    def built(target: AppCommand) -> None:
+        target.allowed_contexts = _with(target.allowed_contexts, context)
 
     return lambda target: _apply(target, settle, built)
 

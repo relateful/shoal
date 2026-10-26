@@ -5,9 +5,12 @@ and still the right tool at a million.
 
 > **Status: pre-alpha.** Built and tested: typed payloads, a REST client that covers every endpoint
 > Discord documents, the gateway with clusters and resumable sessions, a restart-aware cache,
-> inter-process communication, metrics and diagnostics, and the bot API on top: a `Client` with
-> models, slash commands, prefix and hybrid commands with cogs and extensions, views and modals, and
-> the application's emojis. Interactions arrive over the gateway or a signed HTTP endpoint. See the
+> inter-process communication, state shared through Redis, a REST proxy, resharding without
+> downtime, metrics and diagnostics, and the bot API on top: a `Client` with models, slash
+> commands, prefix and hybrid commands with cogs and extensions, views, modals and Components V2
+> layouts, voice messages, end-to-end encrypted voice, the application's emojis, and `shoal.compat`
+> for bots moving over.
+> Interactions arrive over the gateway or a signed HTTP endpoint. See the
 > [guide to writing a bot](docs/guide/bot.md) and the [roadmap](docs/roadmap.md).
 
 ## Why Shoal
@@ -36,7 +39,12 @@ pip install shoal
 pip install "shoal[prometheus]"   # Prometheus metrics
 pip install "shoal[zstd]"         # zstd gateway compression on Python 3.12 and 3.13
 pip install "shoal[interactions]" # receive interactions over HTTP, without a gateway
+pip install "shoal[redis]"        # share limits, sessions, cache, events and shards across processes
+pip install "shoal[voice]"        # join voice channels and play audio, end-to-end encrypted
+pip install "shoal[all]"          # every optional feature above
 ```
+
+Each extra adds a dependency only some bots need, so a plain install stays small.
 
 Shoal needs Python 3.12 or newer.
 

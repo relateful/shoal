@@ -11,7 +11,7 @@ dashboard or worker without a `Client` can build one itself:
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
-from typing import Protocol, final, override
+from typing import TYPE_CHECKING, Protocol, final, override
 
 from shoal.cache.store import CacheStore
 from shoal.core.clock import Clock, SystemClock
@@ -22,6 +22,9 @@ from shoal.payloads.components import MessageComponent
 from shoal.payloads.guild import GuildMember
 from shoal.rest.client import RestClient
 from shoal.rest.errors import NotFoundError
+
+if TYPE_CHECKING:
+    from shoal.models.voice import VoiceClient, VoiceGateway
 
 _log = logging.getLogger("shoal.models")
 
@@ -117,6 +120,24 @@ class _NoGateway(MemberRequests):
 
 
 @final
+class _NoVoice:
+    """Used without a connected client: joining voice needs a gateway."""
+
+    __slots__ = ()
+
+    async def connect_voice(
+        self, guild_id: int, channel_id: int, /, *, self_mute: bool, self_deaf: bool
+    ) -> "VoiceClient":
+        del guild_id, channel_id, self_mute, self_deaf
+        what = "joining a voice channel"
+        raise GatewayRequiredError(what)
+
+    def voice_client(self, guild_id: int, /) -> "VoiceClient | None":
+        del guild_id
+        return None
+
+
+@final
 class _NoViews(ViewRegistry):
     """Used without a client: views are rendered, but nothing receives their interactions."""
 
@@ -139,9 +160,10 @@ class State:
         clock: What models wait and tell the time with (`delete_after`, typing, timeouts).
         member_requests: How `guild.chunk()` and `guild.query_members()` reach the gateway; a
             `Client` passes itself.
+        voice: How `VoiceChannel.connect()` joins voice through the gateway; a `Client` passes itself.
     """
 
-    __slots__ = ("_application_id", "_user_id", "cache", "clock", "member_requests", "rest", "views")
+    __slots__ = ("_application_id", "_user_id", "cache", "clock", "member_requests", "rest", "views", "voice")
 
     def __init__(
         self,
@@ -151,6 +173,7 @@ class State:
         views: ViewRegistry | None = None,
         clock: Clock | None = None,
         member_requests: MemberRequests | None = None,
+        voice: "VoiceGateway | None" = None,
     ) -> None:
         """Create the state; see the class docstring for the arguments."""
         self.rest: RestClient = rest
@@ -158,6 +181,7 @@ class State:
         self.views: ViewRegistry = views or _NoViews()
         self.clock: Clock = clock or SystemClock()
         self.member_requests: MemberRequests = member_requests or _NoGateway()
+        self.voice: VoiceGateway = voice or _NoVoice()
         self._user_id: Snowflake | None = None
         self._application_id: Snowflake | None = None
 
@@ -195,6 +219,7 @@ class State:
             views=self.views,
             clock=self.clock,
             member_requests=self.member_requests,
+            voice=self.voice,
         )
         other._user_id = self._user_id
         other._application_id = self._application_id

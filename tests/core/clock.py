@@ -66,3 +66,23 @@ async def test_within_cancels_the_work_when_time_runs_out() -> None:
     with pytest.raises(TimeoutError):
         await waiting
     assert cancelled == [True]
+
+
+async def test_cancelling_within_cancels_the_work() -> None:
+    clock = ManualClock()
+    cancelled: list[bool] = []
+
+    async def slow() -> None:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
+
+    waiting = asyncio.create_task(within(clock, 5, slow()))
+    await settle()
+    waiting.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await waiting
+    await settle()
+    assert cancelled == [True]

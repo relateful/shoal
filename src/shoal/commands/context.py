@@ -22,9 +22,10 @@ from shoal.models.messageable import MessageTarget
 from shoal.models.sending import EmbedLike
 from shoal.models.state import ComponentView, State
 from shoal.models.user import ClientUser, User
+from shoal.models.voice import VoiceClient
 from shoal.payloads.message import AllowedMentions
 from shoal.payloads.poll import PollCreateRequest
-from shoal.rest.files import File
+from shoal.rest.files import File, VoiceMessage
 
 if TYPE_CHECKING:
     from shoal.commands.bot import Bot
@@ -115,6 +116,12 @@ class Context:
         return self._source.guild
 
     @property
+    def voice_client(self) -> VoiceClient | None:
+        """The bot's voice client in the command's guild, while it is in one of its voice channels."""
+        guild = self.guild
+        return guild.voice_client if guild is not None else None
+
+    @property
     def me(self) -> Member | ClientUser | None:
         """The bot: its member in the guild when cached, otherwise its user."""
         member = self.guild.me if self.guild is not None else None
@@ -157,6 +164,7 @@ class Context:
         silent: bool = False,
         poll: PollCreateRequest | None = None,
         ephemeral: bool = False,
+        voice_message: VoiceMessage | None = None,
     ) -> Message:
         """Send a message to the channel; for a slash command, answer it (then send follow-ups).
 
@@ -180,6 +188,7 @@ class Context:
                 suppress_embeds=suppress_embeds,
                 silent=silent,
                 poll=poll,
+                voice_message=voice_message,
             )
         interaction = self.interaction
         if not interaction.response.is_done():
@@ -197,6 +206,7 @@ class Context:
                 silent=silent,
                 delete_after=delete_after,
                 poll=poll,
+                voice_message=voice_message,
             )
             return await interaction.original_response()
         sent = await interaction.followup.send(
@@ -212,6 +222,7 @@ class Context:
             suppress_embeds=suppress_embeds,
             silent=silent,
             poll=poll,
+            voice_message=voice_message,
         )
         if delete_after is not None:
             sent.delete_later(delete_after)
@@ -226,12 +237,16 @@ class Context:
         embeds: Sequence[EmbedLike] | None = None,
         file: File | None = None,
         files: Sequence[File] | None = None,
+        stickers: Sequence[int | Hashable] = (),
         delete_after: float | None = None,
         allowed_mentions: AllowedMentions | None = None,
         mention_author: bool | None = None,
         view: ComponentView | None = None,
+        suppress_embeds: bool = False,
         silent: bool = False,
+        poll: PollCreateRequest | None = None,
         ephemeral: bool = False,
+        voice_message: VoiceMessage | None = None,
     ) -> Message:
         """Reply to the command's message; for a slash command, the same as `send`."""
         return await self.send(
@@ -241,13 +256,17 @@ class Context:
             embeds=embeds,
             file=file,
             files=files,
+            stickers=stickers,
             delete_after=delete_after,
             allowed_mentions=allowed_mentions,
             reference=self.message,
             mention_author=mention_author,
             view=view,
+            suppress_embeds=suppress_embeds,
             silent=silent,
+            poll=poll,
             ephemeral=ephemeral,
+            voice_message=voice_message,
         )
 
     async def defer(self, *, ephemeral: bool = False) -> None:

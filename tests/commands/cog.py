@@ -277,3 +277,52 @@ def test_listeners_need_an_event_name() -> None:
 
     with pytest.raises(TypeError, match="named after its event"):
         Cog.listener()(handle)
+
+
+class Moderation(commands.GroupCog, group_description="Keep order"):
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    @app_commands.command()
+    async def warn(self, interaction: Interaction) -> None:
+        del interaction
+        self.calls.append("warn")
+
+    @commands.hybrid_command()
+    async def mute(self, ctx: Context) -> None:
+        """Mute someone."""
+        del ctx
+        self.calls.append("mute")
+
+
+async def test_a_group_cog_puts_its_slash_commands_in_one_group() -> None:
+    bot, transport = await bot_started()
+    with pytest.raises(RuntimeError, match="added to a bot"):
+        _ = Moderation().app_command
+    cog = Moderation()
+    await bot.add_cog(cog)
+    group = cog.app_command
+    assert (group.name, group.description) == ("moderation", "Keep order")
+    assert [command.name for command in bot.tree.get_commands()] == ["moderation"]
+    assert sorted(command.name for command in group.commands) == ["mute", "warn"]
+    await bot.process_interaction(payload(slash("moderation", {"name": "warn", "type": 1, "options": []})))
+    await bot.process_interaction(payload(slash("moderation", {"name": "mute", "type": 1, "options": []})))
+    await say(bot, transport, "!mute")
+    await settle()
+    assert cog.calls == ["warn", "mute", "mute"]
+    await bot.remove_cog("Moderation")
+    assert bot.tree.get_commands() == []
+    assert bot.get_command("mute") is None
+
+
+def test_a_group_cog_names_its_group_from_its_keywords() -> None:
+    class Server(commands.GroupCog, name="Server Tools", group_name="server", group_nsfw=True):
+        """Manage the server."""
+
+    assert (Server.__cog_group_name__, Server.__cog_group_description__) == ("server", "Manage the server.")
+    assert Server.__cog_group_nsfw__
+
+    class Plain(commands.GroupCog, name="Plain Tools"):
+        pass
+
+    assert (Plain.__cog_group_name__, Plain.__cog_group_description__) == ("plain-tools", "…")
