@@ -2,10 +2,8 @@
 
 Discord: https://docs.discord.com/developers/resources/message
 
-Not yet modeled: `Message.activity`, `application`, `message_snapshots`, `interaction_metadata`,
-`interaction`, `role_subscription_data`, `resolved`,
-`poll`, `call` and `shared_client_theme`, and the matching create-message parameters (stickers,
-polls, file uploads). Decoding ignores those keys until they are added.
+Not yet modeled: `Message.application` (a partial application) and `Message.resolved` (resolved
+data, which refers back to messages). Decoding ignores those keys until they are added.
 """
 
 from datetime import datetime
@@ -15,11 +13,14 @@ from msgspec import UNSET, UnsetType
 from shoal.core.enums import DiscordIntEnum, DiscordStrEnum
 from shoal.core.flags import BaseFlags, flag
 from shoal.core.snowflake import Snowflake
+from shoal.payloads.application import ApplicationIntegrationType, InteractionType
 from shoal.payloads.base import Payload
 from shoal.payloads.channel import Channel, ChannelType, ThreadMember
 from shoal.payloads.components import MessageComponent, RawComponent
 from shoal.payloads.emoji import Emoji
 from shoal.payloads.errors import JSONErrorCode
+from shoal.payloads.guild import PartialMember
+from shoal.payloads.poll import Poll, PollCreateRequest
 from shoal.payloads.sticker import Sticker, StickerItem
 from shoal.payloads.user import User
 
@@ -352,6 +353,152 @@ class Reaction(Payload):
     burst_colors: list[str]
 
 
+class MessageActivityType(DiscordIntEnum):
+    """The Rich Presence action a message invites to.
+
+    Discord: https://docs.discord.com/developers/resources/message#message-object-message-activity-types
+    """
+
+    JOIN = 1
+    SPECTATE = 2
+    LISTEN = 3
+    JOIN_REQUEST = 5
+    STREAM_REQUEST = 6
+
+
+class MessageActivity(Payload):
+    """A Rich Presence invitation sent in chat.
+
+    Discord: https://docs.discord.com/developers/resources/message#message-object-message-activity-structure
+    """
+
+    type: MessageActivityType
+    party_id: str | UnsetType = UNSET
+
+
+class MessageInteractionMetadata(Payload):
+    """The interaction a message answers.
+
+    Discord documents one structure per interaction type; their fields are merged here, so an
+    interaction type newer than Shoal still decodes. Which fields are set depends on `type`.
+
+    Discord: https://docs.discord.com/developers/resources/message#message-interaction-metadata-object
+    """
+
+    id: Snowflake
+    type: InteractionType
+    user: User
+    authorizing_integration_owners: dict[ApplicationIntegrationType, Snowflake]
+    original_response_message_id: Snowflake | UnsetType = UNSET
+    """Only on follow-up messages."""
+    target_user: User | UnsetType = UNSET
+    """User commands only."""
+    target_message_id: Snowflake | UnsetType = UNSET
+    """Message commands only."""
+    interacted_message_id: Snowflake | UnsetType = UNSET
+    """Components only: the message the component was on."""
+    triggering_interaction_metadata: "MessageInteractionMetadata | UnsetType" = UNSET
+    """Modal submissions only: the command or component interaction that opened the modal."""
+
+
+class MessageInteraction(Payload):
+    """Deprecated in favour of `Message.interaction_metadata`.
+
+    Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#message-interaction-object
+    """
+
+    id: Snowflake
+    type: InteractionType
+    name: str
+    """The command's name, with any subcommand group and subcommand."""
+    user: User
+    member: PartialMember | UnsetType = UNSET
+
+
+class MessageCall(Payload):
+    """A call in a DM or group DM.
+
+    Discord: https://docs.discord.com/developers/resources/message#message-call-object
+    """
+
+    participants: list[Snowflake]
+    """User IDs."""
+    ended_timestamp: datetime | UnsetType | None = UNSET
+
+
+class RoleSubscriptionData(Payload):
+    """The role subscription purchase or renewal a `ROLE_SUBSCRIPTION_PURCHASE` message is about.
+
+    Discord: https://docs.discord.com/developers/resources/message#role-subscription-data-object
+    """
+
+    role_subscription_listing_id: Snowflake
+    tier_name: str
+    total_months_subscribed: int
+    is_renewal: bool
+
+
+class BaseThemeType(DiscordIntEnum):
+    """The mode of a shared client theme.
+
+    Discord: https://docs.discord.com/developers/resources/message#base-theme-types
+    """
+
+    UNSET = 0
+    """The same as `DARK`."""
+    DARK = 1
+    LIGHT = 2
+    DARKER = 3
+    MIDNIGHT = 4
+
+
+class SharedClientTheme(Payload):
+    """A custom client theme shared in a message.
+
+    Discord: https://docs.discord.com/developers/resources/message#shared-client-theme-object
+    """
+
+    colors: list[str]
+    """Up to 5 hexadecimal colours, such as `5865F2`."""
+    gradient_angle: int
+    """0 to 360."""
+    base_mix: int
+    """0 to 100."""
+    base_theme: BaseThemeType | UnsetType | None = UNSET
+
+
+class MessageSnapshotMessage(Payload):
+    """The copy of a forwarded message: a few of its fields, as they were when it was forwarded.
+
+    Every field is optional because Discord sends a subset that may change.
+
+    Discord: https://docs.discord.com/developers/resources/message#message-snapshot-object
+    """
+
+    type: MessageType | UnsetType = UNSET
+    content: str | UnsetType = UNSET
+    embeds: list[Embed] | UnsetType = UNSET
+    attachments: list[Attachment] | UnsetType = UNSET
+    timestamp: datetime | UnsetType = UNSET
+    edited_timestamp: datetime | UnsetType | None = UNSET
+    flags: MessageFlags | UnsetType = UNSET
+    mentions: list[User] | UnsetType = UNSET
+    mention_roles: list[Snowflake] | UnsetType = UNSET
+    stickers: list[Sticker] | UnsetType = UNSET
+    sticker_items: list[StickerItem] | UnsetType = UNSET
+    components: list[RawComponent] | UnsetType = UNSET
+    """Kept as JSON, like `Message.components`."""
+
+
+class MessageSnapshot(Payload):
+    """A forwarded message, copied when it was forwarded and never updated.
+
+    Discord: https://docs.discord.com/developers/resources/message#message-snapshot-object
+    """
+
+    message: MessageSnapshotMessage
+
+
 class Message(Payload):
     """A message in a channel.
 
@@ -376,10 +523,16 @@ class Message(Payload):
     pinned: bool
     webhook_id: Snowflake | UnsetType = UNSET
     type: MessageType
+    activity: MessageActivity | UnsetType = UNSET
     application_id: Snowflake | UnsetType = UNSET
     flags: MessageFlags | UnsetType = UNSET
     message_reference: MessageReference | UnsetType = UNSET
+    message_snapshots: list[MessageSnapshot] | UnsetType = UNSET
+    """Set on forwards: the forwarded message, as it was. Discord sends one at most."""
     referenced_message: "Message | UnsetType | None" = UNSET
+    interaction_metadata: MessageInteractionMetadata | UnsetType = UNSET
+    interaction: MessageInteraction | UnsetType = UNSET
+    """Deprecated; read `interaction_metadata`."""
     thread: Channel | UnsetType = UNSET
     components: list[RawComponent] | UnsetType = UNSET
     """The message's components as Discord sent them; `parse_components` decodes them. Kept as JSON
@@ -388,6 +541,11 @@ class Message(Payload):
     stickers: list[Sticker] | UnsetType = UNSET
     """Deprecated; read `sticker_items`."""
     position: int | UnsetType = UNSET
+    role_subscription_data: RoleSubscriptionData | UnsetType = UNSET
+    poll: Poll | UnsetType = UNSET
+    """Absent without the Message Content intent."""
+    call: MessageCall | UnsetType = UNSET
+    shared_client_theme: SharedClientTheme | UnsetType = UNSET
 
 
 class AllowedMentionType(DiscordStrEnum):
@@ -446,6 +604,9 @@ class CreateMessageParams(Payload):
     """Filled in from the files passed when left unset."""
     flags: MessageFlags | UnsetType = UNSET
     enforce_nonce: bool | UnsetType = UNSET
+    """Return the earlier message instead of sending a duplicate with the same `nonce`."""
+    poll: PollCreateRequest | UnsetType = UNSET
+    shared_client_theme: SharedClientTheme | UnsetType = UNSET
 
 
 class ReactionType(DiscordIntEnum):
@@ -594,3 +755,91 @@ class SearchIndexNotReady(Payload):
     code: JSONErrorCode
     documents_indexed: int
     retry_after: float
+
+
+class GetChannelMessagesParams(Payload):
+    """Query of Get Channel Messages. `around`, `before` and `after` are mutually exclusive.
+
+    Discord: https://docs.discord.com/developers/resources/message#get-channel-messages-query-string-params
+    """
+
+    around: Snowflake | UnsetType = UNSET
+    before: Snowflake | UnsetType = UNSET
+    after: Snowflake | UnsetType = UNSET
+    limit: int | UnsetType = UNSET
+    """1 to 100; Discord's default is 50."""
+
+
+class GetReactionsParams(Payload):
+    """Query of Get Reactions.
+
+    Discord: https://docs.discord.com/developers/resources/message#get-reactions-query-string-params
+    """
+
+    type: ReactionType | UnsetType = UNSET
+    """Discord's default is `NORMAL`."""
+    after: Snowflake | UnsetType = UNSET
+    """A user ID."""
+    limit: int | UnsetType = UNSET
+    """1 to 100; Discord's default is 25."""
+
+
+class EditMessageParams(Payload):
+    """JSON body of Edit Message.
+
+    Other users' messages only allow `flags`. Files passed with the edit are added to the message.
+    `attachments`, when given, lists every attachment to keep: existing ones by ID, new files by
+    their index. Set it to remove attachments, or to give new files alt text.
+
+    Discord: https://docs.discord.com/developers/resources/message#edit-message-json/form-params
+    """
+
+    content: str | UnsetType | None = UNSET
+    embeds: list[Embed] | UnsetType | None = UNSET
+    flags: MessageFlags | UnsetType | None = UNSET
+    """Only `suppress_embeds`, which can be cleared, and `is_components_v2`, which cannot. Include
+    the flags already set."""
+    allowed_mentions: AllowedMentions | UnsetType | None = UNSET
+    components: list[MessageComponent] | UnsetType | None = UNSET
+    attachments: list[AttachmentRequest] | UnsetType | None = UNSET
+
+
+class BulkDeleteMessagesParams(Payload):
+    """JSON body of Bulk Delete Messages.
+
+    Discord: https://docs.discord.com/developers/resources/message#bulk-delete-messages-json-params
+    """
+
+    messages: list[Snowflake]
+    """2 to 100 message IDs, none older than two weeks and none repeated."""
+
+
+class GetChannelPinsParams(Payload):
+    """Query of Get Channel Pins; page with the last pin's `pinned_at` as `before`.
+
+    Discord: https://docs.discord.com/developers/resources/message#get-channel-pins-query-string-params
+    """
+
+    before: datetime | UnsetType = UNSET
+    limit: int | UnsetType = UNSET
+    """1 to 50; Discord's default is 50."""
+
+
+class MessagePin(Payload):
+    """A pinned message and when it was pinned.
+
+    Discord: https://docs.discord.com/developers/resources/message#message-pin-object
+    """
+
+    pinned_at: datetime
+    message: Message
+
+
+class ChannelPins(Payload):
+    """A page of a channel's pins.
+
+    Discord: https://docs.discord.com/developers/resources/message#get-channel-pins-response-structure
+    """
+
+    items: list[MessagePin]
+    has_more: bool

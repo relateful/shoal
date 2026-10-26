@@ -29,6 +29,7 @@ from shoal.core.codec import PayloadDecodeError, encode_json
 from shoal.core.metrics import HTTP_INTERACTION_SECONDS, HTTP_INTERACTIONS, Metrics, NoopMetrics
 from shoal.interaction_server.defaults import HANDLER_TIMEOUT, HOST, PATH, PORT
 from shoal.interaction_server.signature import SignatureVerifier
+from shoal.payloads.application import InteractionType
 from shoal.payloads.interactions import (
     INTERACTION_RESPONSE_DEADLINE,
     ApplicationCommandInteraction,
@@ -36,7 +37,6 @@ from shoal.payloads.interactions import (
     ComponentInteraction,
     Interaction,
     InteractionResponse,
-    InteractionType,
     ModalSubmitInteraction,
     PingInteraction,
     PongResponse,

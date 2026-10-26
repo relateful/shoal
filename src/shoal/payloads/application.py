@@ -1,4 +1,4 @@
-"""Applications: where an app can be installed, and where its interactions can be used.
+"""Applications: where an app can be installed, and where and how its interactions happen.
 
 Discord: https://docs.discord.com/developers/resources/application
 
@@ -28,3 +28,17 @@ class InteractionContextType(DiscordIntEnum):
     GUILD = 0
     BOT_DM = 1
     PRIVATE_CHANNEL = 2
+
+
+class InteractionType(DiscordIntEnum):
+    """What the user did.
+
+    Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-interaction-type
+    """
+
+    PING = 1
+    """Discord checking an HTTP interactions endpoint; answer with `PongResponse`."""
+    APPLICATION_COMMAND = 2
+    MESSAGE_COMPONENT = 3
+    APPLICATION_COMMAND_AUTOCOMPLETE = 4
+    MODAL_SUBMIT = 5

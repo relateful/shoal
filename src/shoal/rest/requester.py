@@ -114,18 +114,21 @@ def query_of(params: msgspec.Struct) -> dict[str, QueryValue]:
     return query
 
 
-def with_attachments[P: msgspec.Struct](params: P, files: Sequence[File]) -> tuple[P, dict[str, File]]:
+def with_attachments[P: msgspec.Struct](
+    params: P, files: Sequence[File], *, describe: bool = True
+) -> tuple[P, dict[str, File]]:
     """Name `files` `files[0]`, `files[1]`… and describe them in `params.attachments`.
 
-    The descriptions are only filled in when `params.attachments` is unset; set it yourself to keep
-    existing attachments while editing, referring to new files by their index.
+    The descriptions are only filled in when `params.attachments` is unset and `describe` is true.
+    Edits pass `describe=False`: there `attachments` lists every attachment to keep, so filling it
+    with the new files alone would remove the existing ones, while leaving it out appends them.
 
     Discord: https://docs.discord.com/developers/reference#uploading-files
     """
     if not files:
         return params, {}
     named = {f"files[{index}]": file for index, file in enumerate(files)}
-    if getattr(params, "attachments", msgspec.UNSET) is msgspec.UNSET:
+    if describe and getattr(params, "attachments", msgspec.UNSET) is msgspec.UNSET:
         described = [
             AttachmentRequest(
                 id=index,

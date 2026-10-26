@@ -28,6 +28,12 @@ BULK_ADD_TARGET_USERS: Final = Route(
     docs="https://docs.discord.com/developers/resources/invite#bulk-add-target-users",
 )
 
+BULK_DELETE_MESSAGES: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/messages/bulk-delete",
+    docs="https://docs.discord.com/developers/resources/message#bulk-delete-messages",
+)
+
 BULK_DELETE_TARGET_USERS: Final = Route(
     HTTPMethod.POST,
     "/invites/{invite_code}/target-users/bulk-delete",
@@ -122,6 +128,30 @@ CREATE_MESSAGE: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#create-message",
 )
 
+CREATE_REACTION: Final = Route(
+    HTTPMethod.PUT,
+    "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me",
+    docs="https://docs.discord.com/developers/resources/message#create-reaction",
+)
+
+CROSSPOST_MESSAGE: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/messages/{message_id}/crosspost",
+    docs="https://docs.discord.com/developers/resources/message#crosspost-message",
+)
+
+DELETE_ALL_REACTIONS: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/messages/{message_id}/reactions",
+    docs="https://docs.discord.com/developers/resources/message#delete-all-reactions",
+)
+
+DELETE_ALL_REACTIONS_FOR_EMOJI: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/message#delete-all-reactions-for-emoji",
+)
+
 DELETE_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.DELETE,
     "/applications/{application_id}/emojis/{emoji_id}",
@@ -204,6 +234,18 @@ DELETE_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
 )
 """Not counted towards the global rate limit, like every interaction endpoint."""
 
+DELETE_OWN_REACTION: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me",
+    docs="https://docs.discord.com/developers/resources/message#delete-own-reaction",
+)
+
+DELETE_USER_REACTION: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/{user_id}",
+    docs="https://docs.discord.com/developers/resources/message#delete-user-reaction",
+)
+
 EDIT_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     HTTPMethod.PUT,
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions",
@@ -236,6 +278,12 @@ EDIT_GUILD_APPLICATION_COMMAND: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#edit-guild-application-command",
 )
 
+EDIT_MESSAGE: Final = Route(
+    HTTPMethod.PATCH,
+    "/channels/{channel_id}/messages/{message_id}",
+    docs="https://docs.discord.com/developers/resources/message#edit-message",
+)
+
 EDIT_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
     HTTPMethod.PATCH,
     "/webhooks/{application_id}/{interaction_token}/messages/@original",
@@ -244,10 +292,22 @@ EDIT_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
 )
 """Not counted towards the global rate limit, like every interaction endpoint."""
 
+END_POLL: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/polls/{message_id}/expire",
+    docs="https://docs.discord.com/developers/resources/poll#end-poll",
+)
+
 FOLLOW_ANNOUNCEMENT_CHANNEL: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/followers",
     docs="https://docs.discord.com/developers/resources/channel#follow-announcement-channel",
+)
+
+GET_ANSWER_VOTERS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/polls/{message_id}/answers/{answer_id}",
+    docs="https://docs.discord.com/developers/resources/poll#get-answer-voters",
 )
 
 GET_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
@@ -278,6 +338,18 @@ GET_CHANNEL_MESSAGE: Final = Route(
     HTTPMethod.GET,
     "/channels/{channel_id}/messages/{message_id}",
     docs="https://docs.discord.com/developers/resources/message#get-channel-message",
+)
+
+GET_CHANNEL_MESSAGES: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/messages",
+    docs="https://docs.discord.com/developers/resources/message#get-channel-messages",
+)
+
+GET_CHANNEL_PINS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/messages/pins",
+    docs="https://docs.discord.com/developers/resources/message#get-channel-pins",
 )
 
 GET_CURRENT_USER: Final = Route(
@@ -409,6 +481,12 @@ GET_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
     global_limit=False,
 )
 """Not counted towards the global rate limit, like every interaction endpoint."""
+
+GET_REACTIONS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/message#get-reactions",
+)
 
 GET_STICKER: Final = Route(
     HTTPMethod.GET,
@@ -596,6 +674,12 @@ MODIFY_USER_VOICE_STATE: Final = Route(
     docs="https://docs.discord.com/developers/resources/voice#modify-user-voice-state",
 )
 
+PIN_MESSAGE: Final = Route(
+    HTTPMethod.PUT,
+    "/channels/{channel_id}/messages/pins/{message_id}",
+    docs="https://docs.discord.com/developers/resources/message#pin-message",
+)
+
 REMOVE_TARGET_USER: Final = Route(
     HTTPMethod.DELETE,
     "/invites/{invite_code}/target-users/{user_id}",
@@ -650,6 +734,12 @@ TRIGGER_TYPING_INDICATOR: Final = Route(
     docs="https://docs.discord.com/developers/resources/channel#trigger-typing-indicator",
 )
 
+UNPIN_MESSAGE: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/messages/pins/{message_id}",
+    docs="https://docs.discord.com/developers/resources/message#unpin-message",
+)
+
 UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
     HTTPMethod.PUT,
     "/users/@me/applications/{application_id}/role-connection",
@@ -666,6 +756,7 @@ ALL_ROUTES: Final = (
     ADD_TARGET_USER,
     ADD_THREAD_MEMBER,
     BULK_ADD_TARGET_USERS,
+    BULK_DELETE_MESSAGES,
     BULK_DELETE_TARGET_USERS,
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
@@ -681,6 +772,10 @@ ALL_ROUTES: Final = (
     CREATE_GUILD_STICKER,
     CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
+    CREATE_REACTION,
+    CROSSPOST_MESSAGE,
+    DELETE_ALL_REACTIONS,
+    DELETE_ALL_REACTIONS_FOR_EMOJI,
     DELETE_APPLICATION_EMOJI,
     DELETE_CHANNEL,
     DELETE_CHANNEL_PERMISSION,
@@ -694,18 +789,25 @@ ALL_ROUTES: Final = (
     DELETE_INVITE,
     DELETE_MESSAGE,
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
+    DELETE_OWN_REACTION,
+    DELETE_USER_REACTION,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
     EDIT_CHANNEL_PERMISSIONS,
     EDIT_FOLLOWUP_MESSAGE,
     EDIT_GLOBAL_APPLICATION_COMMAND,
     EDIT_GUILD_APPLICATION_COMMAND,
+    EDIT_MESSAGE,
     EDIT_ORIGINAL_INTERACTION_RESPONSE,
+    END_POLL,
     FOLLOW_ANNOUNCEMENT_CHANNEL,
+    GET_ANSWER_VOTERS,
     GET_APPLICATION_COMMAND_PERMISSIONS,
     GET_APPLICATION_EMOJI,
     GET_CHANNEL,
     GET_CHANNEL_INVITES,
     GET_CHANNEL_MESSAGE,
+    GET_CHANNEL_MESSAGES,
+    GET_CHANNEL_PINS,
     GET_CURRENT_USER,
     GET_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     GET_CURRENT_USER_CONNECTIONS,
@@ -727,6 +829,7 @@ ALL_ROUTES: Final = (
     GET_GUILD_STICKER,
     GET_INVITE,
     GET_ORIGINAL_INTERACTION_RESPONSE,
+    GET_REACTIONS,
     GET_STICKER,
     GET_STICKER_PACK,
     GET_TARGET_USERS,
@@ -758,6 +861,7 @@ ALL_ROUTES: Final = (
     MODIFY_GUILD_SOUNDBOARD_SOUND,
     MODIFY_GUILD_STICKER,
     MODIFY_USER_VOICE_STATE,
+    PIN_MESSAGE,
     REMOVE_TARGET_USER,
     REMOVE_THREAD_MEMBER,
     SEARCH_GUILD_MESSAGES,
@@ -767,6 +871,7 @@ ALL_ROUTES: Final = (
     START_THREAD_IN_FORUM_OR_MEDIA_CHANNEL,
     START_THREAD_WITHOUT_MESSAGE,
     TRIGGER_TYPING_INDICATOR,
+    UNPIN_MESSAGE,
     UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     UPDATE_TARGET_USERS,
 )

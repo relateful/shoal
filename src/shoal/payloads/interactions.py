@@ -24,7 +24,7 @@ from shoal.core.codec import JSONObject, PayloadDecodeError, decode_json
 from shoal.core.enums import DiscordIntEnum
 from shoal.core.snowflake import Snowflake
 from shoal.payloads.api import Locale
-from shoal.payloads.application import ApplicationIntegrationType, InteractionContextType
+from shoal.payloads.application import ApplicationIntegrationType, InteractionContextType, InteractionType
 from shoal.payloads.application_commands import (
     ApplicationCommandOptionChoice,
     ApplicationCommandOptionType,
@@ -37,20 +37,6 @@ from shoal.payloads.guild import GuildMember, PartialMember
 from shoal.payloads.message import AllowedMentions, Attachment, Embed, Message, MessageFlags
 from shoal.payloads.permissions import Permissions, Role
 from shoal.payloads.user import User
-
-
-class InteractionType(DiscordIntEnum):
-    """What the user did.
-
-    Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-interaction-type
-    """
-
-    PING = 1
-    """Discord checking an HTTP interactions endpoint; answer with `PongResponse`."""
-    APPLICATION_COMMAND = 2
-    MESSAGE_COMPONENT = 3
-    APPLICATION_COMMAND_AUTOCOMPLETE = 4
-    MODAL_SUBMIT = 5
 
 
 class InteractionCallbackType(DiscordIntEnum):
