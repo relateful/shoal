@@ -206,7 +206,7 @@ def test_classes_with_state_declare_slots(path: Path) -> None:
 
 def test_every_rest_endpoint_method_links_to_its_docs() -> None:
     for name, method in inspect.getmembers(RestClient, inspect.iscoroutinefunction):
-        if name.startswith("_") or name in {"request", "request_empty", "close"}:
+        if name.startswith("_") or name in {"request", "request_empty", "request_bytes", "close"}:
             continue
         assert "Discord: https://docs.discord.com/developers/" in (method.__doc__ or ""), f"RestClient.{name}"
 

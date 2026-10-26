@@ -11,8 +11,6 @@ their metadata obfuscated: `name` becomes a placeholder, other sensitive fields 
 `CHANNEL_UPDATE` with the full data.
 (https://docs.discord.com/developers/resources/channel#channel-object-obfuscated-channels)
 
-Not yet modeled: `Channel.member` (thread member), forum tags, default reaction emoji, sort order and
-forum layout enums. Decoding ignores those keys until they are added.
 """
 
 from datetime import datetime
@@ -23,7 +21,9 @@ from msgspec import UNSET, UnsetType
 from shoal.core.enums import DiscordIntEnum
 from shoal.core.flags import BaseFlags, flag
 from shoal.core.snowflake import Snowflake
+from shoal.payloads.api import ImageData
 from shoal.payloads.base import Payload
+from shoal.payloads.guild import GuildMember
 from shoal.payloads.permissions import Permissions
 from shoal.payloads.user import User
 
@@ -68,6 +68,28 @@ class VideoQualityMode(DiscordIntEnum):
     FULL = 2
 
 
+class SortOrderType(DiscordIntEnum):
+    """How a forum or media channel orders its posts.
+
+    Discord: https://docs.discord.com/developers/resources/channel#channel-object-sort-order-types
+    """
+
+    LATEST_ACTIVITY = 0
+    CREATION_DATE = 1
+    """Newest first."""
+
+
+class ForumLayoutType(DiscordIntEnum):
+    """How a forum channel shows its posts.
+
+    Discord: https://docs.discord.com/developers/resources/channel#channel-object-forum-layout-types
+    """
+
+    NOT_SET = 0
+    LIST_VIEW = 1
+    GALLERY_VIEW = 2
+
+
 class ChannelFlags(BaseFlags):
     """Flags on a channel.
 
@@ -103,6 +125,50 @@ class Overwrite(Payload):
     type: OverwriteType
     allow: Permissions
     deny: Permissions
+
+
+class DefaultReaction(Payload):
+    """The emoji on a forum or media post's add-reaction button. Exactly one field is set.
+
+    Discord: https://docs.discord.com/developers/resources/channel#default-reaction-object
+    """
+
+    emoji_id: Snowflake | None
+    """A guild's custom emoji."""
+    emoji_name: str | None
+    """A unicode emoji."""
+
+
+class ForumTag(Payload):
+    """A tag that can be applied to posts in a forum or media channel.
+
+    Discord: https://docs.discord.com/developers/resources/channel#forum-tag-object
+    """
+
+    id: Snowflake
+    name: str
+    """0 to 20 characters."""
+    moderated: bool
+    """Only members with Manage Threads can add or remove it."""
+    emoji_id: Snowflake | None
+    emoji_name: str | None
+    """At most one of `emoji_id` and `emoji_name` is set."""
+
+
+class ThreadMember(Payload):
+    """A user's membership in a thread.
+
+    `id` and `user_id` are omitted on the thread member inside a `GUILD_CREATE` thread.
+
+    Discord: https://docs.discord.com/developers/resources/channel#thread-member-object
+    """
+
+    id: Snowflake | UnsetType = UNSET
+    user_id: Snowflake | UnsetType = UNSET
+    join_timestamp: datetime
+    flags: int
+    member: GuildMember | UnsetType = UNSET
+    """Only when asked for with `with_member`."""
 
 
 class ThreadMetadata(Payload):
@@ -149,13 +215,19 @@ class Channel(Payload):
     message_count: int | UnsetType = UNSET
     member_count: int | UnsetType = UNSET
     thread_metadata: ThreadMetadata | UnsetType = UNSET
+    member: ThreadMember | UnsetType = UNSET
+    """The current user's membership, on threads they joined, from some endpoints only."""
     default_auto_archive_duration: int | UnsetType = UNSET
     permissions: Permissions | UnsetType = UNSET
     app_permissions: Permissions | UnsetType = UNSET
     flags: ChannelFlags | UnsetType = UNSET
     total_message_sent: int | UnsetType = UNSET
+    available_tags: list[ForumTag] | UnsetType = UNSET
     applied_tags: list[Snowflake] | UnsetType = UNSET
+    default_reaction_emoji: DefaultReaction | UnsetType | None = UNSET
     default_thread_rate_limit_per_user: int | UnsetType = UNSET
+    default_sort_order: SortOrderType | UnsetType | None = UNSET
+    default_forum_layout: ForumLayoutType | UnsetType = UNSET
 
     @property
     def is_obfuscated(self) -> bool:
@@ -180,16 +252,230 @@ Discord: https://docs.discord.com/developers/resources/channel#channel-object-ob
 """
 
 
-class ThreadMember(Payload):
-    """A user's membership in a thread.
+class FollowedChannel(Payload):
+    """An announcement channel followed into another channel.
 
-    `id` and `user_id` are omitted on the thread member inside a `GUILD_CREATE` thread; `member` is
-    only present when explicitly requested.
+    Discord: https://docs.discord.com/developers/resources/channel#followed-channel-object
+    """
 
-    Discord: https://docs.discord.com/developers/resources/channel#thread-member-object
+    channel_id: Snowflake
+    """The announcement channel."""
+    webhook_id: Snowflake
+    """The webhook created in the target channel."""
+
+
+class ArchivedThreads(Payload):
+    """A page of archived threads.
+
+    Discord: https://docs.discord.com/developers/resources/channel#list-public-archived-threads-response-body
+    """
+
+    threads: list[Channel]
+    members: list[ThreadMember]
+    """The current user's membership in each returned thread they joined."""
+    has_more: bool
+
+
+class PartialOverwrite(Payload):
+    """A permission overwrite in a request; a missing or `None` `allow` or `deny` means none.
+
+    Discord: https://docs.discord.com/developers/resources/channel#modify-channel-json-params-guild-channel
+    """
+
+    id: Snowflake
+    type: OverwriteType
+    allow: Permissions | UnsetType | None = UNSET
+    deny: Permissions | UnsetType | None = UNSET
+
+
+class ForumTagParams(Payload):
+    """A forum tag in a request. A tag without `id` is created; only `name` is required.
+
+    Discord: https://docs.discord.com/developers/resources/channel#forum-tag-object
     """
 
     id: Snowflake | UnsetType = UNSET
-    user_id: Snowflake | UnsetType = UNSET
-    join_timestamp: datetime
-    flags: int
+    name: str
+    """0 to 20 characters."""
+    moderated: bool | UnsetType = UNSET
+    emoji_id: Snowflake | UnsetType | None = UNSET
+    emoji_name: str | UnsetType | None = UNSET
+
+
+class ModifyGroupDMParams(Payload):
+    """JSON body of Modify Channel for a group DM.
+
+    Discord: https://docs.discord.com/developers/resources/channel#modify-channel-json-params-group-dm
+    """
+
+    name: str | UnsetType = UNSET
+    """1 to 100 characters."""
+    icon: ImageData | UnsetType = UNSET
+
+
+class ModifyGuildChannelParams(Payload):
+    """JSON body of Modify Channel for a guild channel. Needs Manage Channels.
+
+    Each field applies to some channel types only; Discord's table lists which.
+
+    Discord: https://docs.discord.com/developers/resources/channel#modify-channel-json-params-guild-channel
+    """
+
+    name: str | UnsetType = UNSET
+    """1 to 100 characters."""
+    type: ChannelType | UnsetType = UNSET
+    """Only between text and announcement, in guilds with the `NEWS` feature."""
+    position: int | UnsetType | None = UNSET
+    topic: str | UnsetType | None = UNSET
+    """Up to 1024 characters, or 4096 in forum and media channels."""
+    nsfw: bool | UnsetType | None = UNSET
+    rate_limit_per_user: int | UnsetType | None = UNSET
+    """Slowmode in seconds, 0 to 21600."""
+    bitrate: int | UnsetType | None = UNSET
+    """At least 8000; the maximum depends on the channel type and the guild's Boost level."""
+    user_limit: int | UnsetType | None = UNSET
+    """0 for no limit; at most 99 in voice channels and 10,000 in stage channels."""
+    permission_overwrites: list[PartialOverwrite] | UnsetType | None = UNSET
+    """Changing overwrites needs Manage Roles."""
+    parent_id: Snowflake | UnsetType | None = UNSET
+    rtc_region: str | UnsetType | None = UNSET
+    """A voice region ID; `None` picks one automatically."""
+    video_quality_mode: VideoQualityMode | UnsetType | None = UNSET
+    default_auto_archive_duration: int | UnsetType | None = UNSET
+    flags: ChannelFlags | UnsetType = UNSET
+    available_tags: list[ForumTagParams] | UnsetType = UNSET
+    """At most 20."""
+    default_reaction_emoji: DefaultReaction | UnsetType | None = UNSET
+    default_thread_rate_limit_per_user: int | UnsetType = UNSET
+    default_sort_order: SortOrderType | UnsetType | None = UNSET
+    default_forum_layout: ForumLayoutType | UnsetType = UNSET
+
+
+class ModifyThreadParams(Payload):
+    """JSON body of Modify Channel for a thread.
+
+    Unarchiving an unlocked thread needs only Send Messages; everything else needs Manage Threads.
+
+    Discord: https://docs.discord.com/developers/resources/channel#modify-channel-json-params-thread
+    """
+
+    name: str | UnsetType = UNSET
+    """1 to 100 characters."""
+    archived: bool | UnsetType = UNSET
+    auto_archive_duration: int | UnsetType = UNSET
+    """Minutes: 60, 1440, 4320 or 10080."""
+    locked: bool | UnsetType = UNSET
+    invitable: bool | UnsetType = UNSET
+    """Private threads only."""
+    rate_limit_per_user: int | UnsetType | None = UNSET
+    flags: ChannelFlags | UnsetType = UNSET
+    """`pinned` can only be set on posts in forum and media channels."""
+    applied_tags: list[Snowflake] | UnsetType = UNSET
+    """At most 5."""
+
+
+class SetVoiceChannelStatusParams(Payload):
+    """JSON body of Set Voice Channel Status.
+
+    Discord: https://docs.discord.com/developers/resources/channel#set-voice-channel-status
+    """
+
+    status: str | None
+    """Up to 500 characters; `None` clears it."""
+
+
+class EditChannelPermissionsParams(Payload):
+    """JSON body of Edit Channel Permissions. A missing or `None` `allow` or `deny` means none.
+
+    Discord: https://docs.discord.com/developers/resources/channel#edit-channel-permissions-json-params
+    """
+
+    allow: Permissions | UnsetType | None = UNSET
+    deny: Permissions | UnsetType | None = UNSET
+    type: OverwriteType
+
+
+class FollowAnnouncementChannelParams(Payload):
+    """JSON body of Follow Announcement Channel.
+
+    Discord: https://docs.discord.com/developers/resources/channel#follow-announcement-channel-json-params
+    """
+
+    webhook_channel_id: Snowflake
+    """The channel the announcements are posted to."""
+
+
+class GroupDMAddRecipientParams(Payload):
+    """JSON body of Group DM Add Recipient.
+
+    Discord: https://docs.discord.com/developers/resources/channel#group-dm-add-recipient-json-params
+    """
+
+    access_token: str
+    """An OAuth2 token of the user, with the `gdm.join` scope."""
+    nick: str
+
+
+class StartThreadFromMessageParams(Payload):
+    """JSON body of Start Thread from Message.
+
+    Discord: https://docs.discord.com/developers/resources/channel#start-thread-from-message-json-params
+    """
+
+    name: str
+    """1 to 100 characters."""
+    auto_archive_duration: int | UnsetType = UNSET
+    """Minutes: 60, 1440, 4320 or 10080."""
+    rate_limit_per_user: int | UnsetType | None = UNSET
+
+
+class StartThreadWithoutMessageParams(Payload):
+    """JSON body of Start Thread without Message.
+
+    Discord: https://docs.discord.com/developers/resources/channel#start-thread-without-message-json-params
+    """
+
+    name: str
+    """1 to 100 characters."""
+    auto_archive_duration: int | UnsetType = UNSET
+    """Minutes: 60, 1440, 4320 or 10080."""
+    type: ChannelType | UnsetType = UNSET
+    """Discord's default is `PRIVATE_THREAD`; a future API version will require it."""
+    invitable: bool | UnsetType = UNSET
+    """Private threads only."""
+    rate_limit_per_user: int | UnsetType | None = UNSET
+
+
+class ListThreadMembersParams(Payload):
+    """Query of List Thread Members. With `with_member`, the results are paginated.
+
+    Discord: https://docs.discord.com/developers/resources/channel#list-thread-members-query-string-params
+    """
+
+    with_member: bool | UnsetType = UNSET
+    after: Snowflake | UnsetType = UNSET
+    """A user ID."""
+    limit: int | UnsetType = UNSET
+    """1 to 100; Discord's default is 100."""
+
+
+class ListArchivedThreadsParams(Payload):
+    """Query of List Public Archived Threads and List Private Archived Threads.
+
+    Discord: https://docs.discord.com/developers/resources/channel#list-public-archived-threads-query-string-params
+    """
+
+    before: datetime | UnsetType = UNSET
+    """Threads archived before this time."""
+    limit: int | UnsetType = UNSET
+
+
+class ListJoinedPrivateArchivedThreadsParams(Payload):
+    """Query of List Joined Private Archived Threads, which pages by thread ID.
+
+    Discord: https://docs.discord.com/developers/resources/channel#list-joined-private-archived-threads-query-string-params
+    """
+
+    before: Snowflake | UnsetType = UNSET
+    """Threads with a lower ID."""
+    limit: int | UnsetType = UNSET

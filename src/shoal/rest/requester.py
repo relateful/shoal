@@ -9,10 +9,12 @@ Discord: https://docs.discord.com/developers/reference#http-api
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from urllib.parse import urlencode
 
 import msgspec
 
+from shoal.payloads.message import AttachmentRequest
 from shoal.rest.files import File
 from shoal.rest.route import CompiledRoute
 
@@ -66,6 +68,12 @@ class Requester(ABC):
     ) -> None:
         """Send a request whose successful response has no body (204)."""
 
+    @abstractmethod
+    async def request_bytes(
+        self, route: CompiledRoute, *, query: Mapping[str, QueryValue] | None = None
+    ) -> bytes:
+        """Send a request and return the body undecoded, for endpoints that do not answer JSON."""
+
 
 def _query_scalar(value: QueryScalar) -> str:
     if isinstance(value, bool):
@@ -100,5 +108,31 @@ def query_of(params: msgspec.Struct) -> dict[str, QueryValue]:
         value: object = getattr(params, field.name)
         if value is msgspec.UNSET:
             continue
+        if isinstance(value, datetime):
+            value = value.isoformat()
         query[field.encode_name] = msgspec.convert(value, QueryValue)
     return query
+
+
+def with_attachments[P: msgspec.Struct](params: P, files: Sequence[File]) -> tuple[P, dict[str, File]]:
+    """Name `files` `files[0]`, `files[1]`… and describe them in `params.attachments`.
+
+    The descriptions are only filled in when `params.attachments` is unset; set it yourself to keep
+    existing attachments while editing, referring to new files by their index.
+
+    Discord: https://docs.discord.com/developers/reference#uploading-files
+    """
+    if not files:
+        return params, {}
+    named = {f"files[{index}]": file for index, file in enumerate(files)}
+    if getattr(params, "attachments", msgspec.UNSET) is msgspec.UNSET:
+        described = [
+            AttachmentRequest(
+                id=index,
+                filename=file.upload_name,
+                description=msgspec.UNSET if file.description is None else file.description,
+            )
+            for index, file in enumerate(files)
+        ]
+        params = msgspec.structs.replace(params, attachments=described)
+    return params, named

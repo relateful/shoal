@@ -1,6 +1,8 @@
 import msgspec
 
-from shoal.rest.requester import encode_query, form_of, query_of
+from shoal.payloads import AttachmentRequest, CreateMessageParams
+from shoal.rest.files import File
+from shoal.rest.requester import encode_query, form_of, query_of, with_attachments
 
 
 class Filters(msgspec.Struct, kw_only=True):
@@ -26,3 +28,21 @@ def test_form_payloads_send_set_fields_as_text() -> None:
         "limit": "5",
         "content": "hi",
     }
+
+
+def test_files_are_named_and_described_unless_attachments_are_given() -> None:
+    files = [File("a.png", b"a", description="first"), File("b.txt", b"b", spoiler=True)]
+    params, named = with_attachments(CreateMessageParams(content="hi"), files)
+    assert list(named) == ["files[0]", "files[1]"]
+    assert params.attachments == [
+        AttachmentRequest(id=0, filename="a.png", description="first"),
+        AttachmentRequest(id=1, filename="SPOILER_b.txt"),
+    ]
+    keep = [AttachmentRequest(id="12345"), AttachmentRequest(id=0)]
+    params, _ = with_attachments(CreateMessageParams(attachments=keep), files[:1])
+    assert params.attachments == keep
+
+
+def test_no_files_leaves_the_params_alone() -> None:
+    params = CreateMessageParams(content="hi")
+    assert with_attachments(params, []) == (params, {})

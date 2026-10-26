@@ -103,7 +103,8 @@ class FakeTransport(HTTPTransport):
         self.closed = False
 
     def queue(self, status: int, body: object = None, headers: Mapping[str, str] | None = None) -> None:
-        payload = b"" if body is None else encode_json(body)
+        """Queue a response; `body` is encoded as JSON unless it is already bytes."""
+        payload = b"" if body is None else body if isinstance(body, bytes) else encode_json(body)
         self.responses.append(HTTPResponse(status=status, headers=dict(headers or {}), body=payload))
 
     def queue_error(self, error: OSError) -> None:

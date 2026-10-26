@@ -65,6 +65,7 @@ from shoal.rest.resources import (
     GatewayEndpoints,
     GuildEndpoints,
     InteractionEndpoints,
+    InviteEndpoints,
     MessageEndpoints,
     SoundboardEndpoints,
     StickerEndpoints,
@@ -125,6 +126,7 @@ class RestClient(
     GatewayEndpoints,
     GuildEndpoints,
     InteractionEndpoints,
+    InviteEndpoints,
     MessageEndpoints,
     SoundboardEndpoints,
     StickerEndpoints,
@@ -279,6 +281,14 @@ class RestClient(
     ) -> None:
         """Send a request whose successful response has no body (204). Raises like `request`."""
         await self._send(route, body=body, query=query, reason=reason, files=files, form=form)
+
+    @override
+    async def request_bytes(
+        self, route: CompiledRoute, *, query: Mapping[str, QueryValue] | None = None
+    ) -> bytes:
+        """Send a request and return the response body undecoded. Raises like `request`."""
+        response = await self._send(route, body=None, query=query, reason=None)
+        return response.body
 
     async def _send(
         self,

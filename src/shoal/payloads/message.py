@@ -294,6 +294,28 @@ class Attachment(Payload):
     clip_created_at: datetime | UnsetType = UNSET
 
 
+class AttachmentRequest(Payload):
+    """Which attachments a message being created or edited has, and their metadata.
+
+    A new file's `id` is its index `n` in the `files[n]` form field; Shoal fills these in from the
+    files passed. To keep an existing attachment when editing, give its ID.
+
+    Discord: https://docs.discord.com/developers/resources/message#attachment-object-attachment-request-structure
+    """
+
+    id: int | str
+    """The index of a new file, or the ID of an attachment to keep (as a string)."""
+    filename: str | UnsetType = UNSET
+    title: str | UnsetType = UNSET
+    description: str | UnsetType = UNSET
+    """Alt text, up to 1024 characters."""
+    duration_secs: float | UnsetType = UNSET
+    """Required for voice messages."""
+    waveform: str | UnsetType = UNSET
+    """Base64 sampled waveform; required for voice messages."""
+    is_spoiler: bool | UnsetType = UNSET
+
+
 class ChannelMention(Payload):
     """A channel mentioned in a crossposted message.
 
@@ -420,6 +442,8 @@ class CreateMessageParams(Payload):
     """Anything but action rows needs `flags=MessageFlags(is_components_v2=True)`, and then
     `content` and `embeds` cannot be used."""
     sticker_ids: list[Snowflake] | UnsetType = UNSET
+    attachments: list[AttachmentRequest] | UnsetType = UNSET
+    """Filled in from the files passed when left unset."""
     flags: MessageFlags | UnsetType = UNSET
     enforce_nonce: bool | UnsetType = UNSET
 

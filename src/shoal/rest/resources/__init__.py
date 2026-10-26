@@ -11,6 +11,7 @@ from shoal.rest.resources.emoji import EmojiEndpoints
 from shoal.rest.resources.gateway import GatewayEndpoints
 from shoal.rest.resources.guild import GuildEndpoints
 from shoal.rest.resources.interactions import InteractionEndpoints
+from shoal.rest.resources.invite import InviteEndpoints
 from shoal.rest.resources.message import MessageEndpoints
 from shoal.rest.resources.soundboard import SoundboardEndpoints
 from shoal.rest.resources.sticker import StickerEndpoints
@@ -24,6 +25,7 @@ __all__ = [
     "GatewayEndpoints",
     "GuildEndpoints",
     "InteractionEndpoints",
+    "InviteEndpoints",
     "MessageEndpoints",
     "SoundboardEndpoints",
     "StickerEndpoints",

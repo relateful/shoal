@@ -10,6 +10,30 @@ from typing import Final
 
 from shoal.rest.route import HTTPMethod, Route
 
+ADD_TARGET_USER: Final = Route(
+    HTTPMethod.PUT,
+    "/invites/{invite_code}/target-users/{user_id}",
+    docs="https://docs.discord.com/developers/resources/invite#add-target-user",
+)
+
+ADD_THREAD_MEMBER: Final = Route(
+    HTTPMethod.PUT,
+    "/channels/{channel_id}/thread-members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/channel#add-thread-member",
+)
+
+BULK_ADD_TARGET_USERS: Final = Route(
+    HTTPMethod.POST,
+    "/invites/{invite_code}/target-users/bulk-add",
+    docs="https://docs.discord.com/developers/resources/invite#bulk-add-target-users",
+)
+
+BULK_DELETE_TARGET_USERS: Final = Route(
+    HTTPMethod.POST,
+    "/invites/{invite_code}/target-users/bulk-delete",
+    docs="https://docs.discord.com/developers/resources/invite#bulk-delete-target-users",
+)
+
 BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS: Final = Route(
     HTTPMethod.PUT,
     "/applications/{application_id}/commands",
@@ -26,6 +50,12 @@ CREATE_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.POST,
     "/applications/{application_id}/emojis",
     docs="https://docs.discord.com/developers/resources/emoji#create-application-emoji",
+)
+
+CREATE_CHANNEL_INVITE: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/invites",
+    docs="https://docs.discord.com/developers/resources/channel#create-channel-invite",
 )
 
 CREATE_DM: Final = Route(
@@ -98,6 +128,18 @@ DELETE_APPLICATION_EMOJI: Final = Route(
     docs="https://docs.discord.com/developers/resources/emoji#delete-application-emoji",
 )
 
+DELETE_CHANNEL: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}",
+    docs="https://docs.discord.com/developers/resources/channel#delete/close-channel",
+)
+
+DELETE_CHANNEL_PERMISSION: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/permissions/{overwrite_id}",
+    docs="https://docs.discord.com/developers/resources/channel#delete-channel-permission",
+)
+
 DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
     HTTPMethod.DELETE,
     "/users/@me/applications/{application_id}/role-connection",
@@ -142,6 +184,12 @@ DELETE_GUILD_STICKER: Final = Route(
     docs="https://docs.discord.com/developers/resources/sticker#delete-guild-sticker",
 )
 
+DELETE_INVITE: Final = Route(
+    HTTPMethod.DELETE,
+    "/invites/{invite_code}",
+    docs="https://docs.discord.com/developers/resources/invite#delete-invite",
+)
+
 DELETE_MESSAGE: Final = Route(
     HTTPMethod.DELETE,
     "/channels/{channel_id}/messages/{message_id}",
@@ -160,6 +208,12 @@ EDIT_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     HTTPMethod.PUT,
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions",
     docs="https://docs.discord.com/developers/interactions/application-commands#edit-application-command-permissions",
+)
+
+EDIT_CHANNEL_PERMISSIONS: Final = Route(
+    HTTPMethod.PUT,
+    "/channels/{channel_id}/permissions/{overwrite_id}",
+    docs="https://docs.discord.com/developers/resources/channel#edit-channel-permissions",
 )
 
 EDIT_FOLLOWUP_MESSAGE: Final = Route(
@@ -190,6 +244,12 @@ EDIT_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
 )
 """Not counted towards the global rate limit, like every interaction endpoint."""
 
+FOLLOW_ANNOUNCEMENT_CHANNEL: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/followers",
+    docs="https://docs.discord.com/developers/resources/channel#follow-announcement-channel",
+)
+
 GET_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     HTTPMethod.GET,
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions",
@@ -206,6 +266,12 @@ GET_CHANNEL: Final = Route(
     HTTPMethod.GET,
     "/channels/{channel_id}",
     docs="https://docs.discord.com/developers/resources/channel#get-channel",
+)
+
+GET_CHANNEL_INVITES: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/invites",
+    docs="https://docs.discord.com/developers/resources/channel#get-channel-invites",
 )
 
 GET_CHANNEL_MESSAGE: Final = Route(
@@ -330,6 +396,12 @@ GET_GUILD_STICKER: Final = Route(
     docs="https://docs.discord.com/developers/resources/sticker#get-guild-sticker",
 )
 
+GET_INVITE: Final = Route(
+    HTTPMethod.GET,
+    "/invites/{invite_code}",
+    docs="https://docs.discord.com/developers/resources/invite#get-invite",
+)
+
 GET_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
     HTTPMethod.GET,
     "/webhooks/{application_id}/{interaction_token}/messages/@original",
@@ -350,6 +422,24 @@ GET_STICKER_PACK: Final = Route(
     docs="https://docs.discord.com/developers/resources/sticker#get-sticker-pack",
 )
 
+GET_TARGET_USERS: Final = Route(
+    HTTPMethod.GET,
+    "/invites/{invite_code}/target-users",
+    docs="https://docs.discord.com/developers/resources/invite#get-target-users",
+)
+
+GET_TARGET_USERS_JOB_STATUS: Final = Route(
+    HTTPMethod.GET,
+    "/invites/{invite_code}/target-users/job-status",
+    docs="https://docs.discord.com/developers/resources/invite#get-target-users-job-status",
+)
+
+GET_THREAD_MEMBER: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/thread-members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/channel#get-thread-member",
+)
+
 GET_USER: Final = Route(
     HTTPMethod.GET,
     "/users/{user_id}",
@@ -362,10 +452,34 @@ GET_USER_VOICE_STATE: Final = Route(
     docs="https://docs.discord.com/developers/resources/voice#get-user-voice-state",
 )
 
+GROUP_DM_ADD_RECIPIENT: Final = Route(
+    HTTPMethod.PUT,
+    "/channels/{channel_id}/recipients/{user_id}",
+    docs="https://docs.discord.com/developers/resources/channel#group-dm-add-recipient",
+)
+
+GROUP_DM_REMOVE_RECIPIENT: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/recipients/{user_id}",
+    docs="https://docs.discord.com/developers/resources/channel#group-dm-remove-recipient",
+)
+
+JOIN_THREAD: Final = Route(
+    HTTPMethod.PUT,
+    "/channels/{channel_id}/thread-members/@me",
+    docs="https://docs.discord.com/developers/resources/channel#join-thread",
+)
+
 LEAVE_GUILD: Final = Route(
     HTTPMethod.DELETE,
     "/users/@me/guilds/{guild_id}",
     docs="https://docs.discord.com/developers/resources/user#leave-guild",
+)
+
+LEAVE_THREAD: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/thread-members/@me",
+    docs="https://docs.discord.com/developers/resources/channel#leave-thread",
 )
 
 LIST_APPLICATION_EMOJIS: Final = Route(
@@ -398,10 +512,34 @@ LIST_GUILD_STICKERS: Final = Route(
     docs="https://docs.discord.com/developers/resources/sticker#list-guild-stickers",
 )
 
+LIST_JOINED_PRIVATE_ARCHIVED_THREADS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/users/@me/threads/archived/private",
+    docs="https://docs.discord.com/developers/resources/channel#list-joined-private-archived-threads",
+)
+
+LIST_PRIVATE_ARCHIVED_THREADS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/threads/archived/private",
+    docs="https://docs.discord.com/developers/resources/channel#list-private-archived-threads",
+)
+
+LIST_PUBLIC_ARCHIVED_THREADS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/threads/archived/public",
+    docs="https://docs.discord.com/developers/resources/channel#list-public-archived-threads",
+)
+
 LIST_STICKER_PACKS: Final = Route(
     HTTPMethod.GET,
     "/sticker-packs",
     docs="https://docs.discord.com/developers/resources/sticker#list-sticker-packs",
+)
+
+LIST_THREAD_MEMBERS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/thread-members",
+    docs="https://docs.discord.com/developers/resources/channel#list-thread-members",
 )
 
 LIST_VOICE_REGIONS: Final = Route(
@@ -414,6 +552,12 @@ MODIFY_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.PATCH,
     "/applications/{application_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#modify-application-emoji",
+)
+
+MODIFY_CHANNEL: Final = Route(
+    HTTPMethod.PATCH,
+    "/channels/{channel_id}",
+    docs="https://docs.discord.com/developers/resources/channel#modify-channel",
 )
 
 MODIFY_CURRENT_USER: Final = Route(
@@ -452,6 +596,18 @@ MODIFY_USER_VOICE_STATE: Final = Route(
     docs="https://docs.discord.com/developers/resources/voice#modify-user-voice-state",
 )
 
+REMOVE_TARGET_USER: Final = Route(
+    HTTPMethod.DELETE,
+    "/invites/{invite_code}/target-users/{user_id}",
+    docs="https://docs.discord.com/developers/resources/invite#remove-target-user",
+)
+
+REMOVE_THREAD_MEMBER: Final = Route(
+    HTTPMethod.DELETE,
+    "/channels/{channel_id}/thread-members/{user_id}",
+    docs="https://docs.discord.com/developers/resources/channel#remove-thread-member",
+)
+
 SEARCH_GUILD_MESSAGES: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/messages/search",
@@ -464,16 +620,57 @@ SEND_SOUNDBOARD_SOUND: Final = Route(
     docs="https://docs.discord.com/developers/resources/soundboard#send-soundboard-sound",
 )
 
+SET_VOICE_CHANNEL_STATUS: Final = Route(
+    HTTPMethod.PUT,
+    "/channels/{channel_id}/voice-status",
+    docs="https://docs.discord.com/developers/resources/channel#set-voice-channel-status",
+)
+
+START_THREAD_FROM_MESSAGE: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/messages/{message_id}/threads",
+    docs="https://docs.discord.com/developers/resources/channel#start-thread-from-message",
+)
+
+START_THREAD_IN_FORUM_OR_MEDIA_CHANNEL: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/threads",
+    docs="https://docs.discord.com/developers/resources/channel#start-thread-in-forum-or-media-channel",
+)
+
+START_THREAD_WITHOUT_MESSAGE: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/threads",
+    docs="https://docs.discord.com/developers/resources/channel#start-thread-without-message",
+)
+
+TRIGGER_TYPING_INDICATOR: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/typing",
+    docs="https://docs.discord.com/developers/resources/channel#trigger-typing-indicator",
+)
+
 UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
     HTTPMethod.PUT,
     "/users/@me/applications/{application_id}/role-connection",
     docs="https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection",
 )
 
+UPDATE_TARGET_USERS: Final = Route(
+    HTTPMethod.PUT,
+    "/invites/{invite_code}/target-users",
+    docs="https://docs.discord.com/developers/resources/invite#update-target-users",
+)
+
 ALL_ROUTES: Final = (
+    ADD_TARGET_USER,
+    ADD_THREAD_MEMBER,
+    BULK_ADD_TARGET_USERS,
+    BULK_DELETE_TARGET_USERS,
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
     CREATE_APPLICATION_EMOJI,
+    CREATE_CHANNEL_INVITE,
     CREATE_DM,
     CREATE_FOLLOWUP_MESSAGE,
     CREATE_GLOBAL_APPLICATION_COMMAND,
@@ -485,6 +682,8 @@ ALL_ROUTES: Final = (
     CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
     DELETE_APPLICATION_EMOJI,
+    DELETE_CHANNEL,
+    DELETE_CHANNEL_PERMISSION,
     DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     DELETE_FOLLOWUP_MESSAGE,
     DELETE_GLOBAL_APPLICATION_COMMAND,
@@ -492,16 +691,20 @@ ALL_ROUTES: Final = (
     DELETE_GUILD_EMOJI,
     DELETE_GUILD_SOUNDBOARD_SOUND,
     DELETE_GUILD_STICKER,
+    DELETE_INVITE,
     DELETE_MESSAGE,
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
+    EDIT_CHANNEL_PERMISSIONS,
     EDIT_FOLLOWUP_MESSAGE,
     EDIT_GLOBAL_APPLICATION_COMMAND,
     EDIT_GUILD_APPLICATION_COMMAND,
     EDIT_ORIGINAL_INTERACTION_RESPONSE,
+    FOLLOW_ANNOUNCEMENT_CHANNEL,
     GET_APPLICATION_COMMAND_PERMISSIONS,
     GET_APPLICATION_EMOJI,
     GET_CHANNEL,
+    GET_CHANNEL_INVITES,
     GET_CHANNEL_MESSAGE,
     GET_CURRENT_USER,
     GET_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
@@ -522,28 +725,49 @@ ALL_ROUTES: Final = (
     GET_GUILD_MEMBER,
     GET_GUILD_SOUNDBOARD_SOUND,
     GET_GUILD_STICKER,
+    GET_INVITE,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_STICKER,
     GET_STICKER_PACK,
+    GET_TARGET_USERS,
+    GET_TARGET_USERS_JOB_STATUS,
+    GET_THREAD_MEMBER,
     GET_USER,
     GET_USER_VOICE_STATE,
+    GROUP_DM_ADD_RECIPIENT,
+    GROUP_DM_REMOVE_RECIPIENT,
+    JOIN_THREAD,
     LEAVE_GUILD,
+    LEAVE_THREAD,
     LIST_APPLICATION_EMOJIS,
     LIST_DEFAULT_SOUNDBOARD_SOUNDS,
     LIST_GUILD_EMOJIS,
     LIST_GUILD_SOUNDBOARD_SOUNDS,
     LIST_GUILD_STICKERS,
+    LIST_JOINED_PRIVATE_ARCHIVED_THREADS,
+    LIST_PRIVATE_ARCHIVED_THREADS,
+    LIST_PUBLIC_ARCHIVED_THREADS,
     LIST_STICKER_PACKS,
+    LIST_THREAD_MEMBERS,
     LIST_VOICE_REGIONS,
     MODIFY_APPLICATION_EMOJI,
+    MODIFY_CHANNEL,
     MODIFY_CURRENT_USER,
     MODIFY_CURRENT_USER_VOICE_STATE,
     MODIFY_GUILD_EMOJI,
     MODIFY_GUILD_SOUNDBOARD_SOUND,
     MODIFY_GUILD_STICKER,
     MODIFY_USER_VOICE_STATE,
+    REMOVE_TARGET_USER,
+    REMOVE_THREAD_MEMBER,
     SEARCH_GUILD_MESSAGES,
     SEND_SOUNDBOARD_SOUND,
+    SET_VOICE_CHANNEL_STATUS,
+    START_THREAD_FROM_MESSAGE,
+    START_THREAD_IN_FORUM_OR_MEDIA_CHANNEL,
+    START_THREAD_WITHOUT_MESSAGE,
+    TRIGGER_TYPING_INDICATOR,
     UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
+    UPDATE_TARGET_USERS,
 )
 """Every declared route, for the docs checker and tests."""
