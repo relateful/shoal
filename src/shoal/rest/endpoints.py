@@ -82,6 +82,12 @@ CREATE_APPLICATION_EMOJI: Final = Route(
     docs="https://docs.discord.com/developers/resources/emoji#create-application-emoji",
 )
 
+CREATE_AUTO_MODERATION_RULE: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/auto-moderation/rules",
+    docs="https://docs.discord.com/developers/resources/auto-moderation#create-auto-moderation-rule",
+)
+
 CREATE_CHANNEL_INVITE: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/invites",
@@ -144,6 +150,12 @@ CREATE_GUILD_ROLE: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#create-guild-role",
 )
 
+CREATE_GUILD_SCHEDULED_EVENT: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/scheduled-events",
+    docs="https://docs.discord.com/developers/resources/guild-scheduled-event#create-guild-scheduled-event",
+)
+
 CREATE_GUILD_SOUNDBOARD_SOUND: Final = Route(
     HTTPMethod.POST,
     "/guilds/{guild_id}/soundboard-sounds",
@@ -154,6 +166,12 @@ CREATE_GUILD_STICKER: Final = Route(
     HTTPMethod.POST,
     "/guilds/{guild_id}/stickers",
     docs="https://docs.discord.com/developers/resources/sticker#create-guild-sticker",
+)
+
+CREATE_GUILD_TEMPLATE: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/templates",
+    docs="https://docs.discord.com/developers/resources/guild-template#create-guild-template",
 )
 
 CREATE_INTERACTION_RESPONSE: Final = Route(
@@ -174,6 +192,12 @@ CREATE_REACTION: Final = Route(
     HTTPMethod.PUT,
     "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me",
     docs="https://docs.discord.com/developers/resources/message#create-reaction",
+)
+
+CREATE_STAGE_INSTANCE: Final = Route(
+    HTTPMethod.POST,
+    "/stage-instances",
+    docs="https://docs.discord.com/developers/resources/stage-instance#create-stage-instance",
 )
 
 CREATE_WEBHOOK: Final = Route(
@@ -204,6 +228,12 @@ DELETE_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.DELETE,
     "/applications/{application_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#delete-application-emoji",
+)
+
+DELETE_AUTO_MODERATION_RULE: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}",
+    docs="https://docs.discord.com/developers/resources/auto-moderation#delete-auto-moderation-rule",
 )
 
 DELETE_CHANNEL: Final = Route(
@@ -262,6 +292,12 @@ DELETE_GUILD_ROLE: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#delete-guild-role",
 )
 
+DELETE_GUILD_SCHEDULED_EVENT: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}",
+    docs="https://docs.discord.com/developers/resources/guild-scheduled-event#delete-guild-scheduled-event",
+)
+
 DELETE_GUILD_SOUNDBOARD_SOUND: Final = Route(
     HTTPMethod.DELETE,
     "/guilds/{guild_id}/soundboard-sounds/{sound_id}",
@@ -272,6 +308,12 @@ DELETE_GUILD_STICKER: Final = Route(
     HTTPMethod.DELETE,
     "/guilds/{guild_id}/stickers/{sticker_id}",
     docs="https://docs.discord.com/developers/resources/sticker#delete-guild-sticker",
+)
+
+DELETE_GUILD_TEMPLATE: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/templates/{template_code}",
+    docs="https://docs.discord.com/developers/resources/guild-template#delete-guild-template",
 )
 
 DELETE_INVITE: Final = Route(
@@ -298,6 +340,12 @@ DELETE_OWN_REACTION: Final = Route(
     HTTPMethod.DELETE,
     "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me",
     docs="https://docs.discord.com/developers/resources/message#delete-own-reaction",
+)
+
+DELETE_STAGE_INSTANCE: Final = Route(
+    HTTPMethod.DELETE,
+    "/stage-instances/{channel_id}",
+    docs="https://docs.discord.com/developers/resources/stage-instance#delete-stage-instance",
 )
 
 DELETE_USER_REACTION: Final = Route(
@@ -422,6 +470,12 @@ GET_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.GET,
     "/applications/{application_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#get-application-emoji",
+)
+
+GET_AUTO_MODERATION_RULE: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}",
+    docs="https://docs.discord.com/developers/resources/auto-moderation#get-auto-moderation-rule",
 )
 
 GET_CHANNEL: Final = Route(
@@ -552,6 +606,12 @@ GET_GUILD_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command-permissions",
 )
 
+GET_GUILD_AUDIT_LOG: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/audit-logs",
+    docs="https://docs.discord.com/developers/resources/audit-log#get-guild-audit-log",
+)
+
 GET_GUILD_BAN: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/bans/{user_id}",
@@ -630,6 +690,18 @@ GET_GUILD_ROLE_MEMBER_COUNTS: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#get-guild-role-member-counts",
 )
 
+GET_GUILD_SCHEDULED_EVENT: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}",
+    docs="https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event",
+)
+
+GET_GUILD_SCHEDULED_EVENT_USERS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}/users",
+    docs="https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event-users",
+)
+
 GET_GUILD_SOUNDBOARD_SOUND: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/soundboard-sounds/{sound_id}",
@@ -640,6 +712,18 @@ GET_GUILD_STICKER: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/stickers/{sticker_id}",
     docs="https://docs.discord.com/developers/resources/sticker#get-guild-sticker",
+)
+
+GET_GUILD_TEMPLATE: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/templates/{template_code}",
+    docs="https://docs.discord.com/developers/resources/guild-template#get-guild-template",
+)
+
+GET_GUILD_TEMPLATES: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/templates",
+    docs="https://docs.discord.com/developers/resources/guild-template#get-guild-templates",
 )
 
 GET_GUILD_VANITY_URL: Final = Route(
@@ -702,6 +786,12 @@ GET_REACTIONS: Final = Route(
     HTTPMethod.GET,
     "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/message#get-reactions",
+)
+
+GET_STAGE_INSTANCE: Final = Route(
+    HTTPMethod.GET,
+    "/stage-instances/{channel_id}",
+    docs="https://docs.discord.com/developers/resources/stage-instance#get-stage-instance",
 )
 
 GET_STICKER: Final = Route(
@@ -806,6 +896,12 @@ LIST_APPLICATION_EMOJIS: Final = Route(
     docs="https://docs.discord.com/developers/resources/emoji#list-application-emojis",
 )
 
+LIST_AUTO_MODERATION_RULES_FOR_GUILD: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/auto-moderation/rules",
+    docs="https://docs.discord.com/developers/resources/auto-moderation#list-auto-moderation-rules-for-guild",
+)
+
 LIST_DEFAULT_SOUNDBOARD_SOUNDS: Final = Route(
     HTTPMethod.GET,
     "/soundboard-default-sounds",
@@ -854,6 +950,12 @@ LIST_PUBLIC_ARCHIVED_THREADS: Final = Route(
     docs="https://docs.discord.com/developers/resources/channel#list-public-archived-threads",
 )
 
+LIST_SCHEDULED_EVENTS_FOR_GUILD: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/scheduled-events",
+    docs="https://docs.discord.com/developers/resources/guild-scheduled-event#list-scheduled-events-for-guild",
+)
+
 LIST_STICKER_PACKS: Final = Route(
     HTTPMethod.GET,
     "/sticker-packs",
@@ -876,6 +978,12 @@ MODIFY_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.PATCH,
     "/applications/{application_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#modify-application-emoji",
+)
+
+MODIFY_AUTO_MODERATION_RULE: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}",
+    docs="https://docs.discord.com/developers/resources/auto-moderation#modify-auto-moderation-rule",
 )
 
 MODIFY_CHANNEL: Final = Route(
@@ -956,6 +1064,12 @@ MODIFY_GUILD_ROLE_POSITIONS: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#modify-guild-role-positions",
 )
 
+MODIFY_GUILD_SCHEDULED_EVENT: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}",
+    docs="https://docs.discord.com/developers/resources/guild-scheduled-event#modify-guild-scheduled-event",
+)
+
 MODIFY_GUILD_SOUNDBOARD_SOUND: Final = Route(
     HTTPMethod.PATCH,
     "/guilds/{guild_id}/soundboard-sounds/{sound_id}",
@@ -968,6 +1082,12 @@ MODIFY_GUILD_STICKER: Final = Route(
     docs="https://docs.discord.com/developers/resources/sticker#modify-guild-sticker",
 )
 
+MODIFY_GUILD_TEMPLATE: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/templates/{template_code}",
+    docs="https://docs.discord.com/developers/resources/guild-template#modify-guild-template",
+)
+
 MODIFY_GUILD_WELCOME_SCREEN: Final = Route(
     HTTPMethod.PATCH,
     "/guilds/{guild_id}/welcome-screen",
@@ -978,6 +1098,12 @@ MODIFY_GUILD_WIDGET: Final = Route(
     HTTPMethod.PATCH,
     "/guilds/{guild_id}/widget",
     docs="https://docs.discord.com/developers/resources/guild#modify-guild-widget",
+)
+
+MODIFY_STAGE_INSTANCE: Final = Route(
+    HTTPMethod.PATCH,
+    "/stage-instances/{channel_id}",
+    docs="https://docs.discord.com/developers/resources/stage-instance#modify-stage-instance",
 )
 
 MODIFY_USER_VOICE_STATE: Final = Route(
@@ -1076,6 +1202,12 @@ START_THREAD_WITHOUT_MESSAGE: Final = Route(
     docs="https://docs.discord.com/developers/resources/channel#start-thread-without-message",
 )
 
+SYNC_GUILD_TEMPLATE: Final = Route(
+    HTTPMethod.PUT,
+    "/guilds/{guild_id}/templates/{template_code}",
+    docs="https://docs.discord.com/developers/resources/guild-template#sync-guild-template",
+)
+
 TRIGGER_TYPING_INDICATOR: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/typing",
@@ -1113,6 +1245,7 @@ ALL_ROUTES: Final = (
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
     CREATE_APPLICATION_EMOJI,
+    CREATE_AUTO_MODERATION_RULE,
     CREATE_CHANNEL_INVITE,
     CREATE_DM,
     CREATE_FOLLOWUP_MESSAGE,
@@ -1123,16 +1256,20 @@ ALL_ROUTES: Final = (
     CREATE_GUILD_CHANNEL,
     CREATE_GUILD_EMOJI,
     CREATE_GUILD_ROLE,
+    CREATE_GUILD_SCHEDULED_EVENT,
     CREATE_GUILD_SOUNDBOARD_SOUND,
     CREATE_GUILD_STICKER,
+    CREATE_GUILD_TEMPLATE,
     CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
     CREATE_REACTION,
+    CREATE_STAGE_INSTANCE,
     CREATE_WEBHOOK,
     CROSSPOST_MESSAGE,
     DELETE_ALL_REACTIONS,
     DELETE_ALL_REACTIONS_FOR_EMOJI,
     DELETE_APPLICATION_EMOJI,
+    DELETE_AUTO_MODERATION_RULE,
     DELETE_CHANNEL,
     DELETE_CHANNEL_PERMISSION,
     DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
@@ -1142,12 +1279,15 @@ ALL_ROUTES: Final = (
     DELETE_GUILD_EMOJI,
     DELETE_GUILD_INTEGRATION,
     DELETE_GUILD_ROLE,
+    DELETE_GUILD_SCHEDULED_EVENT,
     DELETE_GUILD_SOUNDBOARD_SOUND,
     DELETE_GUILD_STICKER,
+    DELETE_GUILD_TEMPLATE,
     DELETE_INVITE,
     DELETE_MESSAGE,
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
     DELETE_OWN_REACTION,
+    DELETE_STAGE_INSTANCE,
     DELETE_USER_REACTION,
     DELETE_WEBHOOK,
     DELETE_WEBHOOK_MESSAGE,
@@ -1168,6 +1308,7 @@ ALL_ROUTES: Final = (
     GET_ANSWER_VOTERS,
     GET_APPLICATION_COMMAND_PERMISSIONS,
     GET_APPLICATION_EMOJI,
+    GET_AUTO_MODERATION_RULE,
     GET_CHANNEL,
     GET_CHANNEL_INVITES,
     GET_CHANNEL_MESSAGE,
@@ -1189,6 +1330,7 @@ ALL_ROUTES: Final = (
     GET_GUILD_APPLICATION_COMMAND,
     GET_GUILD_APPLICATION_COMMANDS,
     GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
+    GET_GUILD_AUDIT_LOG,
     GET_GUILD_BAN,
     GET_GUILD_BANS,
     GET_GUILD_CHANNELS,
@@ -1202,8 +1344,12 @@ ALL_ROUTES: Final = (
     GET_GUILD_ROLE,
     GET_GUILD_ROLES,
     GET_GUILD_ROLE_MEMBER_COUNTS,
+    GET_GUILD_SCHEDULED_EVENT,
+    GET_GUILD_SCHEDULED_EVENT_USERS,
     GET_GUILD_SOUNDBOARD_SOUND,
     GET_GUILD_STICKER,
+    GET_GUILD_TEMPLATE,
+    GET_GUILD_TEMPLATES,
     GET_GUILD_VANITY_URL,
     GET_GUILD_VOICE_REGIONS,
     GET_GUILD_WEBHOOKS,
@@ -1214,6 +1360,7 @@ ALL_ROUTES: Final = (
     GET_INVITE,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_REACTIONS,
+    GET_STAGE_INSTANCE,
     GET_STICKER,
     GET_STICKER_PACK,
     GET_TARGET_USERS,
@@ -1231,6 +1378,7 @@ ALL_ROUTES: Final = (
     LEAVE_THREAD,
     LIST_ACTIVE_GUILD_THREADS,
     LIST_APPLICATION_EMOJIS,
+    LIST_AUTO_MODERATION_RULES_FOR_GUILD,
     LIST_DEFAULT_SOUNDBOARD_SOUNDS,
     LIST_GUILD_EMOJIS,
     LIST_GUILD_MEMBERS,
@@ -1239,10 +1387,12 @@ ALL_ROUTES: Final = (
     LIST_JOINED_PRIVATE_ARCHIVED_THREADS,
     LIST_PRIVATE_ARCHIVED_THREADS,
     LIST_PUBLIC_ARCHIVED_THREADS,
+    LIST_SCHEDULED_EVENTS_FOR_GUILD,
     LIST_STICKER_PACKS,
     LIST_THREAD_MEMBERS,
     LIST_VOICE_REGIONS,
     MODIFY_APPLICATION_EMOJI,
+    MODIFY_AUTO_MODERATION_RULE,
     MODIFY_CHANNEL,
     MODIFY_CURRENT_MEMBER,
     MODIFY_CURRENT_USER,
@@ -1256,10 +1406,13 @@ ALL_ROUTES: Final = (
     MODIFY_GUILD_ONBOARDING,
     MODIFY_GUILD_ROLE,
     MODIFY_GUILD_ROLE_POSITIONS,
+    MODIFY_GUILD_SCHEDULED_EVENT,
     MODIFY_GUILD_SOUNDBOARD_SOUND,
     MODIFY_GUILD_STICKER,
+    MODIFY_GUILD_TEMPLATE,
     MODIFY_GUILD_WELCOME_SCREEN,
     MODIFY_GUILD_WIDGET,
+    MODIFY_STAGE_INSTANCE,
     MODIFY_USER_VOICE_STATE,
     MODIFY_WEBHOOK,
     MODIFY_WEBHOOK_WITH_TOKEN,
@@ -1276,6 +1429,7 @@ ALL_ROUTES: Final = (
     START_THREAD_FROM_MESSAGE,
     START_THREAD_IN_FORUM_OR_MEDIA_CHANNEL,
     START_THREAD_WITHOUT_MESSAGE,
+    SYNC_GUILD_TEMPLATE,
     TRIGGER_TYPING_INDICATOR,
     UNPIN_MESSAGE,
     UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,

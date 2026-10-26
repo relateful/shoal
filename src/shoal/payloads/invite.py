@@ -2,8 +2,8 @@
 
 Discord: https://docs.discord.com/developers/resources/invite
 
-Not yet modeled: `Invite.target_application` (partial application), `Invite.guild_scheduled_event`
-and the deprecated stage instance object. Decoding ignores those keys until they are added.
+Not yet modeled: `Invite.target_application` (partial application) and the deprecated stage
+instance object. Decoding ignores those keys until they are added.
 """
 
 from datetime import datetime
@@ -17,6 +17,7 @@ from shoal.payloads.base import Payload
 from shoal.payloads.channel import Channel
 from shoal.payloads.guild import GuildFeature, GuildNSFWLevel, VerificationLevel
 from shoal.payloads.permissions import RoleColors
+from shoal.payloads.scheduled_event import GuildScheduledEvent
 from shoal.payloads.user import User
 
 
@@ -109,6 +110,8 @@ class Invite(Payload):
     approximate_member_count: int | UnsetType = UNSET
     """Only from Get Invite with `with_counts`."""
     expires_at: datetime | None
+    guild_scheduled_event: GuildScheduledEvent | UnsetType = UNSET
+    """Only when asked for with `guild_scheduled_event_id`."""
     flags: GuildInviteFlags | UnsetType = UNSET
     roles: list[InviteRole] | UnsetType = UNSET
     """Roles given to the users who accept it."""
