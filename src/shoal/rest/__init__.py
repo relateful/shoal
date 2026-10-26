@@ -23,6 +23,7 @@ from shoal.rest.errors import (
     UnauthorizedError,
     flatten_errors,
 )
+from shoal.rest.files import File
 from shoal.rest.ratelimit import InvalidRequestGuard, LocalRateLimiter, RateLimiter, RateLimitHeaders
 from shoal.rest.requester import QueryScalar, QueryValue, Requester
 from shoal.rest.route import CompiledRoute, HTTPMethod, Route
@@ -34,6 +35,7 @@ __all__ = [
     "ClientClosedError",
     "CompiledRoute",
     "FieldError",
+    "File",
     "ForbiddenError",
     "HTTPError",
     "HTTPMethod",

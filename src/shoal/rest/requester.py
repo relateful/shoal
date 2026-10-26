@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 
 import msgspec
 
+from shoal.rest.files import File
 from shoal.rest.route import CompiledRoute
 
 type QueryScalar = str | int | bool
@@ -42,8 +43,13 @@ class Requester(ABC):
         body: object = None,
         query: Mapping[str, QueryValue] | None = None,
         reason: str | None = None,
+        files: Mapping[str, File] | None = None,
     ) -> T:
-        """Send a request and decode the JSON response into `response_type`."""
+        """Send a request and decode the JSON response into `response_type`.
+
+        With `files`, the body goes in the `payload_json` part of a `multipart/form-data` request,
+        next to one part per file, named by the mapping's keys.
+        """
 
     @abstractmethod
     async def request_empty(
@@ -53,6 +59,7 @@ class Requester(ABC):
         body: object = None,
         query: Mapping[str, QueryValue] | None = None,
         reason: str | None = None,
+        files: Mapping[str, File] | None = None,
     ) -> None:
         """Send a request whose successful response has no body (204)."""
 

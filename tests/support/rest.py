@@ -17,6 +17,7 @@ from shoal.core.metrics import REST_REQUESTS, InMemoryMetrics
 from shoal.rest.client import RestClient, Token
 from shoal.rest.ratelimit import LocalRateLimiter
 from tests.support.fakes import FakeClock, FakeTransport
+from tests.support.multipart import FormPart, parse_form
 
 API = "https://discord.com/api/v10"
 
@@ -39,6 +40,8 @@ class EndpointCase:
     response: object = None
     reason: str | None = None
     """The `X-Audit-Log-Reason` header the call must send."""
+    files: tuple[FormPart, ...] = ()
+    """The file parts of a `multipart/form-data` request; `body` is then its `payload_json` part."""
 
 
 def make_client(
@@ -68,8 +71,17 @@ async def check_endpoint(case: EndpointCase) -> str:
     result = await case.call(make_client(transport, metrics=metrics))
     [request] = transport.requests
     assert (request.method, request.url) == (case.method, f"{API}{case.path}")
-    sent = msgspec.json.decode(request.body) if request.body is not None else None
+    sent: object = None
+    files: tuple[FormPart, ...] = ()
+    if case.files:
+        parts = parse_form(request.body or b"", request.headers["Content-Type"])
+        if parts[0].name == "payload_json":
+            sent = msgspec.json.decode(parts.pop(0).data)
+        files = tuple(parts)
+    elif request.body is not None:
+        sent = msgspec.json.decode(request.body)
     assert sent == case.body
+    assert files == case.files
     assert request.headers.get("X-Audit-Log-Reason") == case.reason
     response: object = case.response
     if response is None:
