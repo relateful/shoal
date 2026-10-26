@@ -57,7 +57,7 @@ own process. `import-linter` enforces this.
 | A Discord JSON object | `payloads/<domain>.py` |
 | A constant Discord documents | next to its types in `payloads/<domain>.py` |
 | A Shoal default (timeout, threshold, size) | `<layer>/defaults.py` |
-| An HTTP endpoint | a `Route` in `rest/endpoints.py` and a method on `RestClient` |
+| An HTTP endpoint | a `Route` in `rest/endpoints.py`, a method in `rest/resources/<resource>.py`, and an `EndpointCase` in `tests/rest/resources/<resource>.py` |
 | A metric | `core/metrics.py`, recorded where the event happens |
 | A test for `src/shoal/<layer>/<module>.py` | `tests/<layer>/<module>.py` |
 | A helper shared by tests | `tests/support/` |

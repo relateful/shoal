@@ -8,7 +8,7 @@ Discord: https://docs.discord.com/developers/reference#http-api
 """
 
 from shoal.rest import defaults, endpoints
-from shoal.rest.client import QueryScalar, QueryValue, RestClient, Token, TokenType
+from shoal.rest.client import RestClient, Token, TokenType
 from shoal.rest.errors import (
     BadRequestError,
     ClientClosedError,
@@ -24,6 +24,7 @@ from shoal.rest.errors import (
     flatten_errors,
 )
 from shoal.rest.ratelimit import InvalidRequestGuard, LocalRateLimiter, RateLimiter, RateLimitHeaders
+from shoal.rest.requester import QueryScalar, QueryValue, Requester
 from shoal.rest.route import CompiledRoute, HTTPMethod, Route
 from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
 
@@ -46,6 +47,7 @@ __all__ = [
     "RateLimitHeaders",
     "RateLimitedError",
     "RateLimiter",
+    "Requester",
     "RestClient",
     "Route",
     "SearchIndexNotReadyError",

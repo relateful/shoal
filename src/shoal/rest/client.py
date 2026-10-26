@@ -9,13 +9,13 @@ Discord: https://docs.discord.com/developers/reference#http-api
 
 import logging
 import random
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from http import HTTPStatus
 from types import TracebackType
-from typing import Literal, Self, final, overload, override
-from urllib.parse import quote, urlencode
+from typing import Self, final, override
+from urllib.parse import quote
 
 import msgspec
 
@@ -31,34 +31,12 @@ from shoal.core.metrics import (
     NoopMetrics,
 )
 from shoal.payloads.api import API_BASE_URL, API_VERSION, AUDIT_LOG_REASON_MAX_LENGTH
-from shoal.payloads.application_commands import (
-    ApplicationCommand,
-    BulkApplicationCommandParams,
-    CreateGlobalApplicationCommandParams,
-    CreateGuildApplicationCommandParams,
-    EditApplicationCommandPermissionsParams,
-    EditGlobalApplicationCommandParams,
-    EditGuildApplicationCommandParams,
-    GuildApplicationCommandPermissions,
-)
-from shoal.payloads.channel import Channel
-from shoal.payloads.gateway import GatewayBot, GatewayInfo
-from shoal.payloads.guild import Guild, GuildMember
-from shoal.payloads.interactions import (
-    CreateFollowupMessageParams,
-    InteractionCallbackResponse,
-    InteractionResponse,
-)
 from shoal.payloads.message import (
-    CreateMessageParams,
-    Message,
     SearchGuildMessagesParams,
     SearchGuildMessagesResponse,
     SearchIndexNotReady,
 )
 from shoal.payloads.rate_limits import RateLimitResponse
-from shoal.payloads.user import User
-from shoal.payloads.webhook import EditWebhookMessageParams
 from shoal.rest.defaults import (
     DEFAULT_USER_AGENT,
     MAX_RATE_LIMIT_WAIT,
@@ -68,39 +46,6 @@ from shoal.rest.defaults import (
     SEARCH_INDEX_RETRY_DELAY,
 )
 from shoal.rest.endpoints import (
-    BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
-    BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
-    CREATE_FOLLOWUP_MESSAGE,
-    CREATE_GLOBAL_APPLICATION_COMMAND,
-    CREATE_GUILD_APPLICATION_COMMAND,
-    CREATE_INTERACTION_RESPONSE,
-    CREATE_MESSAGE,
-    DELETE_FOLLOWUP_MESSAGE,
-    DELETE_GLOBAL_APPLICATION_COMMAND,
-    DELETE_GUILD_APPLICATION_COMMAND,
-    DELETE_MESSAGE,
-    DELETE_ORIGINAL_INTERACTION_RESPONSE,
-    EDIT_APPLICATION_COMMAND_PERMISSIONS,
-    EDIT_FOLLOWUP_MESSAGE,
-    EDIT_GLOBAL_APPLICATION_COMMAND,
-    EDIT_GUILD_APPLICATION_COMMAND,
-    EDIT_ORIGINAL_INTERACTION_RESPONSE,
-    GET_APPLICATION_COMMAND_PERMISSIONS,
-    GET_CHANNEL,
-    GET_CHANNEL_MESSAGE,
-    GET_CURRENT_USER,
-    GET_FOLLOWUP_MESSAGE,
-    GET_GATEWAY,
-    GET_GATEWAY_BOT,
-    GET_GLOBAL_APPLICATION_COMMAND,
-    GET_GLOBAL_APPLICATION_COMMANDS,
-    GET_GUILD,
-    GET_GUILD_APPLICATION_COMMAND,
-    GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
-    GET_GUILD_APPLICATION_COMMANDS,
-    GET_GUILD_MEMBER,
-    GET_ORIGINAL_INTERACTION_RESPONSE,
-    GET_USER,
     SEARCH_GUILD_MESSAGES,
 )
 from shoal.rest.errors import (
@@ -111,23 +56,20 @@ from shoal.rest.errors import (
     TokenInvalidatedError,
 )
 from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, RateLimitHeaders
+from shoal.rest.requester import QueryValue, encode_query, query_of
+from shoal.rest.resources import (
+    ApplicationCommandEndpoints,
+    ChannelEndpoints,
+    GatewayEndpoints,
+    GuildEndpoints,
+    InteractionEndpoints,
+    MessageEndpoints,
+    UserEndpoints,
+)
 from shoal.rest.route import CompiledRoute
 from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
 
 _log = logging.getLogger("shoal.rest")
-
-
-type QueryScalar = str | int | bool
-"""One query string value. Booleans are sent as `true`/`false` and snowflakes as their digits.
-
-Discord: https://docs.discord.com/developers/reference#boolean-query-strings
-"""
-
-type QueryValue = QueryScalar | Sequence[QueryScalar]
-"""A query string value; a sequence is sent as the same parameter repeated (`?id=1&id=2`).
-
-Discord: https://docs.discord.com/developers/reference#array-query-strings
-"""
 
 
 class TokenType(StrEnum):
@@ -171,35 +113,19 @@ class Token:
         return f"Token(type={self.type.value}, secret=<hidden>)"
 
 
-def _query_scalar(value: QueryScalar) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return str(value)
-
-
-def _encode_query(query: Mapping[str, QueryValue]) -> str:
-    pairs: list[tuple[str, str]] = []
-    for key, value in query.items():
-        if isinstance(value, str | int):
-            pairs.append((key, _query_scalar(value)))
-        else:
-            pairs.extend((key, _query_scalar(item)) for item in value)
-    return urlencode(pairs)
-
-
-def _query_of(params: msgspec.Struct) -> dict[str, QueryValue]:
-    """The set fields of a query payload, ready for `_encode_query`."""
-    query: dict[str, QueryValue] = {}
-    for field in msgspec.structs.fields(params):
-        value: object = getattr(params, field.name)
-        if value is msgspec.UNSET:
-            continue
-        query[field.encode_name] = msgspec.convert(value, QueryValue)
-    return query
-
-
-class RestClient:
+class RestClient(
+    ApplicationCommandEndpoints,
+    ChannelEndpoints,
+    GatewayEndpoints,
+    GuildEndpoints,
+    InteractionEndpoints,
+    MessageEndpoints,
+    UserEndpoints,
+):
     """An async client for Discord's HTTP API.
+
+    Its endpoint methods are grouped by resource in `shoal.rest.resources`; they are all called on
+    the client.
 
     Args:
         token: The credential, or `None` for the few unauthenticated endpoints.
@@ -297,6 +223,7 @@ class RestClient:
             self._closed = True
             await self._transport.close()
 
+    @override
     async def request[T](
         self,
         route: CompiledRoute,
@@ -325,6 +252,7 @@ class RestClient:
         response = await self._send(route, body=body, query=query, reason=reason)
         return decode_json(response.body, response_type)
 
+    @override
     async def request_empty(
         self,
         route: CompiledRoute,
@@ -350,7 +278,7 @@ class RestClient:
             raise TokenInvalidatedError
         url = f"{self._base_url}{route.path}"
         if query:
-            url = f"{url}?{_encode_query(query)}"
+            url = f"{url}?{encode_query(query)}"
         headers = self._headers(reason)
         payload: bytes | None = None
         if body is not None:
@@ -458,73 +386,6 @@ class RestClient:
             except ValueError:
                 return 1.0
 
-    async def get_gateway(self) -> GatewayInfo:
-        """Get the gateway URL. Needs no token.
-
-        Discord: https://docs.discord.com/developers/events/gateway#get-gateway
-        """
-        return await self.request(GET_GATEWAY.compile(), GatewayInfo)
-
-    async def get_gateway_bot(self) -> GatewayBot:
-        """Get the gateway URL, recommended shard count and session start limit.
-
-        Discord: https://docs.discord.com/developers/events/gateway#get-gateway-bot
-        """
-        return await self.request(GET_GATEWAY_BOT.compile(), GatewayBot)
-
-    async def get_current_user(self) -> User:
-        """Get the user the token belongs to (the bot, or the OAuth2 user for a bearer token).
-
-        Discord: https://docs.discord.com/developers/resources/user#get-current-user
-        """
-        return await self.request(GET_CURRENT_USER.compile(), User)
-
-    async def get_user(self, user_id: int) -> User:
-        """Get any user by ID.
-
-        Discord: https://docs.discord.com/developers/resources/user#get-user
-        """
-        return await self.request(GET_USER.compile(user_id=user_id), User)
-
-    async def get_channel(self, channel_id: int) -> Channel:
-        """Get a channel or thread by ID.
-
-        Discord: https://docs.discord.com/developers/resources/channel#get-channel
-        """
-        return await self.request(GET_CHANNEL.compile(channel_id=channel_id), Channel)
-
-    async def get_guild(self, guild_id: int, *, with_counts: bool = False) -> Guild:
-        """Get a guild, optionally with approximate member and presence counts.
-
-        Discord: https://docs.discord.com/developers/resources/guild#get-guild
-        """
-        return await self.request(
-            GET_GUILD.compile(guild_id=guild_id), Guild, query={"with_counts": with_counts}
-        )
-
-    async def get_guild_member(self, guild_id: int, user_id: int) -> GuildMember:
-        """Get one member of a guild.
-
-        Discord: https://docs.discord.com/developers/resources/guild#get-guild-member
-        """
-        return await self.request(GET_GUILD_MEMBER.compile(guild_id=guild_id, user_id=user_id), GuildMember)
-
-    async def get_channel_message(self, channel_id: int, message_id: int) -> Message:
-        """Get one message.
-
-        Discord: https://docs.discord.com/developers/resources/message#get-channel-message
-        """
-        return await self.request(
-            GET_CHANNEL_MESSAGE.compile(channel_id=channel_id, message_id=message_id), Message
-        )
-
-    async def create_message(self, channel_id: int, params: CreateMessageParams) -> Message:
-        """Send a message.
-
-        Discord: https://docs.discord.com/developers/resources/message#create-message
-        """
-        return await self.request(CREATE_MESSAGE.compile(channel_id=channel_id), Message, body=params)
-
     async def search_guild_messages(
         self, guild_id: int, params: SearchGuildMessagesParams
     ) -> SearchGuildMessagesResponse:
@@ -539,7 +400,7 @@ class RestClient:
         Discord: https://docs.discord.com/developers/resources/message#search-guild-messages
         """
         route = SEARCH_GUILD_MESSAGES.compile(guild_id=guild_id)
-        query = _query_of(params)
+        query = query_of(params)
         attempt = 0
         while True:
             response = await self._send(route, body=None, query=query, reason=None)
@@ -550,376 +411,6 @@ class RestClient:
                 raise SearchIndexNotReadyError(pending.documents_indexed, pending.retry_after)
             attempt += 1
             await self._clock.sleep(pending.retry_after or SEARCH_INDEX_RETRY_DELAY)
-
-    async def delete_message(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
-        """Delete a message.
-
-        Discord: https://docs.discord.com/developers/resources/message#delete-message
-        """
-        await self.request_empty(
-            DELETE_MESSAGE.compile(channel_id=channel_id, message_id=message_id), reason=reason
-        )
-
-    async def get_global_application_commands(
-        self, application_id: int, *, with_localizations: bool = False
-    ) -> list[ApplicationCommand]:
-        """Get the app's global commands.
-
-        Without `with_localizations`, Discord sends each name and description in the requester's
-        locale (`name_localized`) instead of the full dictionaries.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#get-global-application-commands
-        """
-        return await self.request(
-            GET_GLOBAL_APPLICATION_COMMANDS.compile(application_id=application_id),
-            list[ApplicationCommand],
-            query={"with_localizations": with_localizations},
-        )
-
-    async def create_global_application_command(
-        self, application_id: int, params: CreateGlobalApplicationCommandParams
-    ) -> ApplicationCommand:
-        """Create a global command, replacing one with the same name.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#create-global-application-command
-        """
-        return await self.request(
-            CREATE_GLOBAL_APPLICATION_COMMAND.compile(application_id=application_id),
-            ApplicationCommand,
-            body=params,
-        )
-
-    async def get_global_application_command(
-        self, application_id: int, command_id: int
-    ) -> ApplicationCommand:
-        """Get one global command.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#get-global-application-command
-        """
-        return await self.request(
-            GET_GLOBAL_APPLICATION_COMMAND.compile(application_id=application_id, command_id=command_id),
-            ApplicationCommand,
-        )
-
-    async def edit_global_application_command(
-        self, application_id: int, command_id: int, params: EditGlobalApplicationCommandParams
-    ) -> ApplicationCommand:
-        """Edit a global command; the fields given replace the existing values.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#edit-global-application-command
-        """
-        return await self.request(
-            EDIT_GLOBAL_APPLICATION_COMMAND.compile(application_id=application_id, command_id=command_id),
-            ApplicationCommand,
-            body=params,
-        )
-
-    async def delete_global_application_command(self, application_id: int, command_id: int) -> None:
-        """Delete a global command.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#delete-global-application-command
-        """
-        await self.request_empty(
-            DELETE_GLOBAL_APPLICATION_COMMAND.compile(application_id=application_id, command_id=command_id)
-        )
-
-    async def bulk_overwrite_global_application_commands(
-        self, application_id: int, commands: Sequence[BulkApplicationCommandParams]
-    ) -> list[ApplicationCommand]:
-        """Replace every global command (slash, user and message) with `commands`.
-
-        Commands not in the list are deleted; an empty list deletes them all.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-global-application-commands
-        """
-        return await self.request(
-            BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS.compile(application_id=application_id),
-            list[ApplicationCommand],
-            body=list(commands),
-        )
-
-    async def get_guild_application_commands(
-        self, application_id: int, guild_id: int, *, with_localizations: bool = False
-    ) -> list[ApplicationCommand]:
-        """Get the app's commands in one guild.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#get-guild-application-commands
-        """
-        return await self.request(
-            GET_GUILD_APPLICATION_COMMANDS.compile(application_id=application_id, guild_id=guild_id),
-            list[ApplicationCommand],
-            query={"with_localizations": with_localizations},
-        )
-
-    async def create_guild_application_command(
-        self, application_id: int, guild_id: int, params: CreateGuildApplicationCommandParams
-    ) -> ApplicationCommand:
-        """Create a guild command, available immediately, replacing one with the same name.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#create-guild-application-command
-        """
-        return await self.request(
-            CREATE_GUILD_APPLICATION_COMMAND.compile(application_id=application_id, guild_id=guild_id),
-            ApplicationCommand,
-            body=params,
-        )
-
-    async def get_guild_application_command(
-        self, application_id: int, guild_id: int, command_id: int
-    ) -> ApplicationCommand:
-        """Get one guild command.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command
-        """
-        return await self.request(
-            GET_GUILD_APPLICATION_COMMAND.compile(
-                application_id=application_id, guild_id=guild_id, command_id=command_id
-            ),
-            ApplicationCommand,
-        )
-
-    async def edit_guild_application_command(
-        self, application_id: int, guild_id: int, command_id: int, params: EditGuildApplicationCommandParams
-    ) -> ApplicationCommand:
-        """Edit a guild command; the fields given replace the existing values.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#edit-guild-application-command
-        """
-        return await self.request(
-            EDIT_GUILD_APPLICATION_COMMAND.compile(
-                application_id=application_id, guild_id=guild_id, command_id=command_id
-            ),
-            ApplicationCommand,
-            body=params,
-        )
-
-    async def delete_guild_application_command(
-        self, application_id: int, guild_id: int, command_id: int
-    ) -> None:
-        """Delete a guild command.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#delete-guild-application-command
-        """
-        await self.request_empty(
-            DELETE_GUILD_APPLICATION_COMMAND.compile(
-                application_id=application_id, guild_id=guild_id, command_id=command_id
-            )
-        )
-
-    async def bulk_overwrite_guild_application_commands(
-        self, application_id: int, guild_id: int, commands: Sequence[BulkApplicationCommandParams]
-    ) -> list[ApplicationCommand]:
-        """Replace every command of the app in one guild with `commands`.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands
-        """
-        return await self.request(
-            BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS.compile(
-                application_id=application_id, guild_id=guild_id
-            ),
-            list[ApplicationCommand],
-            body=list(commands),
-        )
-
-    async def get_guild_application_command_permissions(
-        self, application_id: int, guild_id: int
-    ) -> list[GuildApplicationCommandPermissions]:
-        """Get the permission overwrites of every command of the app in one guild.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command-permissions
-        """
-        return await self.request(
-            GET_GUILD_APPLICATION_COMMAND_PERMISSIONS.compile(
-                application_id=application_id, guild_id=guild_id
-            ),
-            list[GuildApplicationCommandPermissions],
-        )
-
-    async def get_application_command_permissions(
-        self, application_id: int, guild_id: int, command_id: int
-    ) -> GuildApplicationCommandPermissions:
-        """Get the permission overwrites of one command in one guild.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#get-application-command-permissions
-        """
-        return await self.request(
-            GET_APPLICATION_COMMAND_PERMISSIONS.compile(
-                application_id=application_id, guild_id=guild_id, command_id=command_id
-            ),
-            GuildApplicationCommandPermissions,
-        )
-
-    async def edit_application_command_permissions(
-        self,
-        application_id: int,
-        guild_id: int,
-        command_id: int,
-        params: EditApplicationCommandPermissionsParams,
-    ) -> GuildApplicationCommandPermissions:
-        """Replace the permission overwrites of one command in one guild.
-
-        Needs a client built with `Token.bearer` for a user who can manage the guild and its roles; a
-        bot token is rejected.
-
-        Discord: https://docs.discord.com/developers/interactions/application-commands#edit-application-command-permissions
-        """
-        return await self.request(
-            EDIT_APPLICATION_COMMAND_PERMISSIONS.compile(
-                application_id=application_id, guild_id=guild_id, command_id=command_id
-            ),
-            GuildApplicationCommandPermissions,
-            body=params,
-        )
-
-    @overload
-    async def create_interaction_response(
-        self,
-        interaction_id: int,
-        interaction_token: str,
-        response: InteractionResponse,
-        *,
-        with_response: Literal[False] = False,
-    ) -> None: ...
-
-    @overload
-    async def create_interaction_response(
-        self,
-        interaction_id: int,
-        interaction_token: str,
-        response: InteractionResponse,
-        *,
-        with_response: Literal[True],
-    ) -> InteractionCallbackResponse: ...
-
-    @overload
-    async def create_interaction_response(
-        self,
-        interaction_id: int,
-        interaction_token: str,
-        response: InteractionResponse,
-        *,
-        with_response: bool,
-    ) -> InteractionCallbackResponse | None: ...
-
-    async def create_interaction_response(
-        self,
-        interaction_id: int,
-        interaction_token: str,
-        response: InteractionResponse,
-        *,
-        with_response: bool = False,
-    ) -> InteractionCallbackResponse | None:
-        """Answer an interaction. Must happen within 3 seconds of receiving it, and only once.
-
-        With `with_response`, Discord returns what the response created (the message, or the
-        launched Activity).
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#create-interaction-response
-        """
-        route = CREATE_INTERACTION_RESPONSE.compile(
-            interaction_id=interaction_id, interaction_token=interaction_token
-        )
-        if with_response:
-            return await self.request(
-                route, InteractionCallbackResponse, body=response, query={"with_response": True}
-            )
-        await self.request_empty(route, body=response)
-        return None
-
-    async def get_original_interaction_response(self, application_id: int, interaction_token: str) -> Message:
-        """Get the message an interaction response created.
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#get-original-interaction-response
-        """
-        return await self.request(
-            GET_ORIGINAL_INTERACTION_RESPONSE.compile(
-                application_id=application_id, interaction_token=interaction_token
-            ),
-            Message,
-        )
-
-    async def edit_original_interaction_response(
-        self, application_id: int, interaction_token: str, params: EditWebhookMessageParams
-    ) -> Message:
-        """Edit the message an interaction response created, or fill in a deferred one.
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response
-        """
-        return await self.request(
-            EDIT_ORIGINAL_INTERACTION_RESPONSE.compile(
-                application_id=application_id, interaction_token=interaction_token
-            ),
-            Message,
-            body=params,
-        )
-
-    async def delete_original_interaction_response(self, application_id: int, interaction_token: str) -> None:
-        """Delete the message an interaction response created.
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#delete-original-interaction-response
-        """
-        await self.request_empty(
-            DELETE_ORIGINAL_INTERACTION_RESPONSE.compile(
-                application_id=application_id, interaction_token=interaction_token
-            )
-        )
-
-    async def create_followup_message(
-        self, application_id: int, interaction_token: str, params: CreateFollowupMessageParams
-    ) -> Message:
-        """Send another message for an interaction, for up to 15 minutes after it.
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#create-followup-message
-        """
-        return await self.request(
-            CREATE_FOLLOWUP_MESSAGE.compile(
-                application_id=application_id, interaction_token=interaction_token
-            ),
-            Message,
-            body=params,
-        )
-
-    async def get_followup_message(
-        self, application_id: int, interaction_token: str, message_id: int
-    ) -> Message:
-        """Get a follow-up message.
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#get-followup-message
-        """
-        return await self.request(
-            GET_FOLLOWUP_MESSAGE.compile(
-                application_id=application_id, interaction_token=interaction_token, message_id=message_id
-            ),
-            Message,
-        )
-
-    async def edit_followup_message(
-        self, application_id: int, interaction_token: str, message_id: int, params: EditWebhookMessageParams
-    ) -> Message:
-        """Edit a follow-up message.
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-followup-message
-        """
-        return await self.request(
-            EDIT_FOLLOWUP_MESSAGE.compile(
-                application_id=application_id, interaction_token=interaction_token, message_id=message_id
-            ),
-            Message,
-            body=params,
-        )
-
-    async def delete_followup_message(
-        self, application_id: int, interaction_token: str, message_id: int
-    ) -> None:
-        """Delete a follow-up message.
-
-        Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#delete-followup-message
-        """
-        await self.request_empty(
-            DELETE_FOLLOWUP_MESSAGE.compile(
-                application_id=application_id, interaction_token=interaction_token, message_id=message_id
-            )
-        )
 
 
 def _may_have_been_sent(error: OSError) -> bool:
