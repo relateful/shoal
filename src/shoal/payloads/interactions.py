@@ -354,6 +354,13 @@ class AutocompleteChoices(Payload):
     """At most 25."""
 
 
+MODAL_MAX_COMPONENTS: Final = 5
+"""The most components (labels and text displays) a modal holds.
+
+Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-response-object-modal
+"""
+
+
 class Modal(Payload):
     """A popup form.
 

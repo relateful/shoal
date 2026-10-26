@@ -4,6 +4,7 @@ Discord: https://docs.discord.com/developers/resources/guild
 """
 
 from datetime import datetime
+from typing import Final
 
 from msgspec import UNSET, UnsetType
 
@@ -593,6 +594,19 @@ class EditGuildParams(Payload):
     description: str | UnsetType | None = UNSET
     premium_progress_bar_enabled: bool | UnsetType = UNSET
     safety_alerts_channel_id: Snowflake | UnsetType | None = UNSET
+
+
+LIST_BANS_MAX_LIMIT: Final = 1000
+"""The most bans one Get Guild Bans request returns.
+
+Discord: https://docs.discord.com/developers/resources/guild#get-guild-bans-query-string-params
+"""
+
+LIST_MEMBERS_MAX_LIMIT: Final = 1000
+"""The most members one List Guild Members request returns.
+
+Discord: https://docs.discord.com/developers/resources/guild#list-guild-members-query-string-params
+"""
 
 
 class ListMembersParams(Payload):

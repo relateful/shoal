@@ -7,7 +7,7 @@ Structures built from these values (such as `DEFAULT_POLICIES`) live next to the
 from typing import Final
 
 MESSAGE_CACHE_LIMIT: Final = 1000
-"""Messages kept in memory by default, matching discord.py's default `max_messages`."""
+"""Messages kept in memory by default."""
 
 SNAPSHOT_FORMAT: Final = 3
 """Bumped whenever the snapshot layout changes incompatibly; older snapshots are then ignored."""

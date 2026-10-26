@@ -9,7 +9,7 @@ Three limits apply to every request, and `LocalRateLimiter` enforces all three i
    every request until it clears.
 3. **Invalid requests.** 10,000 responses with 401, 403 or (non-shared) 429 in 10 minutes gets the
    IP temporarily restricted from the API (a Cloudflare ban). The guard counts them and holds
-   requests back before the budget runs out, which discord.py does not do.
+   requests back before the budget runs out.
 
 `RateLimiter` is a protocol, so a shared (for example Redis-backed) limiter can replace the local one
 when several processes use the same token.

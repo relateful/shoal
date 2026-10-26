@@ -11,7 +11,7 @@ How Discord's field notation maps to Python
 | `field?: ?type`     | may be absent or null       | `field: T | UnsetType | None = UNSET`  |
 
 `UNSET` (absent) and `None` (explicit null) stay distinct, so an update payload can tell "leave it"
-from "clear it" — the distinction discord.py collapses.
+from "clear it".
 """
 
 from typing import ClassVar, dataclass_transform, override

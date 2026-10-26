@@ -8,7 +8,7 @@ in between; an implementation shared by several processes must make each call at
 a write from another process between a read and a write is overwritten.
 
 The `peek` methods read synchronously what this process holds, for lookups that cannot await, like
-discord.py's `guild.get_member`. An implementation backed by a remote store answers them from a local
+`guild.get_member`. An implementation backed by a remote store answers them from a local
 copy it keeps, or with nothing.
 """
 

@@ -5,8 +5,7 @@ worker process that receives events over `shoal.ipc`.
 
 Every event that changes a cached kind is handled; `handled_events` lists them and the tests pin that
 list, so an event cannot silently fall out. Events about things the cache does not hold (integrations,
-invites, bans, Auto Moderation, entitlements, subscriptions, typing) pass through untouched, as in
-discord.py.
+invites, bans, Auto Moderation, entitlements, subscriptions, typing) pass through untouched.
 """
 
 import logging

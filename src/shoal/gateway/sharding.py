@@ -50,8 +50,8 @@ class IdentifyLimiter(Protocol):
 class LocalIdentifyLimiter(IdentifyLimiter):
     """Lets up to `max_concurrency` shards identify at once, one per bucket every five seconds.
 
-    discord.py identifies one shard every five seconds regardless of `max_concurrency`; a bot with
-    `max_concurrency` 16 and 512 shards starts in about 2.7 minutes here instead of 43.
+    A bot with `max_concurrency` 16 and 512 shards starts in about 2.7 minutes, instead of the 43 it
+    takes identifying one shard at a time.
 
     Discord: https://docs.discord.com/developers/events/gateway#sharding-max-concurrency
     """

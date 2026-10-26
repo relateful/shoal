@@ -2,8 +2,7 @@
 
 A Discord bot runs on one asyncio event loop. A single blocking call (`requests.get`, `time.sleep`, a
 slow database driver, heavy CPU work) freezes everything: heartbeats are late, Discord drops the
-connection, events pile up, and the logs only show the consequences. discord.py notices only once a
-heartbeat has been stuck for 10 seconds, and then logs the loop thread's raw stack trace.
+connection, events pile up, and the logs only show the consequences.
 
 `LoopMonitor` runs a tiny task on the loop that ticks every `interval`, and a watchdog thread that
 watches the ticks. When the ticks stop for longer than `threshold`, the watchdog captures the event

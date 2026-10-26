@@ -26,6 +26,24 @@ AUDIT_LOG_REASON_MAX_LENGTH: Final = 512
 Discord: https://docs.discord.com/developers/resources/audit-log#audit-log-entry-object
 """
 
+CDN_BASE_URL: Final = "https://cdn.discordapp.com"
+"""Where Discord serves images (avatars, icons, emojis, stickers), without a trailing slash.
+
+Discord: https://docs.discord.com/developers/reference#image-formatting
+"""
+
+CDN_IMAGE_MAX_SIZE: Final = 4096
+"""The largest image size the CDN serves; sizes are powers of two.
+
+Discord: https://docs.discord.com/developers/reference#image-formatting
+"""
+
+CDN_IMAGE_MIN_SIZE: Final = 16
+"""The smallest image size the CDN serves; sizes are powers of two.
+
+Discord: https://docs.discord.com/developers/reference#image-formatting
+"""
+
 DOCS_BASE_URL: Final = "https://docs.discord.com/developers/"
 """Where Discord publishes its developer documentation; every docs link in Shoal starts with this."""
 

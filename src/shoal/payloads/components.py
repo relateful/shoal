@@ -15,7 +15,7 @@ Discord: https://docs.discord.com/developers/components/reference
 """
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Final, Protocol
 
 import msgspec
 from msgspec import UNSET, UnsetType
@@ -27,6 +27,18 @@ from shoal.core.snowflake import Snowflake
 from shoal.payloads.base import Payload
 from shoal.payloads.channel import ChannelType
 from shoal.payloads.emoji import PartialEmoji
+
+ACTION_ROW_MAX_BUTTONS: Final = 5
+"""Buttons that fit in one action row; a select fills a row on its own.
+
+Discord: https://docs.discord.com/developers/components/reference#action-row
+"""
+
+LEGACY_MESSAGE_MAX_ACTION_ROWS: Final = 5
+"""Action rows a message without `is_components_v2` can have.
+
+Discord: https://docs.discord.com/developers/components/reference#legacy-message-component-behavior
+"""
 
 
 class ComponentType(DiscordIntEnum):

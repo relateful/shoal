@@ -7,7 +7,8 @@ data, which refers back to messages), `Attachment.application` (the app behind a
 `Embed.components`. Decoding ignores those keys until they are added.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Final
 
 from msgspec import UNSET, UnsetType
 
@@ -813,6 +814,25 @@ class BulkDeleteMessagesParams(Payload):
 
     messages: list[Snowflake]
     """2 to 100 message IDs, none older than two weeks and none repeated."""
+
+
+BULK_DELETE_MAX_AGE: Final = timedelta(weeks=2)
+"""Messages older than this cannot be bulk deleted.
+
+Discord: https://docs.discord.com/developers/resources/message#bulk-delete-messages
+"""
+
+BULK_DELETE_MAX_MESSAGES: Final = 100
+"""The most messages one Bulk Delete Messages request deletes.
+
+Discord: https://docs.discord.com/developers/resources/message#bulk-delete-messages
+"""
+
+LIST_MESSAGES_MAX_LIMIT: Final = 100
+"""The most messages one Get Channel Messages request returns.
+
+Discord: https://docs.discord.com/developers/resources/message#get-channel-messages-query-string-params
+"""
 
 
 class ListPinsParams(Payload):

@@ -59,7 +59,7 @@ class RestartStrategy(StrEnum):
     """What the cache does when the bot starts."""
 
     COLD = "cold"
-    """Start empty and fill from the gateway, like discord.py."""
+    """Start empty and fill from the gateway."""
     WARM = "warm"
     """Load the last snapshot and serve it immediately, marked stale until Discord confirms it."""
 
@@ -79,7 +79,7 @@ DEFAULT_POLICIES: Final = {
     EntityKind.USER: CachePolicy(max_entries=USER_CACHE_LIMIT),
     EntityKind.VOICE_STATE: CachePolicy(),
 }
-"""Everything cached. Messages are bounded (discord.py's default size) and, with presences, not
+"""Everything cached. Messages are bounded and, with presences, not
 persisted: both change too often for a snapshot to be worth restoring. Users are bounded because
 message authors from every guild pass through them; the other kinds mirror what Discord says the
 bot's guilds contain, so they are bounded by those guilds."""

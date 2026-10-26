@@ -3,6 +3,8 @@
 Discord: https://docs.discord.com/developers/interactions/application-commands
 """
 
+from typing import Final
+
 from msgspec import UNSET, UnsetType
 
 from shoal.core.enums import DiscordIntEnum
@@ -12,6 +14,30 @@ from shoal.payloads.application import ApplicationIntegrationType, InteractionCo
 from shoal.payloads.base import Payload
 from shoal.payloads.channel import ChannelType
 from shoal.payloads.permissions import Permissions
+
+COMMAND_DESCRIPTION_MAX_LENGTH: Final = 100
+"""The longest description of a slash command or an option; the shortest is one character.
+
+Discord: https://docs.discord.com/developers/interactions/application-commands#application-command-object-application-command-structure
+"""
+
+COMMAND_MAX_OPTIONS: Final = 25
+"""The most options a command takes, and the most subcommands a group holds.
+
+Discord: https://docs.discord.com/developers/interactions/application-commands#application-command-object-application-command-option-structure
+"""
+
+COMMAND_NAME_MAX_LENGTH: Final = 32
+"""The longest command, option or context menu name.
+
+Discord: https://docs.discord.com/developers/interactions/application-commands#application-command-object-application-command-naming
+"""
+
+OPTION_MAX_CHOICES: Final = 25
+"""The most fixed choices an option offers, and the most an autocomplete suggests.
+
+Discord: https://docs.discord.com/developers/interactions/application-commands#application-command-object-application-command-option-structure
+"""
 
 
 class ApplicationCommandType(DiscordIntEnum):
@@ -28,6 +54,17 @@ class ApplicationCommandType(DiscordIntEnum):
     """Shown when right-clicking or tapping a message."""
     PRIMARY_ENTRY_POINT = 4
     """The primary way to launch an app's Activity."""
+
+
+APPLICATION_MAX_COMMANDS: Final[dict[ApplicationCommandType, int]] = {
+    ApplicationCommandType.CHAT_INPUT: 100,
+    ApplicationCommandType.USER: 15,
+    ApplicationCommandType.MESSAGE: 15,
+}
+"""How many commands of each type an app may have globally, and again in each guild.
+
+Discord: https://docs.discord.com/developers/interactions/application-commands#registering-a-command
+"""
 
 
 class ApplicationCommandOptionType(DiscordIntEnum):

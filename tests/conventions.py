@@ -95,6 +95,23 @@ def test_discord_links_use_the_canonical_docs_site(path: Path) -> None:
         assert DOCS_LINK.fullmatch(url.rstrip(".,")), f"{module_name(path)}: non-canonical docs link {url}"
 
 
+BANNER_COMMENT = re.compile(r"^\s*#.*-{4,}\s*$", re.MULTILINE)
+OTHER_LIBRARY = re.compile(r"discord\.py|\bdpy\b", re.IGNORECASE)
+
+
+def python_files() -> list[Path]:
+    return sorted(path for folder in (SOURCE, TESTS, SCRIPTS) for path in folder.rglob("*.py"))
+
+
+@pytest.mark.parametrize("path", python_files(), ids=lambda path: str(path.relative_to(ROOT)))
+def test_code_has_no_banner_comments_or_other_library_names(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    banners = [match.group().strip() for match in BANNER_COMMENT.finditer(text)]
+    assert banners == [], "split a module rather than marking sections with banner comments"
+    others = [line.strip() for line in text.splitlines() if OTHER_LIBRARY.search(line)]
+    assert others == [], "code describes Shoal on its own terms; only comparison docs name other libraries"
+
+
 @pytest.mark.parametrize("payload_type", public_payload_types(), ids=lambda value: value.__name__)
 def test_every_payload_type_links_to_its_discord_docs(payload_type: type) -> None:
     docstring = inspect.getdoc(payload_type) or ""

@@ -68,7 +68,7 @@ Discord: https://docs.discord.com/developers/events/gateway#zlib-stream
 class Intents(BaseFlags):
     """Which gateway events a session subscribes to.
 
-    `Intents.default()` is every non-privileged intent, the same default discord.py uses.
+    `Intents.default()` is every non-privileged intent.
 
     Discord: https://docs.discord.com/developers/events/gateway#list-of-intents
     """

@@ -116,6 +116,12 @@ known-first-party = ["shoal"]
 "scripts/**" = ["T201", "S310"]
 # `rest.roles.list(...)`: resource methods are named `list`; their signatures say `builtins.list`.
 "src/shoal/rest/resources/**" = ["A003"]
+# The models and the client build each other inside functions to break import cycles (see [tool.pyright]).
+"src/shoal/models/**" = ["PLC0415"]
+"src/shoal/client/**" = ["PLC0415"]
+"src/shoal/ui/**" = ["PLC0415"]
+# `tree.get_command(name, type=...)`: the command type, as Discord names it.
+"src/shoal/app_commands/tree.py" = ["A002"]
 
 [tool.pyright]
 include = ["src", "tests", "scripts"]
@@ -131,6 +137,25 @@ reportUninitializedInstanceVariable = "error"
 reportUnnecessaryTypeIgnoreComment = "error"
 reportUnusedCallResult = "none"
 reportUnreachable = "error"
+# Also report code that narrowing makes unreachable, not only code after a return or raise.
+enableReachabilityAnalysis = true
+
+# Discord's objects form one graph (a message's author is a member of a guild whose channels hold
+# messages; an interaction belongs to the client that answers it; an item knows its view), so the
+# models, the client and ui import within their own package: annotations under TYPE_CHECKING,
+# construction inside functions. Every other package keeps cycles an error, and import-linter
+# still keeps the layers apart.
+[[tool.pyright.executionEnvironments]]
+root = "src/shoal/models"
+reportImportCycles = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "src/shoal/client"
+reportImportCycles = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "src/shoal/ui"
+reportImportCycles = "none"
 
 [tool.mypy]
 python_version = "3.12"
@@ -178,9 +203,12 @@ root_package = "shoal"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | interaction_server)"
+name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | interaction_server) < models < client < (ui | app_commands)"
 type = "layers"
 layers = [
+    "shoal.ui | shoal.app_commands",
+    "shoal.client",
+    "shoal.models",
     "shoal.rest | shoal.gateway | shoal.cache | shoal.ipc | shoal.metrics | shoal.diagnostics | shoal.interaction_server",
     "shoal.payloads",
     "shoal.core",

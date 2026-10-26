@@ -167,7 +167,11 @@ So that anything can be found without searching:
 - Names say what things are; no abbreviations beyond Discord's own (`id`, `url`) and the `msg` local
   that ruff's exception-message rule expects.
 - Docstrings explain behaviour and reasons (Google style). Comments are rare and explain why, never
-  what.
+  what. No section-banner comments (`# Login ------`); a module that needs them should be split.
+- Code, comments, docstrings and tests describe Shoal on its own terms and never mention other
+  libraries. Only the docs that compare directly (the migration guide) name discord.py.
+- No unreachable or defensive dead code: pyright reports code that narrowing makes unreachable
+  (`enableReachabilityAnalysis`), and a branch that cannot happen is removed, not kept "just in case".
 - Classes declare `__slots__`; dataclasses use `slots=True`.
 - Exception names end in `Error` and every Shoal exception derives from `ShoalError`.
 - Nothing blocks the event loop: file I/O goes through `asyncio.to_thread`, and CPU-heavy work does

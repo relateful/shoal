@@ -326,6 +326,10 @@ class CacheStore:
         """The guild's `GUILD_CREATE` arrived."""
         self._unavailable.discard(guild_id)
 
+    def is_unavailable(self, guild_id: int) -> bool:
+        """Whether the guild is listed in `READY` or in an outage, and its `GUILD_CREATE` has not come yet."""
+        return Snowflake(guild_id) in self._unavailable
+
     def is_fresh[V](self, entry: Entry[V]) -> bool:
         """Whether Discord has confirmed `entry` in the current session of the shard that wrote it."""
         return entry.freshness.revision >= self._threshold(entry.freshness)

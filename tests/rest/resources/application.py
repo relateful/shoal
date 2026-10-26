@@ -8,41 +8,9 @@ from shoal.payloads import (
     InstallParams,
     Permissions,
 )
-from tests.support.json_payloads import USER
+from tests.support.json_payloads import APPLICATION, USER
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
-APPLICATION: dict[str, object] = {
-    "id": "172150183260323840",
-    "name": "Baba O-Riley",
-    "icon": None,
-    "description": "Test",
-    "bot_public": True,
-    "bot_require_code_grant": False,
-    "owner": USER,
-    "verify_key": "1e0a356058d627ca38a5c8c9648818061d49e49bd9da9e3ab17d98ad4d6bg2u8",
-    "team": {
-        "icon": "dd9b7dcfdf5351b9c3de0fe167bacbe1",
-        "id": "531992624043786253",
-        "members": [{"membership_state": 2, "team_id": "531992624043786253", "user": USER, "role": "admin"}],
-        "name": "A team",
-        "owner_user_id": "511972282709709995",
-    },
-    "guild_id": "290926798626357260",
-    "primary_sku_id": "172150183260323840",
-    "slug": "test",
-    "cover_image": "31deabb7e45b6c8ecfef77d2f99c81a5",
-    "flags": 8192,
-    "flags_new": "8192",
-    "interactions_endpoint_url": None,
-    "role_connections_verification_url": None,
-    "event_webhooks_url": None,
-    "event_webhooks_status": 1,
-    "integration_types_config": {
-        "0": {"oauth2_install_params": {"scopes": ["applications.commands", "bot"], "permissions": "2048"}},
-        "1": {"oauth2_install_params": {"scopes": ["applications.commands"], "permissions": "0"}},
-    },
-}
-"""Discord's example, in the field table's order and with the team member's `role`."""
 METADATA: dict[str, object] = {
     "type": 2,
     "key": "level",
