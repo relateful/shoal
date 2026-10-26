@@ -95,7 +95,7 @@ class StickerPacks(Payload):
     sticker_packs: list[StickerPack]
 
 
-class CreateGuildStickerParams(Payload):
+class CreateStickerParams(Payload):
     """Form fields of Create Guild Sticker; the sticker file is passed separately.
 
     Discord: https://docs.discord.com/developers/resources/sticker#create-guild-sticker-form-params
@@ -109,7 +109,7 @@ class CreateGuildStickerParams(Payload):
     """Autocomplete tags, up to 200 characters. Discord's client uses the name of an emoji."""
 
 
-class ModifyGuildStickerParams(Payload):
+class EditStickerParams(Payload):
     """JSON body of Modify Guild Sticker.
 
     Discord: https://docs.discord.com/developers/resources/sticker#modify-guild-sticker-json-params

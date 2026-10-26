@@ -4,7 +4,7 @@ import pytest
 from shoal.core.codec import decode_json
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
-    AddGuildMemberParams,
+    AddMemberParams,
     CreateGroupDMParams,
     CreateOrJoinLobbyParams,
     Webhook,
@@ -44,7 +44,7 @@ def test_options_can_still_be_overridden() -> None:
 
 
 def test_credentials_never_appear_in_a_repr() -> None:
-    member = AddGuildMemberParams(access_token="OAUTH-SECRET", nick="Ada")
+    member = AddMemberParams(access_token="OAUTH-SECRET", nick="Ada")
     assert "OAUTH-SECRET" not in repr(member)
     assert "access_token=<redacted>" in repr(member)
     assert "nick='Ada'" in repr(member)

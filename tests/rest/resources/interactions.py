@@ -1,13 +1,13 @@
 import pytest
 
 from shoal.payloads import (
-    CreateFollowupMessageParams,
     DeferredMessageResponse,
     DeferredUpdateResponse,
     EditWebhookMessageParams,
     InteractionMessage,
     MessageFlags,
     MessageResponse,
+    SendFollowupParams,
     UpdateMessageResponse,
 )
 from shoal.rest.errors import NotFoundError
@@ -23,7 +23,7 @@ PNG = b"\x89PNG\r\n\x1a\n"
 CASES = [
     EndpointCase(
         name="respond with a file",
-        call=lambda client: client.create_interaction_response(
+        call=lambda client: client.interactions.respond(
             9,
             "aW50ZXJhY3Rpb24",
             MessageResponse(data=InteractionMessage(content="here")),
@@ -36,7 +36,7 @@ CASES = [
     ),
     EndpointCase(
         name="update a message adding a file",
-        call=lambda client: client.create_interaction_response(
+        call=lambda client: client.interactions.respond(
             9,
             "aW50ZXJhY3Rpb24",
             UpdateMessageResponse(data=InteractionMessage(content="v2")),
@@ -49,8 +49,8 @@ CASES = [
     ),
     EndpointCase(
         name="follow up with a file",
-        call=lambda client: client.create_followup_message(
-            7, "aW50ZXJhY3Rpb24", CreateFollowupMessageParams(content="later"), files=[File("a.txt", b"a")]
+        call=lambda client: client.interactions.send_followup(
+            7, "aW50ZXJhY3Rpb24", SendFollowupParams(content="later"), files=[File("a.txt", b"a")]
         ),
         method="POST",
         path=INTERACTION_WEBHOOK,
@@ -60,7 +60,7 @@ CASES = [
     ),
     EndpointCase(
         name="edit original adding a file",
-        call=lambda client: client.edit_original_interaction_response(
+        call=lambda client: client.interactions.edit_original(
             7, "aW50ZXJhY3Rpb24", EditWebhookMessageParams(content="done"), files=[File("a.txt", b"a")]
         ),
         method="PATCH",
@@ -71,7 +71,7 @@ CASES = [
     ),
     EndpointCase(
         name="edit follow-up adding a file",
-        call=lambda client: client.edit_followup_message(
+        call=lambda client: client.interactions.edit_followup(
             7, "aW50ZXJhY3Rpb24", 9, EditWebhookMessageParams(), files=[File("a.txt", b"a")]
         ),
         method="PATCH",
@@ -82,7 +82,7 @@ CASES = [
     ),
     EndpointCase(
         name="respond",
-        call=lambda client: client.create_interaction_response(
+        call=lambda client: client.interactions.respond(
             9, "aW50ZXJhY3Rpb24", MessageResponse(data=InteractionMessage(content="hi"))
         ),
         method="POST",
@@ -91,7 +91,7 @@ CASES = [
     ),
     EndpointCase(
         name="respond with response",
-        call=lambda client: client.create_interaction_response(
+        call=lambda client: client.interactions.respond(
             9, "aW50ZXJhY3Rpb24", DeferredMessageResponse(), with_response=True
         ),
         method="POST",
@@ -101,14 +101,14 @@ CASES = [
     ),
     EndpointCase(
         name="get original",
-        call=lambda client: client.get_original_interaction_response(7, "aW50ZXJhY3Rpb24"),
+        call=lambda client: client.interactions.get_original(7, "aW50ZXJhY3Rpb24"),
         method="GET",
         path=f"{INTERACTION_WEBHOOK}/messages/@original",
         response=MESSAGE,
     ),
     EndpointCase(
         name="edit original",
-        call=lambda client: client.edit_original_interaction_response(
+        call=lambda client: client.interactions.edit_original(
             7, "aW50ZXJhY3Rpb24", EditWebhookMessageParams(content=None)
         ),
         method="PATCH",
@@ -118,14 +118,14 @@ CASES = [
     ),
     EndpointCase(
         name="delete original",
-        call=lambda client: client.delete_original_interaction_response(7, "aW50ZXJhY3Rpb24"),
+        call=lambda client: client.interactions.delete_original(7, "aW50ZXJhY3Rpb24"),
         method="DELETE",
         path=f"{INTERACTION_WEBHOOK}/messages/@original",
     ),
     EndpointCase(
         name="follow up",
-        call=lambda client: client.create_followup_message(
-            7, "aW50ZXJhY3Rpb24", CreateFollowupMessageParams(content="later")
+        call=lambda client: client.interactions.send_followup(
+            7, "aW50ZXJhY3Rpb24", SendFollowupParams(content="later")
         ),
         method="POST",
         path=INTERACTION_WEBHOOK,
@@ -134,14 +134,14 @@ CASES = [
     ),
     EndpointCase(
         name="get follow-up",
-        call=lambda client: client.get_followup_message(7, "aW50ZXJhY3Rpb24", 9),
+        call=lambda client: client.interactions.get_followup(7, "aW50ZXJhY3Rpb24", 9),
         method="GET",
         path=f"{INTERACTION_WEBHOOK}/messages/9",
         response=MESSAGE,
     ),
     EndpointCase(
         name="edit follow-up",
-        call=lambda client: client.edit_followup_message(
+        call=lambda client: client.interactions.edit_followup(
             7, "aW50ZXJhY3Rpb24", 9, EditWebhookMessageParams(content="edited")
         ),
         method="PATCH",
@@ -151,7 +151,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete follow-up",
-        call=lambda client: client.delete_followup_message(7, "aW50ZXJhY3Rpb24", 9),
+        call=lambda client: client.interactions.delete_followup(7, "aW50ZXJhY3Rpb24", 9),
         method="DELETE",
         path=f"{INTERACTION_WEBHOOK}/messages/9",
     ),
@@ -168,7 +168,7 @@ async def test_interaction_tokens_stay_out_of_errors() -> None:
     transport.queue(404, {"message": "Unknown Webhook", "code": 10015})
     client = make_client(transport)
     with pytest.raises(NotFoundError) as caught:
-        await client.get_original_interaction_response(7, "aW50ZXJhY3Rpb24")
+        await client.interactions.get_original(7, "aW50ZXJhY3Rpb24")
     assert "aW50ZXJhY3Rpb24" not in str(caught.value)
     assert "{interaction_token}" in str(caught.value)
 
@@ -178,8 +178,8 @@ async def test_files_need_a_response_that_carries_a_message() -> None:
     # A deferred message response has data (its flags), but Discord does not use files with it.
     deferred = DeferredMessageResponse(data=InteractionMessage(flags=MessageFlags(ephemeral=True)))
     with pytest.raises(TypeError, match="DeferredMessageResponse carries no message"):
-        await client.create_interaction_response(9, "aW50ZXJhY3Rpb24", deferred, files=[File("a", b"")])
+        await client.interactions.respond(9, "aW50ZXJhY3Rpb24", deferred, files=[File("a", b"")])
     with pytest.raises(TypeError, match="DeferredUpdateResponse carries no message"):
-        await client.create_interaction_response(
+        await client.interactions.respond(
             9, "aW50ZXJhY3Rpb24", DeferredUpdateResponse(), files=[File("a", b"")]
         )

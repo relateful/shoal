@@ -3,7 +3,7 @@ from shoal.payloads import (
     CreateTestEntitlementParams,
     EntitlementOwnerType,
     ListEntitlementsParams,
-    ListSKUSubscriptionsParams,
+    ListSubscriptionsParams,
 )
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -45,14 +45,14 @@ ENTITLEMENTS = "/applications/1019370614521200640/entitlements"
 CASES = [
     EndpointCase(
         name="skus",
-        call=lambda client: client.list_skus(788708323867885999),
+        call=lambda client: client.skus.list(788708323867885999),
         method="GET",
         path="/applications/788708323867885999/skus",
         response=[SKU],
     ),
     EndpointCase(
         name="entitlements",
-        call=lambda client: client.list_entitlements(
+        call=lambda client: client.entitlements.list(
             1019370614521200640,
             ListEntitlementsParams(sku_ids=[Snowflake(1), Snowflake(2)], exclude_ended=True, limit=100),
         ),
@@ -62,7 +62,7 @@ CASES = [
     ),
     EndpointCase(
         name="entitlements of a user",
-        call=lambda client: client.list_entitlements(
+        call=lambda client: client.entitlements.list(
             1019370614521200640,
             ListEntitlementsParams(user_id=Snowflake(771129655544643584), exclude_deleted=False),
         ),
@@ -72,27 +72,27 @@ CASES = [
     ),
     EndpointCase(
         name="all entitlements",
-        call=lambda client: client.list_entitlements(1019370614521200640),
+        call=lambda client: client.entitlements.list(1019370614521200640),
         method="GET",
         path=ENTITLEMENTS,
         response=[],
     ),
     EndpointCase(
         name="entitlement",
-        call=lambda client: client.get_entitlement(1019370614521200640, 1019653849998299136),
+        call=lambda client: client.entitlements.get(1019370614521200640, 1019653849998299136),
         method="GET",
         path=f"{ENTITLEMENTS}/1019653849998299136",
         response=ENTITLEMENT,
     ),
     EndpointCase(
         name="consume",
-        call=lambda client: client.consume_an_entitlement(1019370614521200640, 1019653849998299136),
+        call=lambda client: client.entitlements.consume(1019370614521200640, 1019653849998299136),
         method="POST",
         path=f"{ENTITLEMENTS}/1019653849998299136/consume",
     ),
     EndpointCase(
         name="create test entitlement",
-        call=lambda client: client.create_test_entitlement(
+        call=lambda client: client.entitlements.create_test(
             1019370614521200640,
             CreateTestEntitlementParams(
                 sku_id=Snowflake(999184799365857331),
@@ -107,14 +107,14 @@ CASES = [
     ),
     EndpointCase(
         name="delete test entitlement",
-        call=lambda client: client.delete_test_entitlement(1019370614521200640, 1019653849998299136),
+        call=lambda client: client.entitlements.delete_test(1019370614521200640, 1019653849998299136),
         method="DELETE",
         path=f"{ENTITLEMENTS}/1019653849998299136",
     ),
     EndpointCase(
         name="subscriptions",
-        call=lambda client: client.list_sku_subscriptions(
-            1158857122189168803, ListSKUSubscriptionsParams(user_id=Snowflake(1088605110638227537))
+        call=lambda client: client.subscriptions.list(
+            1158857122189168803, ListSubscriptionsParams(user_id=Snowflake(1088605110638227537))
         ),
         method="GET",
         path="/skus/1158857122189168803/subscriptions?user_id=1088605110638227537",
@@ -122,7 +122,7 @@ CASES = [
     ),
     EndpointCase(
         name="subscription",
-        call=lambda client: client.get_sku_subscription(1158857122189168803, 1278078770116427839),
+        call=lambda client: client.subscriptions.get(1158857122189168803, 1278078770116427839),
         method="GET",
         path="/skus/1158857122189168803/subscriptions/1278078770116427839",
         response=SUBSCRIPTION,

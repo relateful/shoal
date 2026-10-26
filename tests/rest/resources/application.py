@@ -54,14 +54,14 @@ METADATA: dict[str, object] = {
 CASES = [
     EndpointCase(
         name="get current application",
-        call=lambda client: client.get_current_application(),
+        call=lambda client: client.applications.get_me(),
         method="GET",
         path="/applications/@me",
         response=APPLICATION,
     ),
     EndpointCase(
         name="edit current application",
-        call=lambda client: client.edit_current_application(
+        call=lambda client: client.applications.edit_me(
             EditCurrentApplicationParams(
                 flags=ApplicationFlags(gateway_message_content_limited=True),
                 icon=None,
@@ -87,7 +87,7 @@ CASES = [
     ),
     EndpointCase(
         name="activity instance",
-        call=lambda client: client.get_application_activity_instance(
+        call=lambda client: client.applications.get_activity_instance(
             1215413995645968394, "i-1276580072400224306"
         ),
         method="GET",
@@ -107,14 +107,14 @@ CASES = [
     ),
     EndpointCase(
         name="role connection metadata",
-        call=lambda client: client.get_application_role_connection_metadata_records(7),
+        call=lambda client: client.role_connections.list_metadata(7),
         method="GET",
         path="/applications/7/role-connections/metadata",
         response=[METADATA],
     ),
     EndpointCase(
         name="update role connection metadata",
-        call=lambda client: client.update_application_role_connection_metadata_records(
+        call=lambda client: client.role_connections.overwrite_metadata(
             7,
             [
                 ApplicationRoleConnectionMetadata(
@@ -134,14 +134,14 @@ CASES = [
     ),
     EndpointCase(
         name="bot application information",
-        call=lambda client: client.get_current_bot_application_information(),
+        call=lambda client: client.oauth2.get_application(),
         method="GET",
         path="/oauth2/applications/@me",
         response=APPLICATION,
     ),
     EndpointCase(
         name="authorization information",
-        call=lambda client: client.get_current_authorization_information(),
+        call=lambda client: client.oauth2.get_authorization(),
         method="GET",
         path="/oauth2/@me",
         response={

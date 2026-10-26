@@ -302,7 +302,7 @@ class ForumTagParams(Payload):
     emoji_name: str | UnsetType | None = UNSET
 
 
-class ModifyGroupDMParams(Payload):
+class EditGroupDMParams(Payload):
     """JSON body of Modify Channel for a group DM.
 
     Discord: https://docs.discord.com/developers/resources/channel#modify-channel-json-params-group-dm
@@ -313,7 +313,7 @@ class ModifyGroupDMParams(Payload):
     icon: ImageData | UnsetType = UNSET
 
 
-class ModifyGuildChannelParams(Payload):
+class EditGuildChannelParams(Payload):
     """JSON body of Modify Channel for a guild channel. Needs Manage Channels.
 
     Each field applies to some channel types only; Discord's table lists which.
@@ -351,7 +351,7 @@ class ModifyGuildChannelParams(Payload):
     default_forum_layout: ForumLayoutType | UnsetType = UNSET
 
 
-class ModifyThreadParams(Payload):
+class EditThreadParams(Payload):
     """JSON body of Modify Channel for a thread.
 
     Unarchiving an unlocked thread needs only Send Messages; everything else needs Manage Threads.
@@ -374,7 +374,7 @@ class ModifyThreadParams(Payload):
     """At most 5."""
 
 
-class SetVoiceChannelStatusParams(Payload):
+class SetVoiceStatusParams(Payload):
     """JSON body of Set Voice Channel Status.
 
     Discord: https://docs.discord.com/developers/resources/channel#set-voice-channel-status
@@ -395,7 +395,7 @@ class EditChannelPermissionsParams(Payload):
     type: OverwriteType
 
 
-class FollowAnnouncementChannelParams(Payload):
+class FollowChannelParams(Payload):
     """JSON body of Follow Announcement Channel.
 
     Discord: https://docs.discord.com/developers/resources/channel#follow-announcement-channel-json-params
@@ -405,7 +405,7 @@ class FollowAnnouncementChannelParams(Payload):
     """The channel the announcements are posted to."""
 
 
-class GroupDMAddRecipientParams(Payload):
+class AddRecipientParams(Payload):
     """JSON body of Group DM Add Recipient.
 
     Discord: https://docs.discord.com/developers/resources/channel#group-dm-add-recipient-json-params
@@ -418,7 +418,7 @@ class GroupDMAddRecipientParams(Payload):
     nick: str
 
 
-class StartThreadFromMessageParams(Payload):
+class CreateThreadFromMessageParams(Payload):
     """JSON body of Start Thread from Message.
 
     Discord: https://docs.discord.com/developers/resources/channel#start-thread-from-message-json-params
@@ -431,7 +431,7 @@ class StartThreadFromMessageParams(Payload):
     rate_limit_per_user: int | UnsetType | None = UNSET
 
 
-class StartThreadWithoutMessageParams(Payload):
+class CreateThreadParams(Payload):
     """JSON body of Start Thread without Message.
 
     Discord: https://docs.discord.com/developers/resources/channel#start-thread-without-message-json-params
@@ -483,7 +483,7 @@ class ListJoinedPrivateArchivedThreadsParams(Payload):
     limit: int | UnsetType = UNSET
 
 
-class CreateGuildChannelParams(Payload):
+class CreateChannelParams(Payload):
     """JSON body of Create Guild Channel. Needs Manage Channels.
 
     Each field applies to some channel types only; Discord's table lists which.

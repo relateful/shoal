@@ -132,7 +132,7 @@ class ApplicationIdentityProfile(Payload):
     data: ProfileData | None
 
 
-class UpdateApplicationIdentityProfileParams(Payload):
+class EditIdentityProfileParams(Payload):
     """JSON body of Update Application Identity Profile. `data`, when given, replaces all stats.
 
     Discord: https://docs.discord.com/developers/resources/application-identity-profile#update-application-identity-profile
@@ -143,7 +143,7 @@ class UpdateApplicationIdentityProfileParams(Payload):
     data: ProfileData | UnsetType = UNSET
 
 
-class DeleteApplicationIdentityParams(Payload):
+class DeleteIdentityParams(Payload):
     """JSON body of Delete Application Identity.
 
     Discord: https://docs.discord.com/developers/resources/application-identity-profile#delete-application-identity

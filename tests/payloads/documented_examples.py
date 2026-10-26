@@ -19,7 +19,6 @@ from shoal.core import UNSET
 from shoal.core.codec import PayloadDecodeError, decode_json, encode_json
 from shoal.payloads import (
     ApplicationCommandInteraction,
-    BulkApplicationCommandParams,
     Channel,
     ChannelType,
     Emoji,
@@ -31,6 +30,7 @@ from shoal.payloads import (
     Hello,
     Message,
     MessageType,
+    OverwriteCommandParams,
     Payload,
     Role,
     UnavailableGuild,
@@ -54,11 +54,11 @@ CASES: list[tuple[str, type[Payload]]] = [
     ("crossposted_message", Message),
     ("emoji", Emoji),
     ("role", Role),
-    ("slash_command", BulkApplicationCommandParams),
-    ("user_command", BulkApplicationCommandParams),
-    ("message_command", BulkApplicationCommandParams),
-    ("entry_point_command", BulkApplicationCommandParams),
-    ("default_permissions_command", BulkApplicationCommandParams),
+    ("slash_command", OverwriteCommandParams),
+    ("user_command", OverwriteCommandParams),
+    ("message_command", OverwriteCommandParams),
+    ("entry_point_command", OverwriteCommandParams),
+    ("default_permissions_command", OverwriteCommandParams),
 ]
 
 KNOWN_OUTDATED: dict[str, str] = {

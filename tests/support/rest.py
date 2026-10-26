@@ -5,6 +5,7 @@ Discord could give. `check_endpoint` runs one against a fake transport and also 
 client returned, which must give back the response: nothing dropped, renamed or mistyped.
 """
 
+import inspect
 import random
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ import pytest
 
 from shoal.core.codec import encode_json
 from shoal.core.metrics import REST_REQUESTS, InMemoryMetrics
+from shoal.rest import resources
 from shoal.rest.client import RestClient, Token
 from shoal.rest.ratelimit import LocalRateLimiter
 from tests.support.fakes import FakeClock, FakeTransport
@@ -98,3 +100,14 @@ async def check_endpoint(case: EndpointCase) -> str:
         assert msgspec.json.decode(encode_json(result)) == msgspec.json.decode(expected)
     [series] = [key for key in metrics.counters if key[0] == REST_REQUESTS.name]
     return dict(series[1])["route"]
+
+
+def endpoint_methods() -> list[tuple[str, Callable[..., Awaitable[object]]]]:
+    """Every endpoint method, as `("Messages.create", method)`, from every resource class."""
+    found: list[tuple[str, Callable[..., Awaitable[object]]]] = []
+    for class_name in resources.__all__:
+        cls: type[object] = getattr(resources, class_name)
+        for name, method in vars(cls).items():
+            if not name.startswith("_") and inspect.iscoroutinefunction(method):
+                found.append((f"{class_name}.{name}", method))
+    return found

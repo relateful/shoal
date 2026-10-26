@@ -10,7 +10,7 @@ from shoal.payloads import Intents
 from shoal.rest import RestClient, Token
 
 async with RestClient(Token.bot(token)) as rest:
-    gateway = await rest.get_gateway_bot()
+    gateway = await rest.gateway.get_bot()
 
 manager = ShardManager(
     token=token,

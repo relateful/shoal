@@ -3,10 +3,12 @@
 Discord: https://docs.discord.com/developers/resources/soundboard
 """
 
+import builtins
+
 from shoal.payloads.soundboard import (
-    CreateGuildSoundboardSoundParams,
+    CreateSoundboardSoundParams,
+    EditSoundboardSoundParams,
     GuildSoundboardSounds,
-    ModifyGuildSoundboardSoundParams,
     SendSoundboardSoundParams,
     SoundboardSound,
 )
@@ -19,15 +21,18 @@ from shoal.rest.endpoints import (
     MODIFY_GUILD_SOUNDBOARD_SOUND,
     SEND_SOUNDBOARD_SOUND,
 )
-from shoal.rest.requester import Requester
+from shoal.rest.requester import Resource
 
 
-class SoundboardEndpoints(Requester):
-    """Endpoints for soundboard sounds; part of `RestClient`."""
+class Soundboard(Resource):
+    """Soundboard sounds.
+
+    Use it as `rest.soundboard`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def send_soundboard_sound(self, channel_id: int, params: SendSoundboardSoundParams) -> None:
+    async def send(self, channel_id: int, params: SendSoundboardSoundParams) -> None:
         """Play a sound in the voice channel the current user is connected to.
 
         Needs Speak and Use Soundboard (and Use External Sounds for another guild's sound), and a
@@ -37,14 +42,14 @@ class SoundboardEndpoints(Requester):
         """
         await self.request_empty(SEND_SOUNDBOARD_SOUND.compile(channel_id=channel_id), body=params)
 
-    async def list_default_soundboard_sounds(self) -> list[SoundboardSound]:
+    async def list_default(self) -> builtins.list[SoundboardSound]:
         """List the sounds every user can play.
 
         Discord: https://docs.discord.com/developers/resources/soundboard#list-default-soundboard-sounds
         """
         return await self.request(LIST_DEFAULT_SOUNDBOARD_SOUNDS.compile(), list[SoundboardSound])
 
-    async def list_guild_soundboard_sounds(self, guild_id: int) -> list[SoundboardSound]:
+    async def list(self, guild_id: int) -> builtins.list[SoundboardSound]:
         """List a guild's sounds. `user` is set with Create or Manage Expressions.
 
         Discord: https://docs.discord.com/developers/resources/soundboard#list-guild-soundboard-sounds
@@ -54,7 +59,7 @@ class SoundboardEndpoints(Requester):
         )
         return response.items
 
-    async def get_guild_soundboard_sound(self, guild_id: int, sound_id: int) -> SoundboardSound:
+    async def get(self, guild_id: int, sound_id: int) -> SoundboardSound:
         """Get one of a guild's sounds.
 
         Discord: https://docs.discord.com/developers/resources/soundboard#get-guild-soundboard-sound
@@ -63,8 +68,8 @@ class SoundboardEndpoints(Requester):
             GET_GUILD_SOUNDBOARD_SOUND.compile(guild_id=guild_id, sound_id=sound_id), SoundboardSound
         )
 
-    async def create_guild_soundboard_sound(
-        self, guild_id: int, params: CreateGuildSoundboardSoundParams, *, reason: str | None = None
+    async def create(
+        self, guild_id: int, params: CreateSoundboardSoundParams, *, reason: str | None = None
     ) -> SoundboardSound:
         """Add a sound to a guild. Needs Create Expressions.
 
@@ -77,11 +82,11 @@ class SoundboardEndpoints(Requester):
             reason=reason,
         )
 
-    async def modify_guild_soundboard_sound(
+    async def edit(
         self,
         guild_id: int,
         sound_id: int,
-        params: ModifyGuildSoundboardSoundParams,
+        params: EditSoundboardSoundParams,
         *,
         reason: str | None = None,
     ) -> SoundboardSound:
@@ -98,9 +103,7 @@ class SoundboardEndpoints(Requester):
             reason=reason,
         )
 
-    async def delete_guild_soundboard_sound(
-        self, guild_id: int, sound_id: int, *, reason: str | None = None
-    ) -> None:
+    async def delete(self, guild_id: int, sound_id: int, *, reason: str | None = None) -> None:
         """Delete a guild's sound.
 
         Needs Manage Expressions, or Create Expressions for sounds the bot created.

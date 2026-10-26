@@ -156,7 +156,7 @@ class VanityURL(Payload):
     uses: int
 
 
-class CreateChannelInviteParams(Payload):
+class CreateInviteParams(Payload):
     """JSON body of Create Channel Invite. Every field is optional, but the body is always sent.
 
     Discord: https://docs.discord.com/developers/resources/channel#create-channel-invite-jsonform-params

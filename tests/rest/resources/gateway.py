@@ -3,14 +3,14 @@ from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 CASES = [
     EndpointCase(
         name="get gateway",
-        call=lambda client: client.get_gateway(),
+        call=lambda client: client.gateway.get(),
         method="GET",
         path="/gateway",
         response={"url": "wss://gateway.discord.gg"},
     ),
     EndpointCase(
         name="get gateway bot",
-        call=lambda client: client.get_gateway_bot(),
+        call=lambda client: client.gateway.get_bot(),
         method="GET",
         path="/gateway/bot",
         response={

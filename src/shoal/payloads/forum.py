@@ -34,7 +34,7 @@ class ForumThreadMessageParams(Payload):
     """Only `suppress_embeds` and `suppress_notifications` can be set."""
 
 
-class StartThreadInForumParams(Payload):
+class CreatePostParams(Payload):
     """JSON body of Start Thread in Forum or Media Channel.
 
     Discord: https://docs.discord.com/developers/resources/channel#start-thread-in-forum-or-media-channel-jsonform-params

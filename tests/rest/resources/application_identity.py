@@ -1,10 +1,10 @@
 from shoal.payloads import (
     DynamicMediaField,
     DynamicNumberField,
+    EditIdentityProfileParams,
     Media,
     PrimaryProfileData,
     ProfileData,
-    UpdateApplicationIdentityProfileParams,
 )
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -39,11 +39,11 @@ PROFILE_PATH = (
 CASES = [
     EndpointCase(
         name="first profile write",
-        call=lambda client: client.update_application_identity_profile(
+        call=lambda client: client.identities.edit_profile(
             1410709600545542144,
             1410709695433281536,
             "123456789123456789",
-            UpdateApplicationIdentityProfileParams(
+            EditIdentityProfileParams(
                 username="johndoe123",
                 data=ProfileData(
                     primary=PrimaryProfileData(rank_name="Silver", playtime_hours=69.41),
@@ -70,11 +70,11 @@ CASES = [
     ),
     EndpointCase(
         name="later profile write",
-        call=lambda client: client.update_application_identity_profile(
+        call=lambda client: client.identities.edit_profile(
             1410709600545542144,
             1410709695433281536,
             "123456789123456789",
-            UpdateApplicationIdentityProfileParams(),
+            EditIdentityProfileParams(),
         ),
         method="PATCH",
         path=PROFILE_PATH,
@@ -82,7 +82,7 @@ CASES = [
     ),
     EndpointCase(
         name="get profile",
-        call=lambda client: client.get_application_identity_profile(
+        call=lambda client: client.identities.get_profile(
             1410709600545542144, 1410709695433281536, "123456789123456789"
         ),
         method="GET",
@@ -91,9 +91,7 @@ CASES = [
     ),
     EndpointCase(
         name="identities by user",
-        call=lambda client: client.get_application_identities_by_user_id(
-            1410709695433281536, 1410709600545542144
-        ),
+        call=lambda client: client.identities.list_by_user(1410709695433281536, 1410709600545542144),
         method="GET",
         path="/users/1410709695433281536/application-identities/1410709600545542144",
         response={"identities": [IDENTITY]},
@@ -101,7 +99,7 @@ CASES = [
     ),
     EndpointCase(
         name="identities by external id",
-        call=lambda client: client.get_application_identities_by_external_id(
+        call=lambda client: client.identities.list_by_external_id(
             1410709600545542144, "steam", "765611", provider_id="eu"
         ),
         method="GET",
@@ -111,9 +109,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete identity",
-        call=lambda client: client.delete_application_identity(
-            1410709695433281536, 1410709600545542144, "NONE", "123"
-        ),
+        call=lambda client: client.identities.delete(1410709695433281536, 1410709600545542144, "NONE", "123"),
         method="POST",
         path="/users/1410709695433281536/application-identities/1410709600545542144/NONE/123/delete",
     ),

@@ -3,9 +3,11 @@
 Discord: https://docs.discord.com/developers/resources/sticker
 """
 
+import builtins
+
 from shoal.payloads.sticker import (
-    CreateGuildStickerParams,
-    ModifyGuildStickerParams,
+    CreateStickerParams,
+    EditStickerParams,
     Sticker,
     StickerPack,
     StickerPacks,
@@ -21,22 +23,25 @@ from shoal.rest.endpoints import (
     MODIFY_GUILD_STICKER,
 )
 from shoal.rest.files import File
-from shoal.rest.requester import Requester, form_of
+from shoal.rest.requester import Resource, form_of
 
 
-class StickerEndpoints(Requester):
-    """Endpoints for stickers and sticker packs; part of `RestClient`."""
+class Stickers(Resource):
+    """Stickers and sticker packs.
+
+    Use it as `rest.stickers`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def get_sticker(self, sticker_id: int) -> Sticker:
+    async def get_any(self, sticker_id: int) -> Sticker:
         """Get any sticker by ID.
 
         Discord: https://docs.discord.com/developers/resources/sticker#get-sticker
         """
         return await self.request(GET_STICKER.compile(sticker_id=sticker_id), Sticker)
 
-    async def list_sticker_packs(self) -> list[StickerPack]:
+    async def list_packs(self) -> builtins.list[StickerPack]:
         """List the packs of standard stickers.
 
         Discord: https://docs.discord.com/developers/resources/sticker#list-sticker-packs
@@ -44,21 +49,21 @@ class StickerEndpoints(Requester):
         response = await self.request(LIST_STICKER_PACKS.compile(), StickerPacks)
         return response.sticker_packs
 
-    async def get_sticker_pack(self, pack_id: int) -> StickerPack:
+    async def get_pack(self, pack_id: int) -> StickerPack:
         """Get one pack of standard stickers.
 
         Discord: https://docs.discord.com/developers/resources/sticker#get-sticker-pack
         """
         return await self.request(GET_STICKER_PACK.compile(pack_id=pack_id), StickerPack)
 
-    async def list_guild_stickers(self, guild_id: int) -> list[Sticker]:
+    async def list(self, guild_id: int) -> builtins.list[Sticker]:
         """List a guild's stickers. `user` is set with Create or Manage Expressions.
 
         Discord: https://docs.discord.com/developers/resources/sticker#list-guild-stickers
         """
         return await self.request(LIST_GUILD_STICKERS.compile(guild_id=guild_id), list[Sticker])
 
-    async def get_guild_sticker(self, guild_id: int, sticker_id: int) -> Sticker:
+    async def get(self, guild_id: int, sticker_id: int) -> Sticker:
         """Get one of a guild's stickers.
 
         Discord: https://docs.discord.com/developers/resources/sticker#get-guild-sticker
@@ -67,8 +72,8 @@ class StickerEndpoints(Requester):
             GET_GUILD_STICKER.compile(guild_id=guild_id, sticker_id=sticker_id), Sticker
         )
 
-    async def create_guild_sticker(
-        self, guild_id: int, params: CreateGuildStickerParams, file: File, *, reason: str | None = None
+    async def create(
+        self, guild_id: int, params: CreateStickerParams, file: File, *, reason: str | None = None
     ) -> Sticker:
         """Upload a sticker to a guild. Needs Create Expressions.
 
@@ -85,8 +90,8 @@ class StickerEndpoints(Requester):
             reason=reason,
         )
 
-    async def modify_guild_sticker(
-        self, guild_id: int, sticker_id: int, params: ModifyGuildStickerParams, *, reason: str | None = None
+    async def edit(
+        self, guild_id: int, sticker_id: int, params: EditStickerParams, *, reason: str | None = None
     ) -> Sticker:
         """Change a sticker's name, description or tags.
 
@@ -101,9 +106,7 @@ class StickerEndpoints(Requester):
             reason=reason,
         )
 
-    async def delete_guild_sticker(
-        self, guild_id: int, sticker_id: int, *, reason: str | None = None
-    ) -> None:
+    async def delete(self, guild_id: int, sticker_id: int, *, reason: str | None = None) -> None:
         """Delete a guild sticker.
 
         Needs Manage Expressions, or Create Expressions for stickers the bot created.

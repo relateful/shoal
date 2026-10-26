@@ -25,7 +25,6 @@ from shoal.payloads import (
     ButtonStyle,
     ComponentInteraction,
     ComponentType,
-    CreateFollowupMessageParams,
     DeferredMessageResponse,
     DeferredUpdateResponse,
     EditWebhookMessageParams,
@@ -47,6 +46,7 @@ from shoal.payloads import (
     ModalSubmitInteraction,
     PingInteraction,
     PongResponse,
+    SendFollowupParams,
     SubmittedLabel,
     SubmittedTextInput,
     TextInput,
@@ -312,9 +312,7 @@ def test_the_callback_response_reports_what_was_created() -> None:
 
 
 def test_followups_and_edits_separate_unset_from_null() -> None:
-    assert msgspec.json.decode(encode_json(CreateFollowupMessageParams(content="later"))) == {
-        "content": "later"
-    }
+    assert msgspec.json.decode(encode_json(SendFollowupParams(content="later"))) == {"content": "later"}
     assert msgspec.json.decode(encode_json(EditWebhookMessageParams(content=None, components=[]))) == {
         "content": None,
         "components": [],

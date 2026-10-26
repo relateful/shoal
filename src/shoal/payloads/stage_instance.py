@@ -54,7 +54,7 @@ class CreateStageInstanceParams(Payload):
     guild_scheduled_event_id: Snowflake | UnsetType = UNSET
 
 
-class ModifyStageInstanceParams(Payload):
+class EditStageInstanceParams(Payload):
     """JSON body of Modify Stage Instance.
 
     Discord: https://docs.discord.com/developers/resources/stage-instance#modify-stage-instance-json-params

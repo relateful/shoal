@@ -31,11 +31,7 @@ from shoal.core.metrics import (
     NoopMetrics,
 )
 from shoal.payloads.api import API_BASE_URL, API_VERSION, AUDIT_LOG_REASON_MAX_LENGTH
-from shoal.payloads.message import (
-    SearchGuildMessagesParams,
-    SearchGuildMessagesResponse,
-    SearchIndexNotReady,
-)
+from shoal.payloads.message import SearchIndexNotReady
 from shoal.payloads.rate_limits import RateLimitResponse
 from shoal.rest.defaults import (
     DEFAULT_USER_AGENT,
@@ -44,9 +40,6 @@ from shoal.rest.defaults import (
     RETRY_BACKOFF_CAP,
     RETRYABLE_STATUSES,
     SEARCH_INDEX_RETRY_DELAY,
-)
-from shoal.rest.endpoints import (
-    SEARCH_GUILD_MESSAGES,
 )
 from shoal.rest.errors import (
     ClientClosedError,
@@ -57,30 +50,40 @@ from shoal.rest.errors import (
 )
 from shoal.rest.files import File, encode_multipart
 from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, RateLimitHeaders
-from shoal.rest.requester import QueryValue, encode_query, query_of
+from shoal.rest.requester import QueryValue, Requester, encode_query
 from shoal.rest.resources import (
-    ApplicationCommandEndpoints,
-    ApplicationEndpoints,
-    ApplicationIdentityEndpoints,
-    AuditLogEndpoints,
-    AutoModerationEndpoints,
-    ChannelEndpoints,
-    EmojiEndpoints,
-    GatewayEndpoints,
-    GuildEndpoints,
-    GuildTemplateEndpoints,
-    InteractionEndpoints,
-    InviteEndpoints,
-    LobbyEndpoints,
-    MessageEndpoints,
-    MonetizationEndpoints,
-    ScheduledEventEndpoints,
-    SoundboardEndpoints,
-    StageInstanceEndpoints,
-    StickerEndpoints,
-    UserEndpoints,
-    VoiceEndpoints,
-    WebhookEndpoints,
+    Applications,
+    AuditLogs,
+    AutoMod,
+    Channels,
+    Commands,
+    Emojis,
+    Entitlements,
+    Gateway,
+    Guilds,
+    Identities,
+    Interactions,
+    Invites,
+    Lobbies,
+    Members,
+    Messages,
+    OAuth2,
+    Polls,
+    Reactions,
+    RoleConnections,
+    Roles,
+    ScheduledEvents,
+    SKUs,
+    Soundboard,
+    StageInstances,
+    Stickers,
+    Subscriptions,
+    Templates,
+    Threads,
+    Users,
+    Voice,
+    VoiceStates,
+    Webhooks,
 )
 from shoal.rest.route import CompiledRoute
 from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
@@ -129,34 +132,12 @@ class Token:
         return f"Token(type={self.type.value}, secret=<hidden>)"
 
 
-class RestClient(
-    ApplicationCommandEndpoints,
-    ApplicationEndpoints,
-    ApplicationIdentityEndpoints,
-    AuditLogEndpoints,
-    AutoModerationEndpoints,
-    ChannelEndpoints,
-    EmojiEndpoints,
-    GatewayEndpoints,
-    GuildEndpoints,
-    GuildTemplateEndpoints,
-    InteractionEndpoints,
-    InviteEndpoints,
-    LobbyEndpoints,
-    MessageEndpoints,
-    MonetizationEndpoints,
-    ScheduledEventEndpoints,
-    SoundboardEndpoints,
-    StageInstanceEndpoints,
-    StickerEndpoints,
-    UserEndpoints,
-    VoiceEndpoints,
-    WebhookEndpoints,
-):
+class RestClient(Requester):
     """An async client for Discord's HTTP API.
 
-    Its endpoint methods are grouped by resource in `shoal.rest.resources`; they are all called on
-    the client.
+    Endpoints are grouped by resource, one attribute each: `rest.messages.create(...)`,
+    `rest.members.ban(...)`, `rest.interactions.respond(...)`. The classes live in
+    `shoal.rest.resources`.
 
     Args:
         token: The credential, or `None` for the few unauthenticated endpoints.
@@ -194,6 +175,38 @@ class RestClient(
         "_token_invalid",
         "_transport",
         "_user_agent",
+        "applications",
+        "audit_logs",
+        "automod",
+        "channels",
+        "commands",
+        "emojis",
+        "entitlements",
+        "gateway",
+        "guilds",
+        "identities",
+        "interactions",
+        "invites",
+        "lobbies",
+        "members",
+        "messages",
+        "oauth2",
+        "polls",
+        "reactions",
+        "role_connections",
+        "roles",
+        "scheduled_events",
+        "skus",
+        "soundboard",
+        "stage_instances",
+        "stickers",
+        "subscriptions",
+        "templates",
+        "threads",
+        "users",
+        "voice",
+        "voice_states",
+        "webhooks",
     )
 
     def __init__(
@@ -231,6 +244,38 @@ class RestClient(
         self._user_agent: str = user_agent
         self._token_invalid: bool = False
         self._closed: bool = False
+        self.applications: Applications = Applications(self)
+        self.audit_logs: AuditLogs = AuditLogs(self)
+        self.automod: AutoMod = AutoMod(self)
+        self.channels: Channels = Channels(self)
+        self.commands: Commands = Commands(self)
+        self.emojis: Emojis = Emojis(self)
+        self.entitlements: Entitlements = Entitlements(self)
+        self.gateway: Gateway = Gateway(self)
+        self.guilds: Guilds = Guilds(self)
+        self.identities: Identities = Identities(self)
+        self.interactions: Interactions = Interactions(self)
+        self.invites: Invites = Invites(self)
+        self.lobbies: Lobbies = Lobbies(self)
+        self.members: Members = Members(self)
+        self.messages: Messages = Messages(self)
+        self.oauth2: OAuth2 = OAuth2(self)
+        self.polls: Polls = Polls(self)
+        self.reactions: Reactions = Reactions(self)
+        self.role_connections: RoleConnections = RoleConnections(self)
+        self.roles: Roles = Roles(self)
+        self.scheduled_events: ScheduledEvents = ScheduledEvents(self)
+        self.skus: SKUs = SKUs(self)
+        self.soundboard: Soundboard = Soundboard(self)
+        self.stage_instances: StageInstances = StageInstances(self)
+        self.stickers: Stickers = Stickers(self)
+        self.subscriptions: Subscriptions = Subscriptions(self)
+        self.templates: Templates = Templates(self)
+        self.threads: Threads = Threads(self)
+        self.users: Users = Users(self)
+        self.voice: Voice = Voice(self)
+        self.voice_states: VoiceStates = VoiceStates(self)
+        self.webhooks: Webhooks = Webhooks(self)
 
     @property
     def base_url(self) -> str:
@@ -322,6 +367,26 @@ class RestClient(
         """Send a request and return the response body undecoded. Raises like `request`."""
         response = await self._send(route, body=None, query=query, reason=None)
         return response.body
+
+    @override
+    async def request_search[T](
+        self, route: CompiledRoute, response_type: type[T], *, query: Mapping[str, QueryValue]
+    ) -> T:
+        """Send a search request. While Discord indexes it answers `202 Accepted`; wait and retry.
+
+        Raises:
+            SearchIndexNotReadyError: The index was still not ready after `max_retries` retries.
+        """
+        attempt = 0
+        while True:
+            response = await self._send(route, body=None, query=query, reason=None)
+            if response.status != HTTPStatus.ACCEPTED:
+                return _decode_success(route, response, response_type)
+            pending = decode_json(response.body, SearchIndexNotReady)
+            if attempt >= self._max_retries:
+                raise SearchIndexNotReadyError(pending.documents_indexed, pending.retry_after)
+            attempt += 1
+            await self._clock.sleep(pending.retry_after or SEARCH_INDEX_RETRY_DELAY)
 
     async def _send(
         self,
@@ -450,32 +515,6 @@ class RestClient(
                 return max(float(header), 0.0)
             except ValueError:
                 return 1.0
-
-    async def search_guild_messages(
-        self, guild_id: int, params: SearchGuildMessagesParams
-    ) -> SearchGuildMessagesResponse:
-        """Search a guild's messages. Needs the Message Content intent and Read Message History.
-
-        While Discord is still indexing the guild it answers `202 Accepted`; the client waits the
-        `retry_after` Discord gives and tries again, within `max_retries`.
-
-        Raises:
-            SearchIndexNotReadyError: The index was still not ready after every retry.
-
-        Discord: https://docs.discord.com/developers/resources/message#search-guild-messages
-        """
-        route = SEARCH_GUILD_MESSAGES.compile(guild_id=guild_id)
-        query = query_of(params)
-        attempt = 0
-        while True:
-            response = await self._send(route, body=None, query=query, reason=None)
-            if response.status != HTTPStatus.ACCEPTED:
-                return decode_json(response.body, SearchGuildMessagesResponse)
-            pending = decode_json(response.body, SearchIndexNotReady)
-            if attempt >= self._max_retries:
-                raise SearchIndexNotReadyError(pending.documents_indexed, pending.retry_after)
-            attempt += 1
-            await self._clock.sleep(pending.retry_after or SEARCH_INDEX_RETRY_DELAY)
 
 
 def _may_have_been_sent(error: OSError) -> bool:

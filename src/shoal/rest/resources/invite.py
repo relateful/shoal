@@ -3,18 +3,30 @@
 Discord: https://docs.discord.com/developers/resources/invite
 """
 
+import builtins
 import csv
 import io
 from collections.abc import Sequence
 
 from shoal.core.codec import PayloadDecodeError
 from shoal.core.snowflake import Snowflake
-from shoal.payloads.invite import GetInviteParams, Invite, TargetUserIDs, TargetUsersJobStatus
+from shoal.payloads.invite import (
+    CreateInviteParams,
+    GetInviteParams,
+    GuildInvite,
+    Invite,
+    InviteWithMetadata,
+    TargetUserIDs,
+    TargetUsersJobStatus,
+)
 from shoal.rest.endpoints import (
     ADD_TARGET_USER,
     BULK_ADD_TARGET_USERS,
     BULK_DELETE_TARGET_USERS,
+    CREATE_CHANNEL_INVITE,
     DELETE_INVITE,
+    GET_CHANNEL_INVITES,
+    GET_GUILD_INVITES,
     GET_INVITE,
     GET_TARGET_USERS,
     GET_TARGET_USERS_JOB_STATUS,
@@ -22,7 +34,7 @@ from shoal.rest.endpoints import (
     UPDATE_TARGET_USERS,
 )
 from shoal.rest.files import File
-from shoal.rest.requester import Requester, query_of
+from shoal.rest.requester import Resource, query_of
 
 
 def parse_target_users(body: bytes) -> list[Snowflake]:
@@ -43,12 +55,51 @@ def parse_target_users(body: bytes) -> list[Snowflake]:
     return [Snowflake(cell) for cell in cells]
 
 
-class InviteEndpoints(Requester):
-    """Endpoints for invites and their target users; part of `RestClient`."""
+class Invites(Resource):
+    """Invites and their target users.
+
+    Use it as `rest.invites`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def get_invite(self, invite_code: str, params: GetInviteParams | None = None) -> Invite:
+    async def list_for_channel(self, channel_id: int) -> builtins.list[InviteWithMetadata]:
+        """List a guild channel's invites. Needs Manage Channels.
+
+        Discord: https://docs.discord.com/developers/resources/channel#get-channel-invites
+        """
+        return await self.request(
+            GET_CHANNEL_INVITES.compile(channel_id=channel_id), list[InviteWithMetadata]
+        )
+
+    async def create(
+        self,
+        channel_id: int,
+        params: CreateInviteParams | None = None,
+        *,
+        reason: str | None = None,
+    ) -> Invite:
+        """Create an invite to a guild channel. Needs Create Instant Invite.
+
+        Discord: https://docs.discord.com/developers/resources/channel#create-channel-invite
+        """
+        return await self.request(
+            CREATE_CHANNEL_INVITE.compile(channel_id=channel_id),
+            Invite,
+            body=params or CreateInviteParams(),
+            reason=reason,
+        )
+
+    async def list(self, guild_id: int) -> builtins.list[GuildInvite]:
+        """List a guild's invites. Needs Manage Guild or View Audit Log.
+
+        The usage fields are only there with Manage Guild.
+
+        Discord: https://docs.discord.com/developers/resources/guild#get-guild-invites
+        """
+        return await self.request(GET_GUILD_INVITES.compile(guild_id=guild_id), list[GuildInvite])
+
+    async def get(self, invite_code: str, params: GetInviteParams | None = None) -> Invite:
         """Get an invite by its code.
 
         Discord: https://docs.discord.com/developers/resources/invite#get-invite
@@ -59,14 +110,14 @@ class InviteEndpoints(Requester):
             query=query_of(params) if params is not None else None,
         )
 
-    async def delete_invite(self, invite_code: str, *, reason: str | None = None) -> Invite:
+    async def delete(self, invite_code: str, *, reason: str | None = None) -> Invite:
         """Delete an invite. Needs Manage Channels on its channel, or Manage Guild.
 
         Discord: https://docs.discord.com/developers/resources/invite#delete-invite
         """
         return await self.request(DELETE_INVITE.compile(invite_code=invite_code), Invite, reason=reason)
 
-    async def get_target_users(self, invite_code: str) -> list[Snowflake]:
+    async def list_target_users(self, invite_code: str) -> builtins.list[Snowflake]:
         """List the only users who can see and accept an invite.
 
         Needs to be the inviter, or Manage Guild or View Audit Log.
@@ -93,10 +144,10 @@ class InviteEndpoints(Requester):
         """
         await self.request_empty(REMOVE_TARGET_USER.compile(invite_code=invite_code, user_id=user_id))
 
-    async def update_target_users(self, invite_code: str, user_ids: Sequence[int]) -> None:
+    async def overwrite_target_users(self, invite_code: str, user_ids: Sequence[int]) -> None:
         """Replace the users who can see and accept an invite, uploaded as a CSV file.
 
-        Discord processes the file in the background; follow it with `get_target_users_job_status`.
+        Discord processes the file in the background; follow it with `get_target_users_status`.
         Needs to be the inviter, or Manage Guild.
 
         Discord: https://docs.discord.com/developers/resources/invite#update-target-users
@@ -119,7 +170,7 @@ class InviteEndpoints(Requester):
             body=TargetUserIDs(user_ids=[Snowflake(user_id) for user_id in user_ids]),
         )
 
-    async def bulk_delete_target_users(self, invite_code: str, user_ids: Sequence[int]) -> None:
+    async def bulk_remove_target_users(self, invite_code: str, user_ids: Sequence[int]) -> None:
         """Stop up to 1000 users from seeing and accepting an invite.
 
         Needs to be the inviter, or Manage Guild.
@@ -131,7 +182,7 @@ class InviteEndpoints(Requester):
             body=TargetUserIDs(user_ids=[Snowflake(user_id) for user_id in user_ids]),
         )
 
-    async def get_target_users_job_status(self, invite_code: str) -> TargetUsersJobStatus:
+    async def get_target_users_status(self, invite_code: str) -> TargetUsersJobStatus:
         """See how far Discord has got with an uploaded target user list.
 
         Needs to be the inviter, or Manage Guild or View Audit Log.

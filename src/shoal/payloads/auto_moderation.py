@@ -145,7 +145,7 @@ class CreateAutoModerationRuleParams(Payload):
     exempt_channels: list[Snowflake] | UnsetType = UNSET
 
 
-class ModifyAutoModerationRuleParams(Payload):
+class EditAutoModerationRuleParams(Payload):
     """JSON body of Modify Auto Moderation Rule. The trigger type cannot change.
 
     Discord: https://docs.discord.com/developers/resources/auto-moderation#modify-auto-moderation-rule-json-params

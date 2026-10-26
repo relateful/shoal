@@ -6,6 +6,7 @@ work without a bot token, so a `RestClient(None)` can use them.
 Discord: https://docs.discord.com/developers/resources/webhook
 """
 
+import builtins
 from collections.abc import Mapping, Sequence
 from typing import Literal, overload
 
@@ -13,9 +14,9 @@ from shoal.payloads.message import Message
 from shoal.payloads.webhook import (
     CreateWebhookParams,
     EditWebhookMessageParams,
+    EditWebhookParams,
+    EditWebhookWithTokenParams,
     ExecuteWebhookParams,
-    ModifyWebhookParams,
-    ModifyWebhookWithTokenParams,
     Webhook,
 )
 from shoal.rest.endpoints import (
@@ -36,7 +37,7 @@ from shoal.rest.endpoints import (
     MODIFY_WEBHOOK_WITH_TOKEN,
 )
 from shoal.rest.files import File
-from shoal.rest.requester import QueryValue, Requester, with_attachments
+from shoal.rest.requester import QueryValue, Resource, with_attachments
 
 
 def _query(
@@ -53,12 +54,15 @@ def _query(
     return query or None
 
 
-class WebhookEndpoints(Requester):
-    """Endpoints for webhooks and their messages; part of `RestClient`."""
+class Webhooks(Resource):
+    """Webhooks, executing them, and their messages.
+
+    Use it as `rest.webhooks`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def create_webhook(
+    async def create(
         self, channel_id: int, params: CreateWebhookParams, *, reason: str | None = None
     ) -> Webhook:
         """Create an incoming webhook in a channel. Needs Manage Webhooks.
@@ -69,28 +73,28 @@ class WebhookEndpoints(Requester):
             CREATE_WEBHOOK.compile(channel_id=channel_id), Webhook, body=params, reason=reason
         )
 
-    async def get_channel_webhooks(self, channel_id: int) -> list[Webhook]:
+    async def list_for_channel(self, channel_id: int) -> builtins.list[Webhook]:
         """List a channel's webhooks. Needs Manage Webhooks.
 
         Discord: https://docs.discord.com/developers/resources/webhook#get-channel-webhooks
         """
         return await self.request(GET_CHANNEL_WEBHOOKS.compile(channel_id=channel_id), list[Webhook])
 
-    async def get_guild_webhooks(self, guild_id: int) -> list[Webhook]:
+    async def list(self, guild_id: int) -> builtins.list[Webhook]:
         """List a guild's webhooks. Needs Manage Webhooks.
 
         Discord: https://docs.discord.com/developers/resources/webhook#get-guild-webhooks
         """
         return await self.request(GET_GUILD_WEBHOOKS.compile(guild_id=guild_id), list[Webhook])
 
-    async def get_webhook(self, webhook_id: int) -> Webhook:
+    async def get(self, webhook_id: int) -> Webhook:
         """Get a webhook. Needs Manage Webhooks, unless the app owns it.
 
         Discord: https://docs.discord.com/developers/resources/webhook#get-webhook
         """
         return await self.request(GET_WEBHOOK.compile(webhook_id=webhook_id), Webhook)
 
-    async def get_webhook_with_token(self, webhook_id: int, webhook_token: str) -> Webhook:
+    async def get_with_token(self, webhook_id: int, webhook_token: str) -> Webhook:
         """Get a webhook by its token, without a bot token. `user` is not returned.
 
         Discord: https://docs.discord.com/developers/resources/webhook#get-webhook-with-token
@@ -99,9 +103,7 @@ class WebhookEndpoints(Requester):
             GET_WEBHOOK_WITH_TOKEN.compile(webhook_id=webhook_id, webhook_token=webhook_token), Webhook
         )
 
-    async def modify_webhook(
-        self, webhook_id: int, params: ModifyWebhookParams, *, reason: str | None = None
-    ) -> Webhook:
+    async def edit(self, webhook_id: int, params: EditWebhookParams, *, reason: str | None = None) -> Webhook:
         """Rename a webhook, change its avatar or move it. Needs Manage Webhooks.
 
         Discord: https://docs.discord.com/developers/resources/webhook#modify-webhook
@@ -110,11 +112,11 @@ class WebhookEndpoints(Requester):
             MODIFY_WEBHOOK.compile(webhook_id=webhook_id), Webhook, body=params, reason=reason
         )
 
-    async def modify_webhook_with_token(
+    async def edit_with_token(
         self,
         webhook_id: int,
         webhook_token: str,
-        params: ModifyWebhookWithTokenParams,
+        params: EditWebhookWithTokenParams,
     ) -> Webhook:
         """Rename a webhook or change its avatar by its token, without a bot token.
 
@@ -126,14 +128,14 @@ class WebhookEndpoints(Requester):
             body=params,
         )
 
-    async def delete_webhook(self, webhook_id: int, *, reason: str | None = None) -> None:
+    async def delete(self, webhook_id: int, *, reason: str | None = None) -> None:
         """Delete a webhook for good. Needs Manage Webhooks.
 
         Discord: https://docs.discord.com/developers/resources/webhook#delete-webhook
         """
         await self.request_empty(DELETE_WEBHOOK.compile(webhook_id=webhook_id), reason=reason)
 
-    async def delete_webhook_with_token(self, webhook_id: int, webhook_token: str) -> None:
+    async def delete_with_token(self, webhook_id: int, webhook_token: str) -> None:
         """Delete a webhook by its token, without a bot token.
 
         Discord: https://docs.discord.com/developers/resources/webhook#delete-webhook-with-token
@@ -143,7 +145,7 @@ class WebhookEndpoints(Requester):
         )
 
     @overload
-    async def execute_webhook(
+    async def execute(
         self,
         webhook_id: int,
         webhook_token: str,
@@ -156,7 +158,7 @@ class WebhookEndpoints(Requester):
     ) -> None: ...
 
     @overload
-    async def execute_webhook(
+    async def execute(
         self,
         webhook_id: int,
         webhook_token: str,
@@ -169,7 +171,7 @@ class WebhookEndpoints(Requester):
     ) -> Message: ...
 
     @overload
-    async def execute_webhook(
+    async def execute(
         self,
         webhook_id: int,
         webhook_token: str,
@@ -181,7 +183,7 @@ class WebhookEndpoints(Requester):
         files: Sequence[File] = (),
     ) -> Message | None: ...
 
-    async def execute_webhook(
+    async def execute(
         self,
         webhook_id: int,
         webhook_token: str,
@@ -209,7 +211,7 @@ class WebhookEndpoints(Requester):
         await self.request_empty(route, body=body, query=query, files=named)
         return None
 
-    async def execute_slack_compatible_webhook(
+    async def execute_slack(
         self,
         webhook_id: int,
         webhook_token: str,
@@ -230,7 +232,7 @@ class WebhookEndpoints(Requester):
             query=_query(wait=wait, thread_id=thread_id),
         )
 
-    async def execute_github_compatible_webhook(
+    async def execute_github(
         self,
         webhook_id: int,
         webhook_token: str,
@@ -249,7 +251,7 @@ class WebhookEndpoints(Requester):
             query=_query(wait=wait, thread_id=thread_id),
         )
 
-    async def get_webhook_message(
+    async def get_message(
         self, webhook_id: int, webhook_token: str, message_id: int, *, thread_id: int | None = None
     ) -> Message:
         """Get a message the webhook sent.
@@ -264,7 +266,7 @@ class WebhookEndpoints(Requester):
             query=_query(thread_id=thread_id),
         )
 
-    async def edit_webhook_message(
+    async def edit_message(
         self,
         webhook_id: int,
         webhook_token: str,
@@ -290,7 +292,7 @@ class WebhookEndpoints(Requester):
             files=named,
         )
 
-    async def delete_webhook_message(
+    async def delete_message(
         self, webhook_id: int, webhook_token: str, message_id: int, *, thread_id: int | None = None
     ) -> None:
         """Delete a message the webhook sent.

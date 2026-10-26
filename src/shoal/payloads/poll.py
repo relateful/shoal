@@ -102,7 +102,7 @@ class PollCreateRequest(Payload):
     layout_type: PollLayoutType | UnsetType = UNSET
 
 
-class GetAnswerVotersParams(Payload):
+class ListVotersParams(Payload):
     """Query of Get Answer Voters.
 
     Discord: https://docs.discord.com/developers/resources/poll#get-answer-voters-query-string-params

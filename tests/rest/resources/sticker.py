@@ -1,4 +1,4 @@
-from shoal.payloads import CreateGuildStickerParams, ModifyGuildStickerParams
+from shoal.payloads import CreateStickerParams, EditStickerParams
 from shoal.rest.files import File
 from tests.support.json_payloads import USER
 from tests.support.multipart import FormPart
@@ -40,14 +40,14 @@ PNG = b"\x89PNG\r\n\x1a\n"
 CASES = [
     EndpointCase(
         name="get sticker",
-        call=lambda client: client.get_sticker(749054660769218631),
+        call=lambda client: client.stickers.get_any(749054660769218631),
         method="GET",
         path="/stickers/749054660769218631",
         response=STANDARD,
     ),
     EndpointCase(
         name="list packs",
-        call=lambda client: client.list_sticker_packs(),
+        call=lambda client: client.stickers.list_packs(),
         method="GET",
         path="/sticker-packs",
         response={"sticker_packs": [PACK]},
@@ -55,30 +55,30 @@ CASES = [
     ),
     EndpointCase(
         name="get pack",
-        call=lambda client: client.get_sticker_pack(847199849233514549),
+        call=lambda client: client.stickers.get_pack(847199849233514549),
         method="GET",
         path="/sticker-packs/847199849233514549",
         response=PACK,
     ),
     EndpointCase(
         name="list guild stickers",
-        call=lambda client: client.list_guild_stickers(2),
+        call=lambda client: client.stickers.list(2),
         method="GET",
         path="/guilds/2/stickers",
         response=[GUILD_STICKER],
     ),
     EndpointCase(
         name="get guild sticker",
-        call=lambda client: client.get_guild_sticker(2, 8),
+        call=lambda client: client.stickers.get(2, 8),
         method="GET",
         path="/guilds/2/stickers/8",
         response=GUILD_STICKER,
     ),
     EndpointCase(
         name="create guild sticker",
-        call=lambda client: client.create_guild_sticker(
+        call=lambda client: client.stickers.create(
             2,
-            CreateGuildStickerParams(name="party", description="", tags="tada"),
+            CreateStickerParams(name="party", description="", tags="tada"),
             File("party.png", PNG, content_type="image/png"),
             reason="new sticker",
         ),
@@ -95,7 +95,7 @@ CASES = [
     ),
     EndpointCase(
         name="modify guild sticker",
-        call=lambda client: client.modify_guild_sticker(2, 8, ModifyGuildStickerParams(description=None)),
+        call=lambda client: client.stickers.edit(2, 8, EditStickerParams(description=None)),
         method="PATCH",
         path="/guilds/2/stickers/8",
         body={"description": None},
@@ -103,7 +103,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete guild sticker",
-        call=lambda client: client.delete_guild_sticker(2, 8),
+        call=lambda client: client.stickers.delete(2, 8),
         method="DELETE",
         path="/guilds/2/stickers/8",
     ),

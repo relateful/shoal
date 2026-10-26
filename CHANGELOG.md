@@ -17,7 +17,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `shoal.rest`: `RestClient` with bot and bearer tokens, typed routes with docs links, per-bucket and
   global rate limiting, the invalid request guard, stop-after-401, and Search Guild Messages with
   retries while Discord builds the index.
-- Every HTTP endpoint Discord documents (239), grouped by resource in `shoal.rest.resources`: users,
+- Every HTTP endpoint Discord documents (239), grouped by resource with short names:
+  `rest.messages.create`, `rest.members.ban`, `rest.commands.overwrite_global`. The coverage page
+  lists the Shoal method for each Discord endpoint. Resources: users,
   voice, emoji, stickers, soundboard, channels, threads, invites, messages, reactions, pins, polls,
   webhooks, guilds, members, roles, bans, prune, widgets, onboarding, scheduled events, stage
   instances, templates, Auto Moderation, audit logs, applications, monetization, OAuth2 information,

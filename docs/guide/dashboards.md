@@ -6,7 +6,7 @@
 from shoal.rest import RestClient, Token
 
 async with RestClient(Token.bearer(oauth_access_token)) as rest:
-    me = await rest.get_current_user()
+    me = await rest.users.get_me()
 ```
 
 - `Token.bot(...)` acts as the bot; `Token.bearer(...)` acts as an OAuth2 user.
@@ -28,7 +28,7 @@ from shoal.payloads import CreateMessageParams
 from shoal.rest import File
 
 report = await File.from_path("report.png", description="Weekly report")  # read off the event loop
-await rest.create_message(channel_id, CreateMessageParams(content="This week"), files=[report])
+await rest.messages.create(channel_id, CreateMessageParams(content="This week"), files=[report])
 ```
 
 `File.from_path` guesses the content type from the extension; pass `content_type=` to set it.
@@ -41,7 +41,7 @@ Alt text on a new file is only sent when `attachments` is listed this way.
 from shoal.payloads import AttachmentRequest, EditMessageParams
 
 keep = [AttachmentRequest(id=str(attachment.id)) for attachment in message.attachments[:1]]
-await rest.edit_message(channel_id, message.id, EditMessageParams(attachments=keep), files=[report])
+await rest.messages.edit(channel_id, message.id, EditMessageParams(attachments=keep), files=[report])
 ```
 
 Fields that take an image or a sound inline (an avatar, an emoji, a soundboard sound) take a data URI:
@@ -59,11 +59,11 @@ format.
 ## Searching messages
 
 ```python
-from shoal.payloads import SearchGuildMessagesParams, SearchHasType, excluding
+from shoal.payloads import SearchMessagesParams, SearchHasType, excluding
 
-result = await rest.search_guild_messages(
+result = await rest.messages.search(
     guild_id,
-    SearchGuildMessagesParams(content="release", has=[SearchHasType.LINK, excluding(SearchHasType.IMAGE)]),
+    SearchMessagesParams(content="release", has=[SearchHasType.LINK, excluding(SearchHasType.IMAGE)]),
 )
 for message in result.matches:
     ...

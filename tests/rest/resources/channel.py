@@ -2,25 +2,25 @@ from datetime import UTC, datetime
 
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
+    AddRecipientParams,
     ChannelFlags,
     ChannelType,
-    CreateChannelInviteParams,
+    CreateInviteParams,
+    CreatePostParams,
+    CreateThreadFromMessageParams,
+    CreateThreadParams,
     EditChannelPermissionsParams,
+    EditGroupDMParams,
+    EditGuildChannelParams,
+    EditThreadParams,
     ForumTagParams,
     ForumThreadMessageParams,
-    GroupDMAddRecipientParams,
     ListArchivedThreadsParams,
     ListJoinedPrivateArchivedThreadsParams,
     ListThreadMembersParams,
-    ModifyGroupDMParams,
-    ModifyGuildChannelParams,
-    ModifyThreadParams,
     OverwriteType,
     PartialOverwrite,
     Permissions,
-    StartThreadFromMessageParams,
-    StartThreadInForumParams,
-    StartThreadWithoutMessageParams,
 )
 from shoal.rest.files import File
 from tests.support.json_payloads import (
@@ -58,16 +58,16 @@ PNG = b"\x89PNG\r\n\x1a\n"
 CASES = [
     EndpointCase(
         name="get channel",
-        call=lambda client: client.get_channel(3),
+        call=lambda client: client.channels.get(3),
         method="GET",
         path="/channels/3",
         response=CHANNEL,
     ),
     EndpointCase(
         name="modify guild channel",
-        call=lambda client: client.modify_channel(
+        call=lambda client: client.channels.edit(
             15,
-            ModifyGuildChannelParams(
+            EditGuildChannelParams(
                 topic=None,
                 permission_overwrites=[
                     PartialOverwrite(
@@ -90,8 +90,8 @@ CASES = [
     ),
     EndpointCase(
         name="modify thread",
-        call=lambda client: client.modify_channel(
-            41771983423143937, ModifyThreadParams(archived=True, flags=ChannelFlags(pinned=True))
+        call=lambda client: client.channels.edit(
+            41771983423143937, EditThreadParams(archived=True, flags=ChannelFlags(pinned=True))
         ),
         method="PATCH",
         path="/channels/41771983423143937",
@@ -100,7 +100,7 @@ CASES = [
     ),
     EndpointCase(
         name="modify group dm",
-        call=lambda client: client.modify_channel(4, ModifyGroupDMParams(name="friends")),
+        call=lambda client: client.channels.edit(4, EditGroupDMParams(name="friends")),
         method="PATCH",
         path="/channels/4",
         body={"name": "friends"},
@@ -108,14 +108,14 @@ CASES = [
     ),
     EndpointCase(
         name="set voice status",
-        call=lambda client: client.set_voice_channel_status(6, None),
+        call=lambda client: client.channels.set_voice_status(6, None),
         method="PUT",
         path="/channels/6/voice-status",
         body={"status": None},
     ),
     EndpointCase(
         name="delete channel",
-        call=lambda client: client.delete_channel(3, reason="unused"),
+        call=lambda client: client.channels.delete(3, reason="unused"),
         method="DELETE",
         path="/channels/3",
         response=CHANNEL,
@@ -123,7 +123,7 @@ CASES = [
     ),
     EndpointCase(
         name="edit permissions",
-        call=lambda client: client.edit_channel_permissions(
+        call=lambda client: client.channels.edit_permissions(
             3,
             1,
             EditChannelPermissionsParams(allow=Permissions(view_channel=True), type=OverwriteType.MEMBER),
@@ -134,21 +134,21 @@ CASES = [
     ),
     EndpointCase(
         name="delete permission",
-        call=lambda client: client.delete_channel_permission(3, 1, reason="reset"),
+        call=lambda client: client.channels.delete_permissions(3, 1, reason="reset"),
         method="DELETE",
         path="/channels/3/permissions/1",
         reason="reset",
     ),
     EndpointCase(
         name="get invites",
-        call=lambda client: client.get_channel_invites(3),
+        call=lambda client: client.invites.list_for_channel(3),
         method="GET",
         path="/channels/3/invites",
         response=[INVITE_WITH_METADATA],
     ),
     EndpointCase(
         name="create invite with defaults",
-        call=lambda client: client.create_channel_invite(3),
+        call=lambda client: client.invites.create(3),
         method="POST",
         path="/channels/3/invites",
         body={},
@@ -156,8 +156,8 @@ CASES = [
     ),
     EndpointCase(
         name="create invite for some users",
-        call=lambda client: client.create_channel_invite(
-            3, CreateChannelInviteParams(max_age=0, unique=True, target_user_ids=[Snowflake(1)])
+        call=lambda client: client.invites.create(
+            3, CreateInviteParams(max_age=0, unique=True, target_user_ids=[Snowflake(1)])
         ),
         method="POST",
         path="/channels/3/invites",
@@ -166,7 +166,7 @@ CASES = [
     ),
     EndpointCase(
         name="follow announcements",
-        call=lambda client: client.follow_announcement_channel(5, 3),
+        call=lambda client: client.channels.follow(5, 3),
         method="POST",
         path="/channels/5/followers",
         body={"webhook_channel_id": "3"},
@@ -174,14 +174,14 @@ CASES = [
     ),
     EndpointCase(
         name="typing",
-        call=lambda client: client.trigger_typing_indicator(3),
+        call=lambda client: client.channels.typing(3),
         method="POST",
         path="/channels/3/typing",
     ),
     EndpointCase(
         name="add group dm recipient",
-        call=lambda client: client.group_dm_add_recipient(
-            4, 1, GroupDMAddRecipientParams(access_token="token", nick="Ada")
+        call=lambda client: client.channels.add_recipient(
+            4, 1, AddRecipientParams(access_token="token", nick="Ada")
         ),
         method="PUT",
         path="/channels/4/recipients/1",
@@ -189,14 +189,14 @@ CASES = [
     ),
     EndpointCase(
         name="remove group dm recipient",
-        call=lambda client: client.group_dm_remove_recipient(4, 1),
+        call=lambda client: client.channels.remove_recipient(4, 1),
         method="DELETE",
         path="/channels/4/recipients/1",
     ),
     EndpointCase(
         name="thread from message",
-        call=lambda client: client.start_thread_from_message(
-            3, 9, StartThreadFromMessageParams(name="discuss", auto_archive_duration=1440)
+        call=lambda client: client.threads.create_from_message(
+            3, 9, CreateThreadFromMessageParams(name="discuss", auto_archive_duration=1440)
         ),
         method="POST",
         path="/channels/3/messages/9/threads",
@@ -205,9 +205,9 @@ CASES = [
     ),
     EndpointCase(
         name="thread without message",
-        call=lambda client: client.start_thread_without_message(
+        call=lambda client: client.threads.create(
             3,
-            StartThreadWithoutMessageParams(name="private", type=ChannelType.PRIVATE_THREAD, invitable=False),
+            CreateThreadParams(name="private", type=ChannelType.PRIVATE_THREAD, invitable=False),
         ),
         method="POST",
         path="/channels/3/threads",
@@ -216,9 +216,9 @@ CASES = [
     ),
     EndpointCase(
         name="forum post",
-        call=lambda client: client.start_thread_in_forum_or_media_channel(
+        call=lambda client: client.threads.create_post(
             15,
-            StartThreadInForumParams(
+            CreatePostParams(
                 name="It crashes",
                 message=ForumThreadMessageParams(content="see the log"),
                 applied_tags=[Snowflake(1)],
@@ -231,9 +231,9 @@ CASES = [
     ),
     EndpointCase(
         name="forum post with a file",
-        call=lambda client: client.start_thread_in_forum_or_media_channel(
+        call=lambda client: client.threads.create_post(
             15,
-            StartThreadInForumParams(name="Screenshot", message=ForumThreadMessageParams(content="look")),
+            CreatePostParams(name="Screenshot", message=ForumThreadMessageParams(content="look")),
             files=[File("shot.png", PNG, description="the error", content_type="image/png")],
         ),
         method="POST",
@@ -250,38 +250,38 @@ CASES = [
     ),
     EndpointCase(
         name="join thread",
-        call=lambda client: client.join_thread(41771983423143937),
+        call=lambda client: client.threads.join(41771983423143937),
         method="PUT",
         path="/channels/41771983423143937/thread-members/@me",
     ),
     EndpointCase(
         name="add thread member",
-        call=lambda client: client.add_thread_member(41771983423143937, 1),
+        call=lambda client: client.threads.add_member(41771983423143937, 1),
         method="PUT",
         path="/channels/41771983423143937/thread-members/1",
     ),
     EndpointCase(
         name="leave thread",
-        call=lambda client: client.leave_thread(41771983423143937),
+        call=lambda client: client.threads.leave(41771983423143937),
         method="DELETE",
         path="/channels/41771983423143937/thread-members/@me",
     ),
     EndpointCase(
         name="remove thread member",
-        call=lambda client: client.remove_thread_member(41771983423143937, 1),
+        call=lambda client: client.threads.remove_member(41771983423143937, 1),
         method="DELETE",
         path="/channels/41771983423143937/thread-members/1",
     ),
     EndpointCase(
         name="get thread member",
-        call=lambda client: client.get_thread_member(41771983423143937, 1, with_member=True),
+        call=lambda client: client.threads.get_member(41771983423143937, 1, with_member=True),
         method="GET",
         path="/channels/41771983423143937/thread-members/1?with_member=true",
         response=THREAD_MEMBER,
     ),
     EndpointCase(
         name="list thread members",
-        call=lambda client: client.list_thread_members(
+        call=lambda client: client.threads.list_members(
             41771983423143937, ListThreadMembersParams(with_member=True, after=Snowflake(1), limit=50)
         ),
         method="GET",
@@ -290,7 +290,7 @@ CASES = [
     ),
     EndpointCase(
         name="public archived threads",
-        call=lambda client: client.list_public_archived_threads(
+        call=lambda client: client.threads.list_public_archived(
             3, ListArchivedThreadsParams(before=datetime(2026, 1, 1, tzinfo=UTC), limit=2)
         ),
         method="GET",
@@ -299,14 +299,14 @@ CASES = [
     ),
     EndpointCase(
         name="private archived threads",
-        call=lambda client: client.list_private_archived_threads(3),
+        call=lambda client: client.threads.list_private_archived(3),
         method="GET",
         path="/channels/3/threads/archived/private",
         response=ARCHIVED,
     ),
     EndpointCase(
         name="joined private archived threads",
-        call=lambda client: client.list_joined_private_archived_threads(
+        call=lambda client: client.threads.list_joined_private_archived(
             3, ListJoinedPrivateArchivedThreadsParams(before=Snowflake(41771983423143937))
         ),
         method="GET",

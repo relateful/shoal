@@ -3,9 +3,9 @@ from shoal.payloads import (
     AttachmentRequest,
     CreateWebhookParams,
     EditWebhookMessageParams,
+    EditWebhookParams,
+    EditWebhookWithTokenParams,
     ExecuteWebhookParams,
-    ModifyWebhookParams,
-    ModifyWebhookWithTokenParams,
 )
 from shoal.rest.files import File
 from tests.support.json_payloads import MESSAGE, USER
@@ -46,7 +46,7 @@ WITH_TOKEN = f"{HOOK}/secret-token"
 CASES = [
     EndpointCase(
         name="create",
-        call=lambda client: client.create_webhook(3, CreateWebhookParams(name="test webhook"), reason="ci"),
+        call=lambda client: client.webhooks.create(3, CreateWebhookParams(name="test webhook"), reason="ci"),
         method="POST",
         path="/channels/3/webhooks",
         body={"name": "test webhook"},
@@ -55,36 +55,36 @@ CASES = [
     ),
     EndpointCase(
         name="channel webhooks",
-        call=lambda client: client.get_channel_webhooks(3),
+        call=lambda client: client.webhooks.list_for_channel(3),
         method="GET",
         path="/channels/3/webhooks",
         response=[INCOMING, FOLLOWER],
     ),
     EndpointCase(
         name="guild webhooks",
-        call=lambda client: client.get_guild_webhooks(2),
+        call=lambda client: client.webhooks.list(2),
         method="GET",
         path="/guilds/2/webhooks",
         response=[FOLLOWER],
     ),
     EndpointCase(
         name="get",
-        call=lambda client: client.get_webhook(223704706495545344),
+        call=lambda client: client.webhooks.get(223704706495545344),
         method="GET",
         path=HOOK,
         response=INCOMING,
     ),
     EndpointCase(
         name="get with token",
-        call=lambda client: client.get_webhook_with_token(223704706495545344, "secret-token"),
+        call=lambda client: client.webhooks.get_with_token(223704706495545344, "secret-token"),
         method="GET",
         path=WITH_TOKEN,
         response={key: value for key, value in INCOMING.items() if key != "user"},
     ),
     EndpointCase(
         name="modify",
-        call=lambda client: client.modify_webhook(
-            223704706495545344, ModifyWebhookParams(avatar=None, channel_id=Snowflake(4))
+        call=lambda client: client.webhooks.edit(
+            223704706495545344, EditWebhookParams(avatar=None, channel_id=Snowflake(4))
         ),
         method="PATCH",
         path=HOOK,
@@ -93,8 +93,8 @@ CASES = [
     ),
     EndpointCase(
         name="modify with token",
-        call=lambda client: client.modify_webhook_with_token(
-            223704706495545344, "secret-token", ModifyWebhookWithTokenParams(name="renamed")
+        call=lambda client: client.webhooks.edit_with_token(
+            223704706495545344, "secret-token", EditWebhookWithTokenParams(name="renamed")
         ),
         method="PATCH",
         path=WITH_TOKEN,
@@ -103,20 +103,20 @@ CASES = [
     ),
     EndpointCase(
         name="delete",
-        call=lambda client: client.delete_webhook(223704706495545344, reason="unused"),
+        call=lambda client: client.webhooks.delete(223704706495545344, reason="unused"),
         method="DELETE",
         path=HOOK,
         reason="unused",
     ),
     EndpointCase(
         name="delete with token",
-        call=lambda client: client.delete_webhook_with_token(223704706495545344, "secret-token"),
+        call=lambda client: client.webhooks.delete_with_token(223704706495545344, "secret-token"),
         method="DELETE",
         path=WITH_TOKEN,
     ),
     EndpointCase(
         name="execute",
-        call=lambda client: client.execute_webhook(
+        call=lambda client: client.webhooks.execute(
             223704706495545344, "secret-token", ExecuteWebhookParams(content="hi", username="CI")
         ),
         method="POST",
@@ -125,7 +125,7 @@ CASES = [
     ),
     EndpointCase(
         name="execute and wait",
-        call=lambda client: client.execute_webhook(
+        call=lambda client: client.webhooks.execute(
             223704706495545344,
             "secret-token",
             ExecuteWebhookParams(content="build log"),
@@ -142,7 +142,7 @@ CASES = [
     ),
     EndpointCase(
         name="execute slack",
-        call=lambda client: client.execute_slack_compatible_webhook(
+        call=lambda client: client.webhooks.execute_slack(
             223704706495545344, "secret-token", {"text": "deployed"}, thread_id=8
         ),
         method="POST",
@@ -151,7 +151,7 @@ CASES = [
     ),
     EndpointCase(
         name="execute github",
-        call=lambda client: client.execute_github_compatible_webhook(
+        call=lambda client: client.webhooks.execute_github(
             223704706495545344, "secret-token", {"zen": "Keep it simple."}, wait=False
         ),
         method="POST",
@@ -160,14 +160,14 @@ CASES = [
     ),
     EndpointCase(
         name="get message",
-        call=lambda client: client.get_webhook_message(223704706495545344, "secret-token", 9, thread_id=8),
+        call=lambda client: client.webhooks.get_message(223704706495545344, "secret-token", 9, thread_id=8),
         method="GET",
         path=f"{WITH_TOKEN}/messages/9?thread_id=8",
         response=MESSAGE,
     ),
     EndpointCase(
         name="edit message",
-        call=lambda client: client.edit_webhook_message(
+        call=lambda client: client.webhooks.edit_message(
             223704706495545344, "secret-token", 9, EditWebhookMessageParams(content="fixed", embeds=None)
         ),
         method="PATCH",
@@ -177,7 +177,7 @@ CASES = [
     ),
     EndpointCase(
         name="edit message keeping one attachment and adding a file",
-        call=lambda client: client.edit_webhook_message(
+        call=lambda client: client.webhooks.edit_message(
             223704706495545344,
             "secret-token",
             9,
@@ -192,7 +192,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete message",
-        call=lambda client: client.delete_webhook_message(223704706495545344, "secret-token", 9),
+        call=lambda client: client.webhooks.delete_message(223704706495545344, "secret-token", 9),
         method="DELETE",
         path=f"{WITH_TOKEN}/messages/9",
     ),

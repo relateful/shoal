@@ -3,10 +3,12 @@
 Discord: https://docs.discord.com/developers/resources/auto-moderation
 """
 
+import builtins
+
 from shoal.payloads.auto_moderation import (
     AutoModerationRule,
     CreateAutoModerationRuleParams,
-    ModifyAutoModerationRuleParams,
+    EditAutoModerationRuleParams,
 )
 from shoal.rest.endpoints import (
     CREATE_AUTO_MODERATION_RULE,
@@ -15,15 +17,18 @@ from shoal.rest.endpoints import (
     LIST_AUTO_MODERATION_RULES_FOR_GUILD,
     MODIFY_AUTO_MODERATION_RULE,
 )
-from shoal.rest.requester import Requester
+from shoal.rest.requester import Resource
 
 
-class AutoModerationEndpoints(Requester):
-    """Endpoints for Auto Moderation rules; part of `RestClient`."""
+class AutoMod(Resource):
+    """Auto Moderation rules.
+
+    Use it as `rest.automod`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def list_auto_moderation_rules_for_guild(self, guild_id: int) -> list[AutoModerationRule]:
+    async def list(self, guild_id: int) -> builtins.list[AutoModerationRule]:
         """List a guild's rules.
 
         Discord: https://docs.discord.com/developers/resources/auto-moderation#list-auto-moderation-rules-for-guild
@@ -32,7 +37,7 @@ class AutoModerationEndpoints(Requester):
             LIST_AUTO_MODERATION_RULES_FOR_GUILD.compile(guild_id=guild_id), list[AutoModerationRule]
         )
 
-    async def get_auto_moderation_rule(self, guild_id: int, rule_id: int) -> AutoModerationRule:
+    async def get(self, guild_id: int, rule_id: int) -> AutoModerationRule:
         """Get one rule.
 
         Discord: https://docs.discord.com/developers/resources/auto-moderation#get-auto-moderation-rule
@@ -42,7 +47,7 @@ class AutoModerationEndpoints(Requester):
             AutoModerationRule,
         )
 
-    async def create_auto_moderation_rule(
+    async def create(
         self, guild_id: int, params: CreateAutoModerationRuleParams, *, reason: str | None = None
     ) -> AutoModerationRule:
         """Create a rule; a `TIMEOUT` action also needs Moderate Members.
@@ -56,11 +61,11 @@ class AutoModerationEndpoints(Requester):
             reason=reason,
         )
 
-    async def modify_auto_moderation_rule(
+    async def edit(
         self,
         guild_id: int,
         rule_id: int,
-        params: ModifyAutoModerationRuleParams,
+        params: EditAutoModerationRuleParams,
         *,
         reason: str | None = None,
     ) -> AutoModerationRule:
@@ -75,9 +80,7 @@ class AutoModerationEndpoints(Requester):
             reason=reason,
         )
 
-    async def delete_auto_moderation_rule(
-        self, guild_id: int, rule_id: int, *, reason: str | None = None
-    ) -> None:
+    async def delete(self, guild_id: int, rule_id: int, *, reason: str | None = None) -> None:
         """Delete a rule.
 
         Discord: https://docs.discord.com/developers/resources/auto-moderation#delete-auto-moderation-rule

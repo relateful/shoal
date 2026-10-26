@@ -10,11 +10,11 @@ from shoal.payloads import (
     ApplicationCommandPermission,
     ApplicationCommandPermissionType,
     ApplicationCommandType,
-    BulkApplicationCommandParams,
-    CreateGuildApplicationCommandParams,
-    EditApplicationCommandPermissionsParams,
+    CreateGuildCommandParams,
+    EditCommandPermissionsParams,
     InteractionContextType,
     Locale,
+    OverwriteCommandParams,
     Permissions,
     all_channels_permission_id,
     everyone_permission_id,
@@ -81,7 +81,7 @@ def test_a_command_with_nested_subcommands_decodes() -> None:
 
 
 def test_permissions_travel_as_strings() -> None:
-    params = CreateGuildApplicationCommandParams(
+    params = CreateGuildCommandParams(
         name="ban", description="Ban someone", default_member_permissions=Permissions(ban_members=True)
     )
     body = msgspec.json.decode(encode_json(params))
@@ -89,12 +89,12 @@ def test_permissions_travel_as_strings() -> None:
 
 
 def test_unset_fields_are_left_out_and_null_is_kept() -> None:
-    params = BulkApplicationCommandParams(name="ping", default_member_permissions=None)
+    params = OverwriteCommandParams(name="ping", default_member_permissions=None)
     assert msgspec.json.decode(encode_json(params)) == {"name": "ping", "default_member_permissions": None}
 
 
 def test_user_and_message_commands_need_no_description() -> None:
-    params = BulkApplicationCommandParams(name="View Stats", type=ApplicationCommandType.USER)
+    params = OverwriteCommandParams(name="View Stats", type=ApplicationCommandType.USER)
     assert msgspec.json.decode(encode_json(params)) == {"name": "View Stats", "type": 2}
 
 
@@ -115,7 +115,7 @@ def test_permission_constants_follow_discord() -> None:
     guild_id = 1_000_000
     assert everyone_permission_id(guild_id) == Snowflake(guild_id)
     assert all_channels_permission_id(guild_id) == Snowflake(guild_id - 1)
-    params = EditApplicationCommandPermissionsParams(
+    params = EditCommandPermissionsParams(
         permissions=[
             ApplicationCommandPermission(
                 id=all_channels_permission_id(guild_id),

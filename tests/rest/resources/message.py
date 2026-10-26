@@ -8,10 +8,10 @@ from shoal.payloads import (
     CreateMessageParams,
     EditMessageParams,
     Emoji,
-    GetAnswerVotersParams,
-    GetChannelMessagesParams,
-    GetChannelPinsParams,
-    GetReactionsParams,
+    ListMessagesParams,
+    ListPinsParams,
+    ListReactionsParams,
+    ListVotersParams,
     MessageFlags,
     PartialEmoji,
     PollAnswer,
@@ -66,23 +66,21 @@ PNG = b"\x89PNG\r\n\x1a\n"
 CASES = [
     EndpointCase(
         name="get messages",
-        call=lambda client: client.get_channel_messages(
-            3, GetChannelMessagesParams(before=Snowflake(9), limit=10)
-        ),
+        call=lambda client: client.messages.list(3, ListMessagesParams(before=Snowflake(9), limit=10)),
         method="GET",
         path=f"{MESSAGES}?before=9&limit=10",
         response=[RICH_MESSAGE],
     ),
     EndpointCase(
         name="get message",
-        call=lambda client: client.get_channel_message(3, 9),
+        call=lambda client: client.messages.get(3, 9),
         method="GET",
         path=f"{MESSAGES}/9",
         response=MESSAGE,
     ),
     EndpointCase(
         name="create message",
-        call=lambda client: client.create_message(3, CreateMessageParams(content="hi")),
+        call=lambda client: client.messages.create(3, CreateMessageParams(content="hi")),
         method="POST",
         path=MESSAGES,
         body={"content": "hi"},
@@ -90,7 +88,7 @@ CASES = [
     ),
     EndpointCase(
         name="create message with a poll",
-        call=lambda client: client.create_message(
+        call=lambda client: client.messages.create(
             3,
             CreateMessageParams(
                 poll=PollCreateRequest(
@@ -117,7 +115,7 @@ CASES = [
     ),
     EndpointCase(
         name="create message with files",
-        call=lambda client: client.create_message(
+        call=lambda client: client.messages.create(
             3,
             CreateMessageParams(content="the logs"),
             files=[
@@ -142,39 +140,39 @@ CASES = [
     ),
     EndpointCase(
         name="crosspost",
-        call=lambda client: client.crosspost_message(5, 9),
+        call=lambda client: client.messages.crosspost(5, 9),
         method="POST",
         path="/channels/5/messages/9/crosspost",
         response=MESSAGE,
     ),
     EndpointCase(
         name="react with unicode",
-        call=lambda client: client.create_reaction(3, 9, "\N{SLICE OF PIZZA}"),
+        call=lambda client: client.reactions.add(3, 9, "\N{SLICE OF PIZZA}"),
         method="PUT",
         path=f"{MESSAGES}/9/reactions/{PIZZA}/@me",
     ),
     EndpointCase(
         name="react with a custom emoji",
-        call=lambda client: client.create_reaction(3, 9, PartialEmoji(id=Snowflake(41), name="LUL")),
+        call=lambda client: client.reactions.add(3, 9, PartialEmoji(id=Snowflake(41), name="LUL")),
         method="PUT",
         path=f"{MESSAGES}/9/reactions/LUL%3A41/@me",
     ),
     EndpointCase(
         name="remove own reaction",
-        call=lambda client: client.delete_own_reaction(3, 9, "LUL:41"),
+        call=lambda client: client.reactions.remove_mine(3, 9, "LUL:41"),
         method="DELETE",
         path=f"{MESSAGES}/9/reactions/LUL%3A41/@me",
     ),
     EndpointCase(
         name="remove a user's reaction",
-        call=lambda client: client.delete_user_reaction(3, 9, "\N{SLICE OF PIZZA}", 1),
+        call=lambda client: client.reactions.remove(3, 9, "\N{SLICE OF PIZZA}", 1),
         method="DELETE",
         path=f"{MESSAGES}/9/reactions/{PIZZA}/1",
     ),
     EndpointCase(
         name="list reactions",
-        call=lambda client: client.get_reactions(
-            3, 9, "\N{SLICE OF PIZZA}", GetReactionsParams(type=ReactionType.BURST, limit=5)
+        call=lambda client: client.reactions.list(
+            3, 9, "\N{SLICE OF PIZZA}", ListReactionsParams(type=ReactionType.BURST, limit=5)
         ),
         method="GET",
         path=f"{MESSAGES}/9/reactions/{PIZZA}?type=1&limit=5",
@@ -182,19 +180,19 @@ CASES = [
     ),
     EndpointCase(
         name="clear reactions",
-        call=lambda client: client.delete_all_reactions(3, 9),
+        call=lambda client: client.reactions.clear(3, 9),
         method="DELETE",
         path=f"{MESSAGES}/9/reactions",
     ),
     EndpointCase(
         name="clear one emoji",
-        call=lambda client: client.delete_all_reactions_for_emoji(3, 9, "\N{SLICE OF PIZZA}"),
+        call=lambda client: client.reactions.clear_emoji(3, 9, "\N{SLICE OF PIZZA}"),
         method="DELETE",
         path=f"{MESSAGES}/9/reactions/{PIZZA}",
     ),
     EndpointCase(
         name="edit message",
-        call=lambda client: client.edit_message(
+        call=lambda client: client.messages.edit(
             3, 9, EditMessageParams(content=None, flags=MessageFlags(suppress_embeds=True))
         ),
         method="PATCH",
@@ -204,7 +202,7 @@ CASES = [
     ),
     EndpointCase(
         name="edit message adding a file",
-        call=lambda client: client.edit_message(
+        call=lambda client: client.messages.edit(
             3, 9, EditMessageParams(content="v2"), files=[File("v2.txt", b"2")]
         ),
         method="PATCH",
@@ -215,7 +213,7 @@ CASES = [
     ),
     EndpointCase(
         name="edit message replacing attachments",
-        call=lambda client: client.edit_message(
+        call=lambda client: client.messages.edit(
             3,
             9,
             EditMessageParams(
@@ -231,14 +229,14 @@ CASES = [
     ),
     EndpointCase(
         name="delete message",
-        call=lambda client: client.delete_message(3, 9, reason="spam"),
+        call=lambda client: client.messages.delete(3, 9, reason="spam"),
         method="DELETE",
         path=f"{MESSAGES}/9",
         reason="spam",
     ),
     EndpointCase(
         name="bulk delete",
-        call=lambda client: client.bulk_delete_messages(3, [9, 10], reason="raid"),
+        call=lambda client: client.messages.bulk_delete(3, [9, 10], reason="raid"),
         method="POST",
         path=f"{MESSAGES}/bulk-delete",
         body={"messages": ["9", "10"]},
@@ -246,8 +244,8 @@ CASES = [
     ),
     EndpointCase(
         name="get pins",
-        call=lambda client: client.get_channel_pins(
-            3, GetChannelPinsParams(before=datetime(2026, 1, 1, tzinfo=UTC), limit=50)
+        call=lambda client: client.messages.list_pins(
+            3, ListPinsParams(before=datetime(2026, 1, 1, tzinfo=UTC), limit=50)
         ),
         method="GET",
         path=f"{MESSAGES}/pins?before=2026-01-01T00%3A00%3A00%2B00%3A00&limit=50",
@@ -258,20 +256,20 @@ CASES = [
     ),
     EndpointCase(
         name="pin",
-        call=lambda client: client.pin_message(3, 9, reason="important"),
+        call=lambda client: client.messages.pin(3, 9, reason="important"),
         method="PUT",
         path=f"{MESSAGES}/pins/9",
         reason="important",
     ),
     EndpointCase(
         name="unpin",
-        call=lambda client: client.unpin_message(3, 9),
+        call=lambda client: client.messages.unpin(3, 9),
         method="DELETE",
         path=f"{MESSAGES}/pins/9",
     ),
     EndpointCase(
         name="answer voters",
-        call=lambda client: client.get_answer_voters(3, 9, 1, GetAnswerVotersParams(limit=100)),
+        call=lambda client: client.polls.list_voters(3, 9, 1, ListVotersParams(limit=100)),
         method="GET",
         path="/channels/3/polls/9/answers/1?limit=100",
         response={"users": [USER]},
@@ -279,7 +277,7 @@ CASES = [
     ),
     EndpointCase(
         name="end poll",
-        call=lambda client: client.end_poll(3, 9),
+        call=lambda client: client.polls.end(3, 9),
         method="POST",
         path="/channels/3/polls/9/expire",
         response=RICH_MESSAGE,

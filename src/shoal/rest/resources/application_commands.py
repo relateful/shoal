@@ -7,13 +7,13 @@ from collections.abc import Sequence
 
 from shoal.payloads.application_commands import (
     ApplicationCommand,
-    BulkApplicationCommandParams,
-    CreateGlobalApplicationCommandParams,
-    CreateGuildApplicationCommandParams,
-    EditApplicationCommandPermissionsParams,
-    EditGlobalApplicationCommandParams,
-    EditGuildApplicationCommandParams,
+    CreateGlobalCommandParams,
+    CreateGuildCommandParams,
+    EditCommandPermissionsParams,
+    EditGlobalCommandParams,
+    EditGuildCommandParams,
     GuildApplicationCommandPermissions,
+    OverwriteCommandParams,
 )
 from shoal.rest.endpoints import (
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
@@ -32,15 +32,18 @@ from shoal.rest.endpoints import (
     GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
     GET_GUILD_APPLICATION_COMMANDS,
 )
-from shoal.rest.requester import Requester
+from shoal.rest.requester import Resource
 
 
-class ApplicationCommandEndpoints(Requester):
-    """Endpoints for application commands and their permissions; part of `RestClient`."""
+class Commands(Resource):
+    """Application commands, global and per guild, and their permissions.
+
+    Use it as `rest.commands`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def get_global_application_commands(
+    async def list_global(
         self, application_id: int, *, with_localizations: bool = False
     ) -> list[ApplicationCommand]:
         """Get the app's global commands.
@@ -56,8 +59,8 @@ class ApplicationCommandEndpoints(Requester):
             query={"with_localizations": with_localizations},
         )
 
-    async def create_global_application_command(
-        self, application_id: int, params: CreateGlobalApplicationCommandParams
+    async def create_global(
+        self, application_id: int, params: CreateGlobalCommandParams
     ) -> ApplicationCommand:
         """Create a global command, replacing one with the same name.
 
@@ -69,9 +72,7 @@ class ApplicationCommandEndpoints(Requester):
             body=params,
         )
 
-    async def get_global_application_command(
-        self, application_id: int, command_id: int
-    ) -> ApplicationCommand:
+    async def get_global(self, application_id: int, command_id: int) -> ApplicationCommand:
         """Get one global command.
 
         Discord: https://docs.discord.com/developers/interactions/application-commands#get-global-application-command
@@ -81,8 +82,8 @@ class ApplicationCommandEndpoints(Requester):
             ApplicationCommand,
         )
 
-    async def edit_global_application_command(
-        self, application_id: int, command_id: int, params: EditGlobalApplicationCommandParams
+    async def edit_global(
+        self, application_id: int, command_id: int, params: EditGlobalCommandParams
     ) -> ApplicationCommand:
         """Edit a global command; the fields given replace the existing values.
 
@@ -94,7 +95,7 @@ class ApplicationCommandEndpoints(Requester):
             body=params,
         )
 
-    async def delete_global_application_command(self, application_id: int, command_id: int) -> None:
+    async def delete_global(self, application_id: int, command_id: int) -> None:
         """Delete a global command.
 
         Discord: https://docs.discord.com/developers/interactions/application-commands#delete-global-application-command
@@ -103,8 +104,8 @@ class ApplicationCommandEndpoints(Requester):
             DELETE_GLOBAL_APPLICATION_COMMAND.compile(application_id=application_id, command_id=command_id)
         )
 
-    async def bulk_overwrite_global_application_commands(
-        self, application_id: int, commands: Sequence[BulkApplicationCommandParams]
+    async def overwrite_global(
+        self, application_id: int, commands: Sequence[OverwriteCommandParams]
     ) -> list[ApplicationCommand]:
         """Replace every global command (slash, user and message) with `commands`.
 
@@ -118,7 +119,7 @@ class ApplicationCommandEndpoints(Requester):
             body=list(commands),
         )
 
-    async def get_guild_application_commands(
+    async def list_guild(
         self, application_id: int, guild_id: int, *, with_localizations: bool = False
     ) -> list[ApplicationCommand]:
         """Get the app's commands in one guild.
@@ -131,8 +132,8 @@ class ApplicationCommandEndpoints(Requester):
             query={"with_localizations": with_localizations},
         )
 
-    async def create_guild_application_command(
-        self, application_id: int, guild_id: int, params: CreateGuildApplicationCommandParams
+    async def create_guild(
+        self, application_id: int, guild_id: int, params: CreateGuildCommandParams
     ) -> ApplicationCommand:
         """Create a guild command, available immediately, replacing one with the same name.
 
@@ -144,9 +145,7 @@ class ApplicationCommandEndpoints(Requester):
             body=params,
         )
 
-    async def get_guild_application_command(
-        self, application_id: int, guild_id: int, command_id: int
-    ) -> ApplicationCommand:
+    async def get_guild(self, application_id: int, guild_id: int, command_id: int) -> ApplicationCommand:
         """Get one guild command.
 
         Discord: https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command
@@ -158,8 +157,8 @@ class ApplicationCommandEndpoints(Requester):
             ApplicationCommand,
         )
 
-    async def edit_guild_application_command(
-        self, application_id: int, guild_id: int, command_id: int, params: EditGuildApplicationCommandParams
+    async def edit_guild(
+        self, application_id: int, guild_id: int, command_id: int, params: EditGuildCommandParams
     ) -> ApplicationCommand:
         """Edit a guild command; the fields given replace the existing values.
 
@@ -173,9 +172,7 @@ class ApplicationCommandEndpoints(Requester):
             body=params,
         )
 
-    async def delete_guild_application_command(
-        self, application_id: int, guild_id: int, command_id: int
-    ) -> None:
+    async def delete_guild(self, application_id: int, guild_id: int, command_id: int) -> None:
         """Delete a guild command.
 
         Discord: https://docs.discord.com/developers/interactions/application-commands#delete-guild-application-command
@@ -186,8 +183,8 @@ class ApplicationCommandEndpoints(Requester):
             )
         )
 
-    async def bulk_overwrite_guild_application_commands(
-        self, application_id: int, guild_id: int, commands: Sequence[BulkApplicationCommandParams]
+    async def overwrite_guild(
+        self, application_id: int, guild_id: int, commands: Sequence[OverwriteCommandParams]
     ) -> list[ApplicationCommand]:
         """Replace every command of the app in one guild with `commands`.
 
@@ -201,7 +198,7 @@ class ApplicationCommandEndpoints(Requester):
             body=list(commands),
         )
 
-    async def get_guild_application_command_permissions(
+    async def list_permissions(
         self, application_id: int, guild_id: int
     ) -> list[GuildApplicationCommandPermissions]:
         """Get the permission overwrites of every command of the app in one guild.
@@ -215,7 +212,7 @@ class ApplicationCommandEndpoints(Requester):
             list[GuildApplicationCommandPermissions],
         )
 
-    async def get_application_command_permissions(
+    async def get_permissions(
         self, application_id: int, guild_id: int, command_id: int
     ) -> GuildApplicationCommandPermissions:
         """Get the permission overwrites of one command in one guild.
@@ -229,12 +226,12 @@ class ApplicationCommandEndpoints(Requester):
             GuildApplicationCommandPermissions,
         )
 
-    async def edit_application_command_permissions(
+    async def edit_permissions(
         self,
         application_id: int,
         guild_id: int,
         command_id: int,
-        params: EditApplicationCommandPermissionsParams,
+        params: EditCommandPermissionsParams,
     ) -> GuildApplicationCommandPermissions:
         """Replace the permission overwrites of one command in one guild.
 

@@ -9,10 +9,10 @@ from typing import Literal, overload
 import msgspec
 
 from shoal.payloads.interactions import (
-    CreateFollowupMessageParams,
     InteractionCallbackResponse,
     InteractionResponse,
     MessageResponse,
+    SendFollowupParams,
     UpdateMessageResponse,
 )
 from shoal.payloads.message import (
@@ -30,16 +30,19 @@ from shoal.rest.endpoints import (
     GET_ORIGINAL_INTERACTION_RESPONSE,
 )
 from shoal.rest.files import File
-from shoal.rest.requester import Requester, with_attachments
+from shoal.rest.requester import Resource, with_attachments
 
 
-class InteractionEndpoints(Requester):
-    """Endpoints for interaction responses and follow-up messages; part of `RestClient`."""
+class Interactions(Resource):
+    """Interaction responses and follow-up messages.
+
+    Use it as `rest.interactions`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
     @overload
-    async def create_interaction_response(
+    async def respond(
         self,
         interaction_id: int,
         interaction_token: str,
@@ -50,7 +53,7 @@ class InteractionEndpoints(Requester):
     ) -> None: ...
 
     @overload
-    async def create_interaction_response(
+    async def respond(
         self,
         interaction_id: int,
         interaction_token: str,
@@ -61,7 +64,7 @@ class InteractionEndpoints(Requester):
     ) -> InteractionCallbackResponse: ...
 
     @overload
-    async def create_interaction_response(
+    async def respond(
         self,
         interaction_id: int,
         interaction_token: str,
@@ -71,7 +74,7 @@ class InteractionEndpoints(Requester):
         files: Sequence[File] = (),
     ) -> InteractionCallbackResponse | None: ...
 
-    async def create_interaction_response(
+    async def respond(
         self,
         interaction_id: int,
         interaction_token: str,
@@ -101,7 +104,7 @@ class InteractionEndpoints(Requester):
         await self.request_empty(route, body=body, files=named)
         return None
 
-    async def get_original_interaction_response(self, application_id: int, interaction_token: str) -> Message:
+    async def get_original(self, application_id: int, interaction_token: str) -> Message:
         """Get the message an interaction response created.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#get-original-interaction-response
@@ -113,7 +116,7 @@ class InteractionEndpoints(Requester):
             Message,
         )
 
-    async def edit_original_interaction_response(
+    async def edit_original(
         self,
         application_id: int,
         interaction_token: str,
@@ -137,7 +140,7 @@ class InteractionEndpoints(Requester):
             files=named,
         )
 
-    async def delete_original_interaction_response(self, application_id: int, interaction_token: str) -> None:
+    async def delete_original(self, application_id: int, interaction_token: str) -> None:
         """Delete the message an interaction response created.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#delete-original-interaction-response
@@ -148,11 +151,11 @@ class InteractionEndpoints(Requester):
             )
         )
 
-    async def create_followup_message(
+    async def send_followup(
         self,
         application_id: int,
         interaction_token: str,
-        params: CreateFollowupMessageParams,
+        params: SendFollowupParams,
         *,
         files: Sequence[File] = (),
     ) -> Message:
@@ -170,9 +173,7 @@ class InteractionEndpoints(Requester):
             files=named,
         )
 
-    async def get_followup_message(
-        self, application_id: int, interaction_token: str, message_id: int
-    ) -> Message:
+    async def get_followup(self, application_id: int, interaction_token: str, message_id: int) -> Message:
         """Get a follow-up message.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#get-followup-message
@@ -184,7 +185,7 @@ class InteractionEndpoints(Requester):
             Message,
         )
 
-    async def edit_followup_message(
+    async def edit_followup(
         self,
         application_id: int,
         interaction_token: str,
@@ -207,9 +208,7 @@ class InteractionEndpoints(Requester):
             files=named,
         )
 
-    async def delete_followup_message(
-        self, application_id: int, interaction_token: str, message_id: int
-    ) -> None:
+    async def delete_followup(self, application_id: int, interaction_token: str, message_id: int) -> None:
         """Delete a follow-up message.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#delete-followup-message

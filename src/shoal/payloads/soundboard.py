@@ -52,7 +52,7 @@ class SendSoundboardSoundParams(Payload):
     """Required for a sound from another guild."""
 
 
-class CreateGuildSoundboardSoundParams(Payload):
+class CreateSoundboardSoundParams(Payload):
     """JSON body of Create Guild Soundboard Sound. The sound may be at most 512 KB and 5.2 seconds.
 
     Discord: https://docs.discord.com/developers/resources/soundboard#create-guild-soundboard-sound-json-params
@@ -67,7 +67,7 @@ class CreateGuildSoundboardSoundParams(Payload):
     emoji_name: str | UnsetType | None = UNSET
 
 
-class ModifyGuildSoundboardSoundParams(Payload):
+class EditSoundboardSoundParams(Payload):
     """JSON body of Modify Guild Soundboard Sound.
 
     Discord: https://docs.discord.com/developers/resources/soundboard#modify-guild-soundboard-sound-json-params

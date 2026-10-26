@@ -52,7 +52,7 @@ class ApplicationEmojis(Payload):
     items: list[Emoji]
 
 
-class CreateGuildEmojiParams(Payload):
+class CreateEmojiParams(Payload):
     """JSON body of Create Guild Emoji. The image may be at most 256 KiB.
 
     Discord: https://docs.discord.com/developers/resources/emoji#create-guild-emoji-json-params
@@ -65,7 +65,7 @@ class CreateGuildEmojiParams(Payload):
     """Roles allowed to use the emoji; an empty list lets everyone use it."""
 
 
-class ModifyGuildEmojiParams(Payload):
+class EditEmojiParams(Payload):
     """JSON body of Modify Guild Emoji.
 
     Discord: https://docs.discord.com/developers/resources/emoji#modify-guild-emoji-json-params
@@ -87,7 +87,7 @@ class CreateApplicationEmojiParams(Payload):
     """The 128x128 emoji image."""
 
 
-class ModifyApplicationEmojiParams(Payload):
+class EditApplicationEmojiParams(Payload):
     """JSON body of Modify Application Emoji.
 
     Discord: https://docs.discord.com/developers/resources/emoji#modify-application-emoji-json-params

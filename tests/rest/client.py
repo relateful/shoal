@@ -10,8 +10,8 @@ from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
     CreateMessageParams,
     Guild,
-    SearchGuildMessagesParams,
     SearchHasType,
+    SearchMessagesParams,
     User,
     excluding,
 )
@@ -47,7 +47,7 @@ async def test_successful_request_decodes_and_sends_required_headers() -> None:
     transport.queue(200, USER)
     metrics = InMemoryMetrics()
     async with make_client(transport, metrics=metrics) as client:
-        user = await client.get_current_user()
+        user = await client.users.get_me()
     assert isinstance(user, User)
     assert user.id == 1
     assert user.username == "bot"
@@ -66,9 +66,9 @@ async def test_query_booleans_body_and_audit_reason() -> None:
     transport.queue(200, GUILD)
     transport.queue(204)
     client = make_client(transport)
-    result = await client.get_guild(2, with_counts=True)
+    result = await client.guilds.get(2, with_counts=True)
     assert isinstance(result, Guild)
-    await client.delete_message(3, 4, reason="spam & abuse")
+    await client.messages.delete(3, 4, reason="spam & abuse")
     assert transport.requests[0].url.endswith("/guilds/2?with_counts=true")
     assert transport.requests[1].headers["X-Audit-Log-Reason"] == "spam %26 abuse"
 
@@ -76,7 +76,7 @@ async def test_query_booleans_body_and_audit_reason() -> None:
 async def test_json_body_is_encoded_with_content_type() -> None:
     transport = FakeTransport()
     transport.queue(200, MESSAGE)
-    sent = await make_client(transport).create_message(3, CreateMessageParams(content="hi"))
+    sent = await make_client(transport).messages.create(3, CreateMessageParams(content="hi"))
     assert sent.content == "hi"
     request = transport.requests[0]
     assert request.headers["Content-Type"] == "application/json"
@@ -90,7 +90,7 @@ async def test_rate_limited_requests_are_retried() -> None:
     )
     transport.queue(200, USER)
     metrics = InMemoryMetrics()
-    user = await make_client(transport, metrics=metrics).get_user(1)
+    user = await make_client(transport, metrics=metrics).users.get(1)
     assert user.id == 1
     assert len(transport.requests) == 2
     assert (
@@ -111,19 +111,19 @@ async def test_long_rate_limits_raise_instead_of_waiting() -> None:
     transport = FakeTransport()
     transport.queue(429, {"message": "slow", "retry_after": 3600, "global": False})
     with pytest.raises(RateLimitedError):
-        await make_client(transport).get_user(1)
+        await make_client(transport).users.get(1)
 
 
 async def test_idempotent_requests_retry_server_errors_but_posts_do_not() -> None:
     transport = FakeTransport()
     transport.queue(502)
     transport.queue(200, USER)
-    assert (await make_client(transport).get_user(1)).id == 1
+    assert (await make_client(transport).users.get(1)).id == 1
 
     transport = FakeTransport()
     transport.queue(502)
     with pytest.raises(ServerError):
-        await make_client(transport).create_message(1, CreateMessageParams(content="x"))
+        await make_client(transport).messages.create(1, CreateMessageParams(content="x"))
     assert len(transport.requests) == 1
 
 
@@ -132,7 +132,7 @@ async def test_network_errors_retry_then_raise() -> None:
     for _ in range(4):
         transport.queue_error(ConnectionResetError("reset"))
     with pytest.raises(ConnectionResetError) as raised:
-        await make_client(transport).get_user(1)
+        await make_client(transport).users.get(1)
     assert len(transport.requests) == 4
     assert raised.value.__notes__ == ["route: GET /users/1"]
 
@@ -141,14 +141,14 @@ async def test_posts_are_retried_after_a_network_error_only_when_nothing_was_sen
     transport = FakeTransport()
     transport.queue_error(TransportError("POST request failed: ServerTimeoutError"))
     with pytest.raises(TransportError):
-        await make_client(transport).create_message(1, CreateMessageParams(content="x"))
+        await make_client(transport).messages.create(1, CreateMessageParams(content="x"))
     assert len(transport.requests) == 1
 
     for error in (TransportError("connect failed", request_sent=False), ConnectionRefusedError("refused")):
         transport = FakeTransport()
         transport.queue_error(error)
         transport.queue(200, MESSAGE)
-        await make_client(transport).create_message(1, CreateMessageParams(content="x"))
+        await make_client(transport).messages.create(1, CreateMessageParams(content="x"))
         assert len(transport.requests) == 2
 
 
@@ -157,7 +157,7 @@ async def test_network_retries_log_the_redacted_route(caplog: pytest.LogCaptureF
     transport.queue_error(ConnectionResetError("reset"))
     transport.queue(200, MESSAGE)
     with caplog.at_level(logging.WARNING, logger="shoal.rest"):
-        await make_client(transport).get_original_interaction_response(1, "SECRET-TOKEN")
+        await make_client(transport).interactions.get_original(1, "SECRET-TOKEN")
     assert "/webhooks/1/{interaction_token}/messages/@original" in caplog.text
     assert "SECRET-TOKEN" not in caplog.text
 
@@ -165,13 +165,13 @@ async def test_network_retries_log_the_redacted_route(caplog: pytest.LogCaptureF
 async def test_a_cancelled_request_does_not_block_its_route() -> None:
     transport = FakeTransport()
     client = make_client(transport)
-    first = asyncio.create_task(client.get_user(1))
+    first = asyncio.create_task(client.users.get(1))
     await asyncio.sleep(0)
     first.cancel()
     with pytest.raises(asyncio.CancelledError):
         await first
     transport.queue(200, USER)
-    user = await asyncio.wait_for(client.get_user(1), timeout=1)
+    user = await asyncio.wait_for(client.users.get(1), timeout=1)
     assert user.username == "bot"
 
 
@@ -180,9 +180,9 @@ async def test_bot_401_stops_all_further_requests() -> None:
     transport.queue(401, {"code": 0, "message": "401: Unauthorized"})
     client = make_client(transport)
     with pytest.raises(UnauthorizedError):
-        await client.get_current_user()
+        await client.users.get_me()
     with pytest.raises(TokenInvalidatedError):
-        await client.get_current_user()
+        await client.users.get_me()
     assert len(transport.requests) == 1
 
 
@@ -192,15 +192,15 @@ async def test_bearer_401_does_not_lock_the_client() -> None:
     transport.queue(200, USER)
     client = make_client(transport, token=Token.bearer("user-token"))
     with pytest.raises(UnauthorizedError):
-        await client.get_current_user()
-    assert (await client.get_current_user()).id == 1
+        await client.users.get_me()
+    assert (await client.users.get_me()).id == 1
 
 
 async def test_errors_carry_discord_codes() -> None:
     transport = FakeTransport()
     transport.queue(403, {"code": 50013, "message": "Missing Permissions"})
     with pytest.raises(ForbiddenError) as caught:
-        await make_client(transport).get_channel(5)
+        await make_client(transport).channels.get(5)
     assert caught.value.code == 50013
 
 
@@ -208,7 +208,7 @@ async def test_closed_client_refuses_requests() -> None:
     client = make_client(FakeTransport())
     await client.close()
     with pytest.raises(ClientClosedError):
-        await client.get_current_user()
+        await client.users.get_me()
 
 
 def test_rejects_negative_retries() -> None:
@@ -225,13 +225,13 @@ def test_base_url_points_at_a_proxy() -> None:
 async def test_search_sends_array_query_strings_and_flattens_matches() -> None:
     transport = FakeTransport()
     transport.queue(200, {"doing_deep_historical_index": False, "total_results": 1, "messages": [[MESSAGE]]})
-    params = SearchGuildMessagesParams(
+    params = SearchMessagesParams(
         content="hi there",
         channel_id=[Snowflake(1), Snowflake(2)],
         has=[SearchHasType.IMAGE, excluding(SearchHasType.LINK)],
         pinned=False,
     )
-    result = await make_client(transport).search_guild_messages(5, params)
+    result = await make_client(transport).messages.search(5, params)
     assert [message.id for message in result.matches] == [9]
     assert transport.requests[0].url.endswith(
         "/guilds/5/messages/search?content=hi+there&channel_id=1&channel_id=2&pinned=false&has=image&has=-link"
@@ -246,7 +246,7 @@ async def test_search_waits_while_the_guild_is_being_indexed() -> None:
     transport.queue(200, {"doing_deep_historical_index": True, "total_results": 0, "messages": []})
     clock = FakeClock()
     client = RestClient(Token.bot("secret"), transport=transport, clock=clock, random_source=random.Random(0))
-    result = await client.search_guild_messages(5, SearchGuildMessagesParams())
+    result = await client.messages.search(5, SearchMessagesParams())
     assert result.total_results == 0
     assert [request.method for request in transport.requests] == ["GET", "GET", "GET"]
     # Discord's retry_after, then Shoal's own delay when Discord says 0.
@@ -264,7 +264,7 @@ async def test_search_gives_up_with_a_typed_error() -> None:
     for _ in range(4):
         transport.queue(202, pending)
     with pytest.raises(SearchIndexNotReadyError) as caught:
-        await make_client(transport).search_guild_messages(5, SearchGuildMessagesParams())
+        await make_client(transport).messages.search(5, SearchMessagesParams())
     assert caught.value.documents_indexed == 40
 
 
@@ -272,7 +272,7 @@ async def test_a_success_that_fails_to_decode_says_the_request_went_through() ->
     transport = FakeTransport()
     transport.queue(200, {"not": "a message"})
     with pytest.raises(PayloadDecodeError) as caught:
-        await make_client(transport).create_message(3, CreateMessageParams(content="hi"))
+        await make_client(transport).messages.create(3, CreateMessageParams(content="hi"))
     [note] = caught.value.__notes__
     assert note.startswith("POST /channels/3/messages succeeded with HTTP 200")
 
@@ -292,5 +292,5 @@ async def test_without_a_token_no_authorization_is_sent() -> None:
     transport = FakeTransport()
     transport.queue(204)
     client = RestClient(None, transport=transport)
-    await client.delete_webhook_with_token(1, "secret-token")
+    await client.webhooks.delete_with_token(1, "secret-token")
     assert "Authorization" not in transport.requests[0].headers

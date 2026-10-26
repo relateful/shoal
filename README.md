@@ -52,9 +52,9 @@ from shoal.rest import RestClient, Token
 
 async def main() -> None:
     async with RestClient(Token.bot("YOUR_TOKEN")) as rest:
-        me = await rest.get_current_user()
+        me = await rest.users.get_me()
         print(me.username, me.id.created_at)
-        await rest.create_message(
+        await rest.messages.create(
             1234567890,
             CreateMessageParams(content="hello from shoal", allowed_mentions=AllowedMentions.none()),
         )
@@ -78,7 +78,7 @@ async def main(token: str) -> None:
     metrics.serve(9100)
 
     async with RestClient(Token.bot(token), metrics=metrics) as rest:
-        gateway = await rest.get_gateway_bot()
+        gateway = await rest.gateway.get_bot()
 
     intents = Intents.default()
     store = CacheStore(metrics=metrics)

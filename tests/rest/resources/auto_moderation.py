@@ -7,7 +7,7 @@ from shoal.payloads import (
     AutoModerationTriggerMetadata,
     AutoModerationTriggerType,
     CreateAutoModerationRuleParams,
-    ModifyAutoModerationRuleParams,
+    EditAutoModerationRuleParams,
 )
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -42,21 +42,21 @@ RULES = "/guilds/613425648685547541/auto-moderation/rules"
 CASES = [
     EndpointCase(
         name="list",
-        call=lambda client: client.list_auto_moderation_rules_for_guild(613425648685547541),
+        call=lambda client: client.automod.list(613425648685547541),
         method="GET",
         path=RULES,
         response=[RULE],
     ),
     EndpointCase(
         name="get",
-        call=lambda client: client.get_auto_moderation_rule(613425648685547541, 969707018069872670),
+        call=lambda client: client.automod.get(613425648685547541, 969707018069872670),
         method="GET",
         path=f"{RULES}/969707018069872670",
         response=RULE,
     ),
     EndpointCase(
         name="create",
-        call=lambda client: client.create_auto_moderation_rule(
+        call=lambda client: client.automod.create(
             613425648685547541,
             CreateAutoModerationRuleParams(
                 name="No invites",
@@ -89,8 +89,8 @@ CASES = [
     ),
     EndpointCase(
         name="modify",
-        call=lambda client: client.modify_auto_moderation_rule(
-            613425648685547541, 969707018069872670, ModifyAutoModerationRuleParams(enabled=False)
+        call=lambda client: client.automod.edit(
+            613425648685547541, 969707018069872670, EditAutoModerationRuleParams(enabled=False)
         ),
         method="PATCH",
         path=f"{RULES}/969707018069872670",
@@ -99,7 +99,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete",
-        call=lambda client: client.delete_auto_moderation_rule(613425648685547541, 969707018069872670),
+        call=lambda client: client.automod.delete(613425648685547541, 969707018069872670),
         method="DELETE",
         path=f"{RULES}/969707018069872670",
     ),

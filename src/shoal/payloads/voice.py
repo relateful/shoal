@@ -51,7 +51,7 @@ class VoiceRegion(Payload):
     """A custom region, used for events."""
 
 
-class ModifyCurrentUserVoiceStateParams(Payload):
+class EditCurrentVoiceStateParams(Payload):
     """JSON body of Modify Current User Voice State. Only stage channels are supported.
 
     Discord: https://docs.discord.com/developers/resources/voice#modify-current-user-voice-state-json-params
@@ -65,7 +65,7 @@ class ModifyCurrentUserVoiceStateParams(Payload):
     """Any present or future time; needs Request to Speak, except to clear it."""
 
 
-class ModifyUserVoiceStateParams(Payload):
+class EditVoiceStateParams(Payload):
     """JSON body of Modify User Voice State. Only stage channels are supported; needs Mute Members.
 
     Discord: https://docs.discord.com/developers/resources/voice#modify-user-voice-state-json-params

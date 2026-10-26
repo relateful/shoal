@@ -23,7 +23,7 @@ from shoal.core.enums import DiscordIntEnum, DiscordStrEnum
 from shoal.core.flags import BaseFlags
 from shoal.core.metrics import ALL_METRICS
 from shoal.payloads.base import Payload
-from shoal.rest.client import RestClient
+from tests.support.rest import endpoint_methods
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "src" / "shoal"
@@ -205,16 +205,10 @@ def test_classes_with_state_declare_slots(path: Path) -> None:
 
 
 def test_every_rest_endpoint_method_links_to_its_docs() -> None:
-    for name, method in inspect.getmembers(RestClient, inspect.iscoroutinefunction):
-        if name.startswith("_") or name in {
-            "request",
-            "request_empty",
-            "request_bytes",
-            "request_optional",
-            "close",
-        }:
-            continue
-        assert "Discord: https://docs.discord.com/developers/" in (method.__doc__ or ""), f"RestClient.{name}"
+    methods = endpoint_methods()
+    assert methods
+    for name, method in methods:
+        assert "Discord: https://docs.discord.com/developers/" in (method.__doc__ or ""), name
 
 
 def test_dispatch_tables_are_alphabetical() -> None:

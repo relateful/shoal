@@ -3,12 +3,14 @@
 Discord: https://docs.discord.com/developers/resources/guild-scheduled-event
 """
 
+import builtins
+
 from shoal.payloads.scheduled_event import (
-    CreateGuildScheduledEventParams,
-    GetGuildScheduledEventUsersParams,
+    CreateScheduledEventParams,
+    EditScheduledEventParams,
     GuildScheduledEvent,
     GuildScheduledEventUser,
-    ModifyGuildScheduledEventParams,
+    ListScheduledEventUsersParams,
 )
 from shoal.rest.endpoints import (
     CREATE_GUILD_SCHEDULED_EVENT,
@@ -18,20 +20,20 @@ from shoal.rest.endpoints import (
     LIST_SCHEDULED_EVENTS_FOR_GUILD,
     MODIFY_GUILD_SCHEDULED_EVENT,
 )
-from shoal.rest.requester import Requester, query_of
+from shoal.rest.requester import Resource, query_of
 
 
-class ScheduledEventEndpoints(Requester):
-    """Endpoints for guild scheduled events; part of `RestClient`.
+class ScheduledEvents(Resource):
+    """Guild scheduled events and their subscribers.
 
-    The permissions needed depend on where the event happens; Discord lists them per entity type.
+    Use it as `rest.scheduled_events`, where `rest` is a `RestClient`.
     """
 
     __slots__ = ()
 
-    async def list_scheduled_events_for_guild(
+    async def list(
         self, guild_id: int, *, with_user_count: bool = False
-    ) -> list[GuildScheduledEvent]:
+    ) -> builtins.list[GuildScheduledEvent]:
         """List a guild's scheduled events, optionally with subscriber counts.
 
         Discord: https://docs.discord.com/developers/resources/guild-scheduled-event#list-scheduled-events-for-guild
@@ -42,8 +44,8 @@ class ScheduledEventEndpoints(Requester):
             query={"with_user_count": True} if with_user_count else None,
         )
 
-    async def create_guild_scheduled_event(
-        self, guild_id: int, params: CreateGuildScheduledEventParams, *, reason: str | None = None
+    async def create(
+        self, guild_id: int, params: CreateScheduledEventParams, *, reason: str | None = None
     ) -> GuildScheduledEvent:
         """Schedule an event. Needs Create Events, and channel permissions for stage and voice events.
 
@@ -56,7 +58,7 @@ class ScheduledEventEndpoints(Requester):
             reason=reason,
         )
 
-    async def get_guild_scheduled_event(
+    async def get(
         self, guild_id: int, event_id: int, *, with_user_count: bool = False
     ) -> GuildScheduledEvent:
         """Get one scheduled event, optionally with its subscriber count.
@@ -69,11 +71,11 @@ class ScheduledEventEndpoints(Requester):
             query={"with_user_count": True} if with_user_count else None,
         )
 
-    async def modify_guild_scheduled_event(
+    async def edit(
         self,
         guild_id: int,
         event_id: int,
-        params: ModifyGuildScheduledEventParams,
+        params: EditScheduledEventParams,
         *,
         reason: str | None = None,
     ) -> GuildScheduledEvent:
@@ -88,7 +90,7 @@ class ScheduledEventEndpoints(Requester):
             reason=reason,
         )
 
-    async def delete_guild_scheduled_event(self, guild_id: int, event_id: int) -> None:
+    async def delete(self, guild_id: int, event_id: int) -> None:
         """Delete a scheduled event.
 
         Discord: https://docs.discord.com/developers/resources/guild-scheduled-event#delete-guild-scheduled-event
@@ -97,9 +99,9 @@ class ScheduledEventEndpoints(Requester):
             DELETE_GUILD_SCHEDULED_EVENT.compile(guild_id=guild_id, guild_scheduled_event_id=event_id)
         )
 
-    async def get_guild_scheduled_event_users(
-        self, guild_id: int, event_id: int, params: GetGuildScheduledEventUsersParams | None = None
-    ) -> list[GuildScheduledEventUser]:
+    async def list_users(
+        self, guild_id: int, event_id: int, params: ListScheduledEventUsersParams | None = None
+    ) -> builtins.list[GuildScheduledEventUser]:
         """List the users subscribed to a scheduled event, up to 100 at a time.
 
         Discord: https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event-users

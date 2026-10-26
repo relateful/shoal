@@ -3,7 +3,9 @@
 Discord: https://docs.discord.com/developers/resources/guild-template
 """
 
-from shoal.payloads.guild_template import CreateGuildTemplateParams, GuildTemplate, ModifyGuildTemplateParams
+import builtins
+
+from shoal.payloads.guild_template import CreateTemplateParams, EditTemplateParams, GuildTemplate
 from shoal.rest.endpoints import (
     CREATE_GUILD_TEMPLATE,
     DELETE_GUILD_TEMPLATE,
@@ -12,32 +14,32 @@ from shoal.rest.endpoints import (
     MODIFY_GUILD_TEMPLATE,
     SYNC_GUILD_TEMPLATE,
 )
-from shoal.rest.requester import Requester
+from shoal.rest.requester import Resource
 
 
-class GuildTemplateEndpoints(Requester):
-    """Endpoints for guild templates; part of `RestClient`.
+class Templates(Resource):
+    """Guild templates.
 
-    All but `get_guild_template` need Manage Guild.
+    Use it as `rest.templates`, where `rest` is a `RestClient`.
     """
 
     __slots__ = ()
 
-    async def get_guild_template(self, template_code: str) -> GuildTemplate:
+    async def get(self, template_code: str) -> GuildTemplate:
         """Get a template by its code.
 
         Discord: https://docs.discord.com/developers/resources/guild-template#get-guild-template
         """
         return await self.request(GET_GUILD_TEMPLATE.compile(template_code=template_code), GuildTemplate)
 
-    async def get_guild_templates(self, guild_id: int) -> list[GuildTemplate]:
+    async def list(self, guild_id: int) -> builtins.list[GuildTemplate]:
         """List a guild's templates.
 
         Discord: https://docs.discord.com/developers/resources/guild-template#get-guild-templates
         """
         return await self.request(GET_GUILD_TEMPLATES.compile(guild_id=guild_id), list[GuildTemplate])
 
-    async def create_guild_template(self, guild_id: int, params: CreateGuildTemplateParams) -> GuildTemplate:
+    async def create(self, guild_id: int, params: CreateTemplateParams) -> GuildTemplate:
         """Create a template from the guild.
 
         Discord: https://docs.discord.com/developers/resources/guild-template#create-guild-template
@@ -46,7 +48,7 @@ class GuildTemplateEndpoints(Requester):
             CREATE_GUILD_TEMPLATE.compile(guild_id=guild_id), GuildTemplate, body=params
         )
 
-    async def sync_guild_template(self, guild_id: int, template_code: str) -> GuildTemplate:
+    async def sync(self, guild_id: int, template_code: str) -> GuildTemplate:
         """Update a template to the guild as it is now.
 
         Discord: https://docs.discord.com/developers/resources/guild-template#sync-guild-template
@@ -55,9 +57,7 @@ class GuildTemplateEndpoints(Requester):
             SYNC_GUILD_TEMPLATE.compile(guild_id=guild_id, template_code=template_code), GuildTemplate
         )
 
-    async def modify_guild_template(
-        self, guild_id: int, template_code: str, params: ModifyGuildTemplateParams
-    ) -> GuildTemplate:
+    async def edit(self, guild_id: int, template_code: str, params: EditTemplateParams) -> GuildTemplate:
         """Rename a template or change its description.
 
         Discord: https://docs.discord.com/developers/resources/guild-template#modify-guild-template
@@ -68,7 +68,7 @@ class GuildTemplateEndpoints(Requester):
             body=params,
         )
 
-    async def delete_guild_template(self, guild_id: int, template_code: str) -> GuildTemplate:
+    async def delete(self, guild_id: int, template_code: str) -> GuildTemplate:
         """Delete a template; returns it.
 
         Discord: https://docs.discord.com/developers/resources/guild-template#delete-guild-template

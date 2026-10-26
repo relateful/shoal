@@ -7,383 +7,383 @@ Shoal implements **239 of 239** documented HTTP endpoints. The 4 endpoints Disco
 
 ## [events/gateway](https://docs.discord.com/developers/events/gateway)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Get Gateway](https://docs.discord.com/developers/events/gateway#get-gateway) | `GET /gateway` |
-| yes | [Get Gateway Bot](https://docs.discord.com/developers/events/gateway#get-gateway-bot) | `GET /gateway/bot` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Get Gateway](https://docs.discord.com/developers/events/gateway#get-gateway) | `rest.gateway.get` | `GET /gateway` |
+| yes | [Get Gateway Bot](https://docs.discord.com/developers/events/gateway#get-gateway-bot) | `rest.gateway.get_bot` | `GET /gateway/bot` |
 
 ## [interactions/application-commands](https://docs.discord.com/developers/interactions/application-commands)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| disabled | [Batch Edit Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#batch-edit-application-command-permissions) | `PUT /applications/{application_id}/guilds/{guild_id}/commands/permissions` |
-| yes | [Bulk Overwrite Global Application Commands](https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-global-application-commands) | `PUT /applications/{application_id}/commands` |
-| yes | [Bulk Overwrite Guild Application Commands](https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands) | `PUT /applications/{application_id}/guilds/{guild_id}/commands` |
-| yes | [Create Global Application Command](https://docs.discord.com/developers/interactions/application-commands#create-global-application-command) | `POST /applications/{application_id}/commands` |
-| yes | [Create Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#create-guild-application-command) | `POST /applications/{application_id}/guilds/{guild_id}/commands` |
-| yes | [Delete Global Application Command](https://docs.discord.com/developers/interactions/application-commands#delete-global-application-command) | `DELETE /applications/{application_id}/commands/{command_id}` |
-| yes | [Delete Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#delete-guild-application-command) | `DELETE /applications/{application_id}/guilds/{guild_id}/commands/{command_id}` |
-| yes | [Edit Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#edit-application-command-permissions) | `PUT /applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions` |
-| yes | [Edit Global Application Command](https://docs.discord.com/developers/interactions/application-commands#edit-global-application-command) | `PATCH /applications/{application_id}/commands/{command_id}` |
-| yes | [Edit Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#edit-guild-application-command) | `PATCH /applications/{application_id}/guilds/{guild_id}/commands/{command_id}` |
-| yes | [Get Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#get-application-command-permissions) | `GET /applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions` |
-| yes | [Get Global Application Command](https://docs.discord.com/developers/interactions/application-commands#get-global-application-command) | `GET /applications/{application_id}/commands/{command_id}` |
-| yes | [Get Global Application Commands](https://docs.discord.com/developers/interactions/application-commands#get-global-application-commands) | `GET /applications/{application_id}/commands` |
-| yes | [Get Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command) | `GET /applications/{application_id}/guilds/{guild_id}/commands/{command_id}` |
-| yes | [Get Guild Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command-permissions) | `GET /applications/{application_id}/guilds/{guild_id}/commands/permissions` |
-| yes | [Get Guild Application Commands](https://docs.discord.com/developers/interactions/application-commands#get-guild-application-commands) | `GET /applications/{application_id}/guilds/{guild_id}/commands` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| disabled | [Batch Edit Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#batch-edit-application-command-permissions) |  | `PUT /applications/{application_id}/guilds/{guild_id}/commands/permissions` |
+| yes | [Bulk Overwrite Global Application Commands](https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-global-application-commands) | `rest.commands.overwrite_global` | `PUT /applications/{application_id}/commands` |
+| yes | [Bulk Overwrite Guild Application Commands](https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands) | `rest.commands.overwrite_guild` | `PUT /applications/{application_id}/guilds/{guild_id}/commands` |
+| yes | [Create Global Application Command](https://docs.discord.com/developers/interactions/application-commands#create-global-application-command) | `rest.commands.create_global` | `POST /applications/{application_id}/commands` |
+| yes | [Create Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#create-guild-application-command) | `rest.commands.create_guild` | `POST /applications/{application_id}/guilds/{guild_id}/commands` |
+| yes | [Delete Global Application Command](https://docs.discord.com/developers/interactions/application-commands#delete-global-application-command) | `rest.commands.delete_global` | `DELETE /applications/{application_id}/commands/{command_id}` |
+| yes | [Delete Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#delete-guild-application-command) | `rest.commands.delete_guild` | `DELETE /applications/{application_id}/guilds/{guild_id}/commands/{command_id}` |
+| yes | [Edit Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#edit-application-command-permissions) | `rest.commands.edit_permissions` | `PUT /applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions` |
+| yes | [Edit Global Application Command](https://docs.discord.com/developers/interactions/application-commands#edit-global-application-command) | `rest.commands.edit_global` | `PATCH /applications/{application_id}/commands/{command_id}` |
+| yes | [Edit Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#edit-guild-application-command) | `rest.commands.edit_guild` | `PATCH /applications/{application_id}/guilds/{guild_id}/commands/{command_id}` |
+| yes | [Get Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#get-application-command-permissions) | `rest.commands.get_permissions` | `GET /applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions` |
+| yes | [Get Global Application Command](https://docs.discord.com/developers/interactions/application-commands#get-global-application-command) | `rest.commands.get_global` | `GET /applications/{application_id}/commands/{command_id}` |
+| yes | [Get Global Application Commands](https://docs.discord.com/developers/interactions/application-commands#get-global-application-commands) | `rest.commands.list_global` | `GET /applications/{application_id}/commands` |
+| yes | [Get Guild Application Command](https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command) | `rest.commands.get_guild` | `GET /applications/{application_id}/guilds/{guild_id}/commands/{command_id}` |
+| yes | [Get Guild Application Command Permissions](https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command-permissions) | `rest.commands.list_permissions` | `GET /applications/{application_id}/guilds/{guild_id}/commands/permissions` |
+| yes | [Get Guild Application Commands](https://docs.discord.com/developers/interactions/application-commands#get-guild-application-commands) | `rest.commands.list_guild` | `GET /applications/{application_id}/guilds/{guild_id}/commands` |
 
 ## [interactions/receiving-and-responding](https://docs.discord.com/developers/interactions/receiving-and-responding)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#create-followup-message) | `POST /webhooks/{application_id}/{interaction_token}` |
-| yes | [Create Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#create-interaction-response) | `POST /interactions/{interaction_id}/{interaction_token}/callback` |
-| yes | [Delete Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#delete-followup-message) | `DELETE /webhooks/{application_id}/{interaction_token}/messages/{message_id}` |
-| yes | [Delete Original Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#delete-original-interaction-response) | `DELETE /webhooks/{application_id}/{interaction_token}/messages/@original` |
-| yes | [Edit Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#edit-followup-message) | `PATCH /webhooks/{application_id}/{interaction_token}/messages/{message_id}` |
-| yes | [Edit Original Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response) | `PATCH /webhooks/{application_id}/{interaction_token}/messages/@original` |
-| yes | [Get Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#get-followup-message) | `GET /webhooks/{application_id}/{interaction_token}/messages/{message_id}` |
-| yes | [Get Original Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#get-original-interaction-response) | `GET /webhooks/{application_id}/{interaction_token}/messages/@original` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#create-followup-message) | `rest.interactions.send_followup` | `POST /webhooks/{application_id}/{interaction_token}` |
+| yes | [Create Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#create-interaction-response) | `rest.interactions.respond` | `POST /interactions/{interaction_id}/{interaction_token}/callback` |
+| yes | [Delete Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#delete-followup-message) | `rest.interactions.delete_followup` | `DELETE /webhooks/{application_id}/{interaction_token}/messages/{message_id}` |
+| yes | [Delete Original Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#delete-original-interaction-response) | `rest.interactions.delete_original` | `DELETE /webhooks/{application_id}/{interaction_token}/messages/@original` |
+| yes | [Edit Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#edit-followup-message) | `rest.interactions.edit_followup` | `PATCH /webhooks/{application_id}/{interaction_token}/messages/{message_id}` |
+| yes | [Edit Original Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response) | `rest.interactions.edit_original` | `PATCH /webhooks/{application_id}/{interaction_token}/messages/@original` |
+| yes | [Get Followup Message](https://docs.discord.com/developers/interactions/receiving-and-responding#get-followup-message) | `rest.interactions.get_followup` | `GET /webhooks/{application_id}/{interaction_token}/messages/{message_id}` |
+| yes | [Get Original Interaction Response](https://docs.discord.com/developers/interactions/receiving-and-responding#get-original-interaction-response) | `rest.interactions.get_original` | `GET /webhooks/{application_id}/{interaction_token}/messages/@original` |
 
 ## [resources/application](https://docs.discord.com/developers/resources/application)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Edit Current Application](https://docs.discord.com/developers/resources/application#edit-current-application) | `PATCH /applications/@me` |
-| yes | [Get Application Activity Instance](https://docs.discord.com/developers/resources/application#get-application-activity-instance) | `GET /applications/{application_id}/activity-instances/{instance_id}` |
-| yes | [Get Current Application](https://docs.discord.com/developers/resources/application#get-current-application) | `GET /applications/@me` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Edit Current Application](https://docs.discord.com/developers/resources/application#edit-current-application) | `rest.applications.edit_me` | `PATCH /applications/@me` |
+| yes | [Get Application Activity Instance](https://docs.discord.com/developers/resources/application#get-application-activity-instance) | `rest.applications.get_activity_instance` | `GET /applications/{application_id}/activity-instances/{instance_id}` |
+| yes | [Get Current Application](https://docs.discord.com/developers/resources/application#get-current-application) | `rest.applications.get_me` | `GET /applications/@me` |
 
 ## [resources/application-identity-profile](https://docs.discord.com/developers/resources/application-identity-profile)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Delete Application Identity](https://docs.discord.com/developers/resources/application-identity-profile#delete-application-identity) | `POST /users/{user_id}/application-identities/{application_id}/{provider_type}/{provider_issued_user_id}/delete` |
-| yes | [Get Application Identities by External ID](https://docs.discord.com/developers/resources/application-identity-profile#get-application-identities-by-external-id) | `GET /applications/{application_id}/application-identities/{provider_type}/{provider_issued_user_id}` |
-| yes | [Get Application Identities by User ID](https://docs.discord.com/developers/resources/application-identity-profile#get-application-identities-by-user-id) | `GET /users/{user_id}/application-identities/{application_id}` |
-| yes | [Get Application Identity Profile](https://docs.discord.com/developers/resources/application-identity-profile#get-application-identity-profile) | `GET /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
-| yes | [Update Application Identity Profile](https://docs.discord.com/developers/resources/application-identity-profile#update-application-identity-profile) | `PATCH /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Delete Application Identity](https://docs.discord.com/developers/resources/application-identity-profile#delete-application-identity) | `rest.identities.delete` | `POST /users/{user_id}/application-identities/{application_id}/{provider_type}/{provider_issued_user_id}/delete` |
+| yes | [Get Application Identities by External ID](https://docs.discord.com/developers/resources/application-identity-profile#get-application-identities-by-external-id) | `rest.identities.list_by_external_id` | `GET /applications/{application_id}/application-identities/{provider_type}/{provider_issued_user_id}` |
+| yes | [Get Application Identities by User ID](https://docs.discord.com/developers/resources/application-identity-profile#get-application-identities-by-user-id) | `rest.identities.list_by_user` | `GET /users/{user_id}/application-identities/{application_id}` |
+| yes | [Get Application Identity Profile](https://docs.discord.com/developers/resources/application-identity-profile#get-application-identity-profile) | `rest.identities.get_profile` | `GET /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
+| yes | [Update Application Identity Profile](https://docs.discord.com/developers/resources/application-identity-profile#update-application-identity-profile) | `rest.identities.edit_profile` | `PATCH /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
 
 ## [resources/application-role-connection-metadata](https://docs.discord.com/developers/resources/application-role-connection-metadata)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Get Application Role Connection Metadata Records](https://docs.discord.com/developers/resources/application-role-connection-metadata#get-application-role-connection-metadata-records) | `GET /applications/{application_id}/role-connections/metadata` |
-| yes | [Update Application Role Connection Metadata Records](https://docs.discord.com/developers/resources/application-role-connection-metadata#update-application-role-connection-metadata-records) | `PUT /applications/{application_id}/role-connections/metadata` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Get Application Role Connection Metadata Records](https://docs.discord.com/developers/resources/application-role-connection-metadata#get-application-role-connection-metadata-records) | `rest.role_connections.list_metadata` | `GET /applications/{application_id}/role-connections/metadata` |
+| yes | [Update Application Role Connection Metadata Records](https://docs.discord.com/developers/resources/application-role-connection-metadata#update-application-role-connection-metadata-records) | `rest.role_connections.overwrite_metadata` | `PUT /applications/{application_id}/role-connections/metadata` |
 
 ## [resources/audit-log](https://docs.discord.com/developers/resources/audit-log)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Get Guild Audit Log](https://docs.discord.com/developers/resources/audit-log#get-guild-audit-log) | `GET /guilds/{guild_id}/audit-logs` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Get Guild Audit Log](https://docs.discord.com/developers/resources/audit-log#get-guild-audit-log) | `rest.audit_logs.get` | `GET /guilds/{guild_id}/audit-logs` |
 
 ## [resources/auto-moderation](https://docs.discord.com/developers/resources/auto-moderation)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#create-auto-moderation-rule) | `POST /guilds/{guild_id}/auto-moderation/rules` |
-| yes | [Delete Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#delete-auto-moderation-rule) | `DELETE /guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}` |
-| yes | [Get Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#get-auto-moderation-rule) | `GET /guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}` |
-| yes | [List Auto Moderation Rules for Guild](https://docs.discord.com/developers/resources/auto-moderation#list-auto-moderation-rules-for-guild) | `GET /guilds/{guild_id}/auto-moderation/rules` |
-| yes | [Modify Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#modify-auto-moderation-rule) | `PATCH /guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#create-auto-moderation-rule) | `rest.automod.create` | `POST /guilds/{guild_id}/auto-moderation/rules` |
+| yes | [Delete Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#delete-auto-moderation-rule) | `rest.automod.delete` | `DELETE /guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}` |
+| yes | [Get Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#get-auto-moderation-rule) | `rest.automod.get` | `GET /guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}` |
+| yes | [List Auto Moderation Rules for Guild](https://docs.discord.com/developers/resources/auto-moderation#list-auto-moderation-rules-for-guild) | `rest.automod.list` | `GET /guilds/{guild_id}/auto-moderation/rules` |
+| yes | [Modify Auto Moderation Rule](https://docs.discord.com/developers/resources/auto-moderation#modify-auto-moderation-rule) | `rest.automod.edit` | `PATCH /guilds/{guild_id}/auto-moderation/rules/{auto_moderation_rule_id}` |
 
 ## [resources/channel](https://docs.discord.com/developers/resources/channel)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Add Thread Member](https://docs.discord.com/developers/resources/channel#add-thread-member) | `PUT /channels/{channel_id}/thread-members/{user_id}` |
-| yes | [Create Channel Invite](https://docs.discord.com/developers/resources/channel#create-channel-invite) | `POST /channels/{channel_id}/invites` |
-| yes | [Delete Channel Permission](https://docs.discord.com/developers/resources/channel#delete-channel-permission) | `DELETE /channels/{channel_id}/permissions/{overwrite_id}` |
-| yes | [Delete/Close Channel](https://docs.discord.com/developers/resources/channel#delete/close-channel) | `DELETE /channels/{channel_id}` |
-| yes | [Edit Channel Permissions](https://docs.discord.com/developers/resources/channel#edit-channel-permissions) | `PUT /channels/{channel_id}/permissions/{overwrite_id}` |
-| yes | [Follow Announcement Channel](https://docs.discord.com/developers/resources/channel#follow-announcement-channel) | `POST /channels/{channel_id}/followers` |
-| yes | [Get Channel](https://docs.discord.com/developers/resources/channel#get-channel) | `GET /channels/{channel_id}` |
-| yes | [Get Channel Invites](https://docs.discord.com/developers/resources/channel#get-channel-invites) | `GET /channels/{channel_id}/invites` |
-| yes | [Get Thread Member](https://docs.discord.com/developers/resources/channel#get-thread-member) | `GET /channels/{channel_id}/thread-members/{user_id}` |
-| yes | [Group DM Add Recipient](https://docs.discord.com/developers/resources/channel#group-dm-add-recipient) | `PUT /channels/{channel_id}/recipients/{user_id}` |
-| yes | [Group DM Remove Recipient](https://docs.discord.com/developers/resources/channel#group-dm-remove-recipient) | `DELETE /channels/{channel_id}/recipients/{user_id}` |
-| yes | [Join Thread](https://docs.discord.com/developers/resources/channel#join-thread) | `PUT /channels/{channel_id}/thread-members/@me` |
-| yes | [Leave Thread](https://docs.discord.com/developers/resources/channel#leave-thread) | `DELETE /channels/{channel_id}/thread-members/@me` |
-| yes | [List Joined Private Archived Threads](https://docs.discord.com/developers/resources/channel#list-joined-private-archived-threads) | `GET /channels/{channel_id}/users/@me/threads/archived/private` |
-| yes | [List Private Archived Threads](https://docs.discord.com/developers/resources/channel#list-private-archived-threads) | `GET /channels/{channel_id}/threads/archived/private` |
-| yes | [List Public Archived Threads](https://docs.discord.com/developers/resources/channel#list-public-archived-threads) | `GET /channels/{channel_id}/threads/archived/public` |
-| yes | [List Thread Members](https://docs.discord.com/developers/resources/channel#list-thread-members) | `GET /channels/{channel_id}/thread-members` |
-| yes | [Modify Channel](https://docs.discord.com/developers/resources/channel#modify-channel) | `PATCH /channels/{channel_id}` |
-| yes | [Remove Thread Member](https://docs.discord.com/developers/resources/channel#remove-thread-member) | `DELETE /channels/{channel_id}/thread-members/{user_id}` |
-| yes | [Set Voice Channel Status](https://docs.discord.com/developers/resources/channel#set-voice-channel-status) | `PUT /channels/{channel_id}/voice-status` |
-| yes | [Start Thread from Message](https://docs.discord.com/developers/resources/channel#start-thread-from-message) | `POST /channels/{channel_id}/messages/{message_id}/threads` |
-| yes | [Start Thread in Forum or Media Channel](https://docs.discord.com/developers/resources/channel#start-thread-in-forum-or-media-channel) | `POST /channels/{channel_id}/threads` |
-| yes | [Start Thread without Message](https://docs.discord.com/developers/resources/channel#start-thread-without-message) | `POST /channels/{channel_id}/threads` |
-| yes | [Trigger Typing Indicator](https://docs.discord.com/developers/resources/channel#trigger-typing-indicator) | `POST /channels/{channel_id}/typing` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Add Thread Member](https://docs.discord.com/developers/resources/channel#add-thread-member) | `rest.threads.add_member` | `PUT /channels/{channel_id}/thread-members/{user_id}` |
+| yes | [Create Channel Invite](https://docs.discord.com/developers/resources/channel#create-channel-invite) | `rest.invites.create` | `POST /channels/{channel_id}/invites` |
+| yes | [Delete Channel Permission](https://docs.discord.com/developers/resources/channel#delete-channel-permission) | `rest.channels.delete_permissions` | `DELETE /channels/{channel_id}/permissions/{overwrite_id}` |
+| yes | [Delete/Close Channel](https://docs.discord.com/developers/resources/channel#delete/close-channel) | `rest.channels.delete` | `DELETE /channels/{channel_id}` |
+| yes | [Edit Channel Permissions](https://docs.discord.com/developers/resources/channel#edit-channel-permissions) | `rest.channels.edit_permissions` | `PUT /channels/{channel_id}/permissions/{overwrite_id}` |
+| yes | [Follow Announcement Channel](https://docs.discord.com/developers/resources/channel#follow-announcement-channel) | `rest.channels.follow` | `POST /channels/{channel_id}/followers` |
+| yes | [Get Channel](https://docs.discord.com/developers/resources/channel#get-channel) | `rest.channels.get` | `GET /channels/{channel_id}` |
+| yes | [Get Channel Invites](https://docs.discord.com/developers/resources/channel#get-channel-invites) | `rest.invites.list_for_channel` | `GET /channels/{channel_id}/invites` |
+| yes | [Get Thread Member](https://docs.discord.com/developers/resources/channel#get-thread-member) | `rest.threads.get_member` | `GET /channels/{channel_id}/thread-members/{user_id}` |
+| yes | [Group DM Add Recipient](https://docs.discord.com/developers/resources/channel#group-dm-add-recipient) | `rest.channels.add_recipient` | `PUT /channels/{channel_id}/recipients/{user_id}` |
+| yes | [Group DM Remove Recipient](https://docs.discord.com/developers/resources/channel#group-dm-remove-recipient) | `rest.channels.remove_recipient` | `DELETE /channels/{channel_id}/recipients/{user_id}` |
+| yes | [Join Thread](https://docs.discord.com/developers/resources/channel#join-thread) | `rest.threads.join` | `PUT /channels/{channel_id}/thread-members/@me` |
+| yes | [Leave Thread](https://docs.discord.com/developers/resources/channel#leave-thread) | `rest.threads.leave` | `DELETE /channels/{channel_id}/thread-members/@me` |
+| yes | [List Joined Private Archived Threads](https://docs.discord.com/developers/resources/channel#list-joined-private-archived-threads) | `rest.threads.list_joined_private_archived` | `GET /channels/{channel_id}/users/@me/threads/archived/private` |
+| yes | [List Private Archived Threads](https://docs.discord.com/developers/resources/channel#list-private-archived-threads) | `rest.threads.list_private_archived` | `GET /channels/{channel_id}/threads/archived/private` |
+| yes | [List Public Archived Threads](https://docs.discord.com/developers/resources/channel#list-public-archived-threads) | `rest.threads.list_public_archived` | `GET /channels/{channel_id}/threads/archived/public` |
+| yes | [List Thread Members](https://docs.discord.com/developers/resources/channel#list-thread-members) | `rest.threads.list_members` | `GET /channels/{channel_id}/thread-members` |
+| yes | [Modify Channel](https://docs.discord.com/developers/resources/channel#modify-channel) | `rest.channels.edit` | `PATCH /channels/{channel_id}` |
+| yes | [Remove Thread Member](https://docs.discord.com/developers/resources/channel#remove-thread-member) | `rest.threads.remove_member` | `DELETE /channels/{channel_id}/thread-members/{user_id}` |
+| yes | [Set Voice Channel Status](https://docs.discord.com/developers/resources/channel#set-voice-channel-status) | `rest.channels.set_voice_status` | `PUT /channels/{channel_id}/voice-status` |
+| yes | [Start Thread from Message](https://docs.discord.com/developers/resources/channel#start-thread-from-message) | `rest.threads.create_from_message` | `POST /channels/{channel_id}/messages/{message_id}/threads` |
+| yes | [Start Thread in Forum or Media Channel](https://docs.discord.com/developers/resources/channel#start-thread-in-forum-or-media-channel) | `rest.threads.create`, `rest.threads.create_post` | `POST /channels/{channel_id}/threads` |
+| yes | [Start Thread without Message](https://docs.discord.com/developers/resources/channel#start-thread-without-message) | `rest.threads.create`, `rest.threads.create_post` | `POST /channels/{channel_id}/threads` |
+| yes | [Trigger Typing Indicator](https://docs.discord.com/developers/resources/channel#trigger-typing-indicator) | `rest.channels.typing` | `POST /channels/{channel_id}/typing` |
 
 ## [resources/emoji](https://docs.discord.com/developers/resources/emoji)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Application Emoji](https://docs.discord.com/developers/resources/emoji#create-application-emoji) | `POST /applications/{application_id}/emojis` |
-| yes | [Create Guild Emoji](https://docs.discord.com/developers/resources/emoji#create-guild-emoji) | `POST /guilds/{guild_id}/emojis` |
-| yes | [Delete Application Emoji](https://docs.discord.com/developers/resources/emoji#delete-application-emoji) | `DELETE /applications/{application_id}/emojis/{emoji_id}` |
-| yes | [Delete Guild Emoji](https://docs.discord.com/developers/resources/emoji#delete-guild-emoji) | `DELETE /guilds/{guild_id}/emojis/{emoji_id}` |
-| yes | [Get Application Emoji](https://docs.discord.com/developers/resources/emoji#get-application-emoji) | `GET /applications/{application_id}/emojis/{emoji_id}` |
-| yes | [Get Guild Emoji](https://docs.discord.com/developers/resources/emoji#get-guild-emoji) | `GET /guilds/{guild_id}/emojis/{emoji_id}` |
-| yes | [List Application Emojis](https://docs.discord.com/developers/resources/emoji#list-application-emojis) | `GET /applications/{application_id}/emojis` |
-| yes | [List Guild Emojis](https://docs.discord.com/developers/resources/emoji#list-guild-emojis) | `GET /guilds/{guild_id}/emojis` |
-| yes | [Modify Application Emoji](https://docs.discord.com/developers/resources/emoji#modify-application-emoji) | `PATCH /applications/{application_id}/emojis/{emoji_id}` |
-| yes | [Modify Guild Emoji](https://docs.discord.com/developers/resources/emoji#modify-guild-emoji) | `PATCH /guilds/{guild_id}/emojis/{emoji_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Application Emoji](https://docs.discord.com/developers/resources/emoji#create-application-emoji) | `rest.emojis.create_for_application` | `POST /applications/{application_id}/emojis` |
+| yes | [Create Guild Emoji](https://docs.discord.com/developers/resources/emoji#create-guild-emoji) | `rest.emojis.create` | `POST /guilds/{guild_id}/emojis` |
+| yes | [Delete Application Emoji](https://docs.discord.com/developers/resources/emoji#delete-application-emoji) | `rest.emojis.delete_for_application` | `DELETE /applications/{application_id}/emojis/{emoji_id}` |
+| yes | [Delete Guild Emoji](https://docs.discord.com/developers/resources/emoji#delete-guild-emoji) | `rest.emojis.delete` | `DELETE /guilds/{guild_id}/emojis/{emoji_id}` |
+| yes | [Get Application Emoji](https://docs.discord.com/developers/resources/emoji#get-application-emoji) | `rest.emojis.get_for_application` | `GET /applications/{application_id}/emojis/{emoji_id}` |
+| yes | [Get Guild Emoji](https://docs.discord.com/developers/resources/emoji#get-guild-emoji) | `rest.emojis.get` | `GET /guilds/{guild_id}/emojis/{emoji_id}` |
+| yes | [List Application Emojis](https://docs.discord.com/developers/resources/emoji#list-application-emojis) | `rest.emojis.list_for_application` | `GET /applications/{application_id}/emojis` |
+| yes | [List Guild Emojis](https://docs.discord.com/developers/resources/emoji#list-guild-emojis) | `rest.emojis.list` | `GET /guilds/{guild_id}/emojis` |
+| yes | [Modify Application Emoji](https://docs.discord.com/developers/resources/emoji#modify-application-emoji) | `rest.emojis.edit_for_application` | `PATCH /applications/{application_id}/emojis/{emoji_id}` |
+| yes | [Modify Guild Emoji](https://docs.discord.com/developers/resources/emoji#modify-guild-emoji) | `rest.emojis.edit` | `PATCH /guilds/{guild_id}/emojis/{emoji_id}` |
 
 ## [resources/entitlement](https://docs.discord.com/developers/resources/entitlement)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Consume an Entitlement](https://docs.discord.com/developers/resources/entitlement#consume-an-entitlement) | `POST /applications/{application_id}/entitlements/{entitlement_id}/consume` |
-| yes | [Create Test Entitlement](https://docs.discord.com/developers/resources/entitlement#create-test-entitlement) | `POST /applications/{application_id}/entitlements` |
-| yes | [Delete Test Entitlement](https://docs.discord.com/developers/resources/entitlement#delete-test-entitlement) | `DELETE /applications/{application_id}/entitlements/{entitlement_id}` |
-| yes | [Get Entitlement](https://docs.discord.com/developers/resources/entitlement#get-entitlement) | `GET /applications/{application_id}/entitlements/{entitlement_id}` |
-| yes | [List Entitlements](https://docs.discord.com/developers/resources/entitlement#list-entitlements) | `GET /applications/{application_id}/entitlements` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Consume an Entitlement](https://docs.discord.com/developers/resources/entitlement#consume-an-entitlement) | `rest.entitlements.consume` | `POST /applications/{application_id}/entitlements/{entitlement_id}/consume` |
+| yes | [Create Test Entitlement](https://docs.discord.com/developers/resources/entitlement#create-test-entitlement) | `rest.entitlements.create_test` | `POST /applications/{application_id}/entitlements` |
+| yes | [Delete Test Entitlement](https://docs.discord.com/developers/resources/entitlement#delete-test-entitlement) | `rest.entitlements.delete_test` | `DELETE /applications/{application_id}/entitlements/{entitlement_id}` |
+| yes | [Get Entitlement](https://docs.discord.com/developers/resources/entitlement#get-entitlement) | `rest.entitlements.get` | `GET /applications/{application_id}/entitlements/{entitlement_id}` |
+| yes | [List Entitlements](https://docs.discord.com/developers/resources/entitlement#list-entitlements) | `rest.entitlements.list` | `GET /applications/{application_id}/entitlements` |
 
 ## [resources/guild](https://docs.discord.com/developers/resources/guild)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Add Guild Member](https://docs.discord.com/developers/resources/guild#add-guild-member) | `PUT /guilds/{guild_id}/members/{user_id}` |
-| yes | [Add Guild Member Role](https://docs.discord.com/developers/resources/guild#add-guild-member-role) | `PUT /guilds/{guild_id}/members/{user_id}/roles/{role_id}` |
-| yes | [Begin Guild Prune](https://docs.discord.com/developers/resources/guild#begin-guild-prune) | `POST /guilds/{guild_id}/prune` |
-| yes | [Bulk Guild Ban](https://docs.discord.com/developers/resources/guild#bulk-guild-ban) | `POST /guilds/{guild_id}/bulk-ban` |
-| yes | [Create Guild Ban](https://docs.discord.com/developers/resources/guild#create-guild-ban) | `PUT /guilds/{guild_id}/bans/{user_id}` |
-| yes | [Create Guild Channel](https://docs.discord.com/developers/resources/guild#create-guild-channel) | `POST /guilds/{guild_id}/channels` |
-| yes | [Create Guild Role](https://docs.discord.com/developers/resources/guild#create-guild-role) | `POST /guilds/{guild_id}/roles` |
-| yes | [Delete Guild Integration](https://docs.discord.com/developers/resources/guild#delete-guild-integration) | `DELETE /guilds/{guild_id}/integrations/{integration_id}` |
-| yes | [Delete Guild Role](https://docs.discord.com/developers/resources/guild#delete-guild-role) | `DELETE /guilds/{guild_id}/roles/{role_id}` |
-| yes | [Get Guild](https://docs.discord.com/developers/resources/guild#get-guild) | `GET /guilds/{guild_id}` |
-| yes | [Get Guild Ban](https://docs.discord.com/developers/resources/guild#get-guild-ban) | `GET /guilds/{guild_id}/bans/{user_id}` |
-| yes | [Get Guild Bans](https://docs.discord.com/developers/resources/guild#get-guild-bans) | `GET /guilds/{guild_id}/bans` |
-| yes | [Get Guild Channels](https://docs.discord.com/developers/resources/guild#get-guild-channels) | `GET /guilds/{guild_id}/channels` |
-| yes | [Get Guild Integrations](https://docs.discord.com/developers/resources/guild#get-guild-integrations) | `GET /guilds/{guild_id}/integrations` |
-| yes | [Get Guild Invites](https://docs.discord.com/developers/resources/guild#get-guild-invites) | `GET /guilds/{guild_id}/invites` |
-| yes | [Get Guild Member](https://docs.discord.com/developers/resources/guild#get-guild-member) | `GET /guilds/{guild_id}/members/{user_id}` |
-| yes | [Get Guild Onboarding](https://docs.discord.com/developers/resources/guild#get-guild-onboarding) | `GET /guilds/{guild_id}/onboarding` |
-| yes | [Get Guild Preview](https://docs.discord.com/developers/resources/guild#get-guild-preview) | `GET /guilds/{guild_id}/preview` |
-| yes | [Get Guild Prune Count](https://docs.discord.com/developers/resources/guild#get-guild-prune-count) | `GET /guilds/{guild_id}/prune` |
-| yes | [Get Guild Role](https://docs.discord.com/developers/resources/guild#get-guild-role) | `GET /guilds/{guild_id}/roles/{role_id}` |
-| yes | [Get Guild Role Member Counts](https://docs.discord.com/developers/resources/guild#get-guild-role-member-counts) | `GET /guilds/{guild_id}/roles/member-counts` |
-| yes | [Get Guild Roles](https://docs.discord.com/developers/resources/guild#get-guild-roles) | `GET /guilds/{guild_id}/roles` |
-| yes | [Get Guild Vanity URL](https://docs.discord.com/developers/resources/guild#get-guild-vanity-url) | `GET /guilds/{guild_id}/vanity-url` |
-| yes | [Get Guild Voice Regions](https://docs.discord.com/developers/resources/guild#get-guild-voice-regions) | `GET /guilds/{guild_id}/regions` |
-| yes | [Get Guild Welcome Screen](https://docs.discord.com/developers/resources/guild#get-guild-welcome-screen) | `GET /guilds/{guild_id}/welcome-screen` |
-| yes | [Get Guild Widget](https://docs.discord.com/developers/resources/guild#get-guild-widget) | `GET /guilds/{guild_id}/widget.json` |
-| yes | [Get Guild Widget Image](https://docs.discord.com/developers/resources/guild#get-guild-widget-image) | `GET /guilds/{guild_id}/widget.png` |
-| yes | [Get Guild Widget Settings](https://docs.discord.com/developers/resources/guild#get-guild-widget-settings) | `GET /guilds/{guild_id}/widget` |
-| yes | [List Active Guild Threads](https://docs.discord.com/developers/resources/guild#list-active-guild-threads) | `GET /guilds/{guild_id}/threads/active` |
-| yes | [List Guild Members](https://docs.discord.com/developers/resources/guild#list-guild-members) | `GET /guilds/{guild_id}/members` |
-| yes | [Modify Current Member](https://docs.discord.com/developers/resources/guild#modify-current-member) | `PATCH /guilds/{guild_id}/members/@me` |
-| yes | [Modify Current User Nick](https://docs.discord.com/developers/resources/guild#modify-current-user-nick) | `PATCH /guilds/{guild_id}/members/@me/nick` |
-| yes | [Modify Guild](https://docs.discord.com/developers/resources/guild#modify-guild) | `PATCH /guilds/{guild_id}` |
-| yes | [Modify Guild Channel Positions](https://docs.discord.com/developers/resources/guild#modify-guild-channel-positions) | `PATCH /guilds/{guild_id}/channels` |
-| yes | [Modify Guild Incident Actions](https://docs.discord.com/developers/resources/guild#modify-guild-incident-actions) | `PUT /guilds/{guild_id}/incident-actions` |
-| yes | [Modify Guild Member](https://docs.discord.com/developers/resources/guild#modify-guild-member) | `PATCH /guilds/{guild_id}/members/{user_id}` |
-| yes | [Modify Guild Onboarding](https://docs.discord.com/developers/resources/guild#modify-guild-onboarding) | `PUT /guilds/{guild_id}/onboarding` |
-| yes | [Modify Guild Role](https://docs.discord.com/developers/resources/guild#modify-guild-role) | `PATCH /guilds/{guild_id}/roles/{role_id}` |
-| yes | [Modify Guild Role Positions](https://docs.discord.com/developers/resources/guild#modify-guild-role-positions) | `PATCH /guilds/{guild_id}/roles` |
-| yes | [Modify Guild Welcome Screen](https://docs.discord.com/developers/resources/guild#modify-guild-welcome-screen) | `PATCH /guilds/{guild_id}/welcome-screen` |
-| yes | [Modify Guild Widget](https://docs.discord.com/developers/resources/guild#modify-guild-widget) | `PATCH /guilds/{guild_id}/widget` |
-| yes | [Remove Guild Ban](https://docs.discord.com/developers/resources/guild#remove-guild-ban) | `DELETE /guilds/{guild_id}/bans/{user_id}` |
-| yes | [Remove Guild Member](https://docs.discord.com/developers/resources/guild#remove-guild-member) | `DELETE /guilds/{guild_id}/members/{user_id}` |
-| yes | [Remove Guild Member Role](https://docs.discord.com/developers/resources/guild#remove-guild-member-role) | `DELETE /guilds/{guild_id}/members/{user_id}/roles/{role_id}` |
-| yes | [Search Guild Members](https://docs.discord.com/developers/resources/guild#search-guild-members) | `GET /guilds/{guild_id}/members/search` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Add Guild Member](https://docs.discord.com/developers/resources/guild#add-guild-member) | `rest.members.add` | `PUT /guilds/{guild_id}/members/{user_id}` |
+| yes | [Add Guild Member Role](https://docs.discord.com/developers/resources/guild#add-guild-member-role) | `rest.members.add_role` | `PUT /guilds/{guild_id}/members/{user_id}/roles/{role_id}` |
+| yes | [Begin Guild Prune](https://docs.discord.com/developers/resources/guild#begin-guild-prune) | `rest.guilds.prune` | `POST /guilds/{guild_id}/prune` |
+| yes | [Bulk Guild Ban](https://docs.discord.com/developers/resources/guild#bulk-guild-ban) | `rest.members.bulk_ban` | `POST /guilds/{guild_id}/bulk-ban` |
+| yes | [Create Guild Ban](https://docs.discord.com/developers/resources/guild#create-guild-ban) | `rest.members.ban` | `PUT /guilds/{guild_id}/bans/{user_id}` |
+| yes | [Create Guild Channel](https://docs.discord.com/developers/resources/guild#create-guild-channel) | `rest.channels.create` | `POST /guilds/{guild_id}/channels` |
+| yes | [Create Guild Role](https://docs.discord.com/developers/resources/guild#create-guild-role) | `rest.roles.create` | `POST /guilds/{guild_id}/roles` |
+| yes | [Delete Guild Integration](https://docs.discord.com/developers/resources/guild#delete-guild-integration) | `rest.guilds.delete_integration` | `DELETE /guilds/{guild_id}/integrations/{integration_id}` |
+| yes | [Delete Guild Role](https://docs.discord.com/developers/resources/guild#delete-guild-role) | `rest.roles.delete` | `DELETE /guilds/{guild_id}/roles/{role_id}` |
+| yes | [Get Guild](https://docs.discord.com/developers/resources/guild#get-guild) | `rest.guilds.get` | `GET /guilds/{guild_id}` |
+| yes | [Get Guild Ban](https://docs.discord.com/developers/resources/guild#get-guild-ban) | `rest.members.get_ban` | `GET /guilds/{guild_id}/bans/{user_id}` |
+| yes | [Get Guild Bans](https://docs.discord.com/developers/resources/guild#get-guild-bans) | `rest.members.list_bans` | `GET /guilds/{guild_id}/bans` |
+| yes | [Get Guild Channels](https://docs.discord.com/developers/resources/guild#get-guild-channels) | `rest.channels.list` | `GET /guilds/{guild_id}/channels` |
+| yes | [Get Guild Integrations](https://docs.discord.com/developers/resources/guild#get-guild-integrations) | `rest.guilds.list_integrations` | `GET /guilds/{guild_id}/integrations` |
+| yes | [Get Guild Invites](https://docs.discord.com/developers/resources/guild#get-guild-invites) | `rest.invites.list` | `GET /guilds/{guild_id}/invites` |
+| yes | [Get Guild Member](https://docs.discord.com/developers/resources/guild#get-guild-member) | `rest.members.get` | `GET /guilds/{guild_id}/members/{user_id}` |
+| yes | [Get Guild Onboarding](https://docs.discord.com/developers/resources/guild#get-guild-onboarding) | `rest.guilds.get_onboarding` | `GET /guilds/{guild_id}/onboarding` |
+| yes | [Get Guild Preview](https://docs.discord.com/developers/resources/guild#get-guild-preview) | `rest.guilds.get_preview` | `GET /guilds/{guild_id}/preview` |
+| yes | [Get Guild Prune Count](https://docs.discord.com/developers/resources/guild#get-guild-prune-count) | `rest.guilds.get_prune_count` | `GET /guilds/{guild_id}/prune` |
+| yes | [Get Guild Role](https://docs.discord.com/developers/resources/guild#get-guild-role) | `rest.roles.get` | `GET /guilds/{guild_id}/roles/{role_id}` |
+| yes | [Get Guild Role Member Counts](https://docs.discord.com/developers/resources/guild#get-guild-role-member-counts) | `rest.roles.get_member_counts` | `GET /guilds/{guild_id}/roles/member-counts` |
+| yes | [Get Guild Roles](https://docs.discord.com/developers/resources/guild#get-guild-roles) | `rest.roles.list` | `GET /guilds/{guild_id}/roles` |
+| yes | [Get Guild Vanity URL](https://docs.discord.com/developers/resources/guild#get-guild-vanity-url) | `rest.guilds.get_vanity_url` | `GET /guilds/{guild_id}/vanity-url` |
+| yes | [Get Guild Voice Regions](https://docs.discord.com/developers/resources/guild#get-guild-voice-regions) | `rest.guilds.list_voice_regions` | `GET /guilds/{guild_id}/regions` |
+| yes | [Get Guild Welcome Screen](https://docs.discord.com/developers/resources/guild#get-guild-welcome-screen) | `rest.guilds.get_welcome_screen` | `GET /guilds/{guild_id}/welcome-screen` |
+| yes | [Get Guild Widget](https://docs.discord.com/developers/resources/guild#get-guild-widget) | `rest.guilds.get_widget` | `GET /guilds/{guild_id}/widget.json` |
+| yes | [Get Guild Widget Image](https://docs.discord.com/developers/resources/guild#get-guild-widget-image) | `rest.guilds.get_widget_image` | `GET /guilds/{guild_id}/widget.png` |
+| yes | [Get Guild Widget Settings](https://docs.discord.com/developers/resources/guild#get-guild-widget-settings) | `rest.guilds.get_widget_settings` | `GET /guilds/{guild_id}/widget` |
+| yes | [List Active Guild Threads](https://docs.discord.com/developers/resources/guild#list-active-guild-threads) | `rest.threads.list_active` | `GET /guilds/{guild_id}/threads/active` |
+| yes | [List Guild Members](https://docs.discord.com/developers/resources/guild#list-guild-members) | `rest.members.list` | `GET /guilds/{guild_id}/members` |
+| yes | [Modify Current Member](https://docs.discord.com/developers/resources/guild#modify-current-member) | `rest.members.edit_me` | `PATCH /guilds/{guild_id}/members/@me` |
+| yes | [Modify Current User Nick](https://docs.discord.com/developers/resources/guild#modify-current-user-nick) | `rest.members.edit_my_nick` | `PATCH /guilds/{guild_id}/members/@me/nick` |
+| yes | [Modify Guild](https://docs.discord.com/developers/resources/guild#modify-guild) | `rest.guilds.edit` | `PATCH /guilds/{guild_id}` |
+| yes | [Modify Guild Channel Positions](https://docs.discord.com/developers/resources/guild#modify-guild-channel-positions) | `rest.channels.edit_positions` | `PATCH /guilds/{guild_id}/channels` |
+| yes | [Modify Guild Incident Actions](https://docs.discord.com/developers/resources/guild#modify-guild-incident-actions) | `rest.guilds.edit_incident_actions` | `PUT /guilds/{guild_id}/incident-actions` |
+| yes | [Modify Guild Member](https://docs.discord.com/developers/resources/guild#modify-guild-member) | `rest.members.edit` | `PATCH /guilds/{guild_id}/members/{user_id}` |
+| yes | [Modify Guild Onboarding](https://docs.discord.com/developers/resources/guild#modify-guild-onboarding) | `rest.guilds.edit_onboarding` | `PUT /guilds/{guild_id}/onboarding` |
+| yes | [Modify Guild Role](https://docs.discord.com/developers/resources/guild#modify-guild-role) | `rest.roles.edit` | `PATCH /guilds/{guild_id}/roles/{role_id}` |
+| yes | [Modify Guild Role Positions](https://docs.discord.com/developers/resources/guild#modify-guild-role-positions) | `rest.roles.edit_positions` | `PATCH /guilds/{guild_id}/roles` |
+| yes | [Modify Guild Welcome Screen](https://docs.discord.com/developers/resources/guild#modify-guild-welcome-screen) | `rest.guilds.edit_welcome_screen` | `PATCH /guilds/{guild_id}/welcome-screen` |
+| yes | [Modify Guild Widget](https://docs.discord.com/developers/resources/guild#modify-guild-widget) | `rest.guilds.edit_widget` | `PATCH /guilds/{guild_id}/widget` |
+| yes | [Remove Guild Ban](https://docs.discord.com/developers/resources/guild#remove-guild-ban) | `rest.members.unban` | `DELETE /guilds/{guild_id}/bans/{user_id}` |
+| yes | [Remove Guild Member](https://docs.discord.com/developers/resources/guild#remove-guild-member) | `rest.members.kick` | `DELETE /guilds/{guild_id}/members/{user_id}` |
+| yes | [Remove Guild Member Role](https://docs.discord.com/developers/resources/guild#remove-guild-member-role) | `rest.members.remove_role` | `DELETE /guilds/{guild_id}/members/{user_id}/roles/{role_id}` |
+| yes | [Search Guild Members](https://docs.discord.com/developers/resources/guild#search-guild-members) | `rest.members.search` | `GET /guilds/{guild_id}/members/search` |
 
 ## [resources/guild-scheduled-event](https://docs.discord.com/developers/resources/guild-scheduled-event)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#create-guild-scheduled-event) | `POST /guilds/{guild_id}/scheduled-events` |
-| yes | [Delete Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#delete-guild-scheduled-event) | `DELETE /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}` |
-| yes | [Get Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event) | `GET /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}` |
-| yes | [Get Guild Scheduled Event Users](https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event-users) | `GET /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}/users` |
-| yes | [List Scheduled Events for Guild](https://docs.discord.com/developers/resources/guild-scheduled-event#list-scheduled-events-for-guild) | `GET /guilds/{guild_id}/scheduled-events` |
-| yes | [Modify Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#modify-guild-scheduled-event) | `PATCH /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#create-guild-scheduled-event) | `rest.scheduled_events.create` | `POST /guilds/{guild_id}/scheduled-events` |
+| yes | [Delete Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#delete-guild-scheduled-event) | `rest.scheduled_events.delete` | `DELETE /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}` |
+| yes | [Get Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event) | `rest.scheduled_events.get` | `GET /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}` |
+| yes | [Get Guild Scheduled Event Users](https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event-users) | `rest.scheduled_events.list_users` | `GET /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}/users` |
+| yes | [List Scheduled Events for Guild](https://docs.discord.com/developers/resources/guild-scheduled-event#list-scheduled-events-for-guild) | `rest.scheduled_events.list` | `GET /guilds/{guild_id}/scheduled-events` |
+| yes | [Modify Guild Scheduled Event](https://docs.discord.com/developers/resources/guild-scheduled-event#modify-guild-scheduled-event) | `rest.scheduled_events.edit` | `PATCH /guilds/{guild_id}/scheduled-events/{guild_scheduled_event_id}` |
 
 ## [resources/guild-template](https://docs.discord.com/developers/resources/guild-template)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Guild Template](https://docs.discord.com/developers/resources/guild-template#create-guild-template) | `POST /guilds/{guild_id}/templates` |
-| yes | [Delete Guild Template](https://docs.discord.com/developers/resources/guild-template#delete-guild-template) | `DELETE /guilds/{guild_id}/templates/{template_code}` |
-| yes | [Get Guild Template](https://docs.discord.com/developers/resources/guild-template#get-guild-template) | `GET /guilds/templates/{template_code}` |
-| yes | [Get Guild Templates](https://docs.discord.com/developers/resources/guild-template#get-guild-templates) | `GET /guilds/{guild_id}/templates` |
-| yes | [Modify Guild Template](https://docs.discord.com/developers/resources/guild-template#modify-guild-template) | `PATCH /guilds/{guild_id}/templates/{template_code}` |
-| yes | [Sync Guild Template](https://docs.discord.com/developers/resources/guild-template#sync-guild-template) | `PUT /guilds/{guild_id}/templates/{template_code}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Guild Template](https://docs.discord.com/developers/resources/guild-template#create-guild-template) | `rest.templates.create` | `POST /guilds/{guild_id}/templates` |
+| yes | [Delete Guild Template](https://docs.discord.com/developers/resources/guild-template#delete-guild-template) | `rest.templates.delete` | `DELETE /guilds/{guild_id}/templates/{template_code}` |
+| yes | [Get Guild Template](https://docs.discord.com/developers/resources/guild-template#get-guild-template) | `rest.templates.get` | `GET /guilds/templates/{template_code}` |
+| yes | [Get Guild Templates](https://docs.discord.com/developers/resources/guild-template#get-guild-templates) | `rest.templates.list` | `GET /guilds/{guild_id}/templates` |
+| yes | [Modify Guild Template](https://docs.discord.com/developers/resources/guild-template#modify-guild-template) | `rest.templates.edit` | `PATCH /guilds/{guild_id}/templates/{template_code}` |
+| yes | [Sync Guild Template](https://docs.discord.com/developers/resources/guild-template#sync-guild-template) | `rest.templates.sync` | `PUT /guilds/{guild_id}/templates/{template_code}` |
 
 ## [resources/invite](https://docs.discord.com/developers/resources/invite)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Add Target User](https://docs.discord.com/developers/resources/invite#add-target-user) | `PUT /invites/{invite_code}/target-users/{user_id}` |
-| yes | [Bulk-Add Target Users](https://docs.discord.com/developers/resources/invite#bulk-add-target-users) | `POST /invites/{invite_code}/target-users/bulk-add` |
-| yes | [Bulk-Delete Target Users](https://docs.discord.com/developers/resources/invite#bulk-delete-target-users) | `POST /invites/{invite_code}/target-users/bulk-delete` |
-| yes | [Delete Invite](https://docs.discord.com/developers/resources/invite#delete-invite) | `DELETE /invites/{invite_code}` |
-| yes | [Get Invite](https://docs.discord.com/developers/resources/invite#get-invite) | `GET /invites/{invite_code}` |
-| yes | [Get Target Users](https://docs.discord.com/developers/resources/invite#get-target-users) | `GET /invites/{invite_code}/target-users` |
-| yes | [Get Target Users Job Status](https://docs.discord.com/developers/resources/invite#get-target-users-job-status) | `GET /invites/{invite_code}/target-users/job-status` |
-| yes | [Remove Target User](https://docs.discord.com/developers/resources/invite#remove-target-user) | `DELETE /invites/{invite_code}/target-users/{user_id}` |
-| yes | [Update Target Users](https://docs.discord.com/developers/resources/invite#update-target-users) | `PUT /invites/{invite_code}/target-users` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Add Target User](https://docs.discord.com/developers/resources/invite#add-target-user) | `rest.invites.add_target_user` | `PUT /invites/{invite_code}/target-users/{user_id}` |
+| yes | [Bulk-Add Target Users](https://docs.discord.com/developers/resources/invite#bulk-add-target-users) | `rest.invites.bulk_add_target_users` | `POST /invites/{invite_code}/target-users/bulk-add` |
+| yes | [Bulk-Delete Target Users](https://docs.discord.com/developers/resources/invite#bulk-delete-target-users) | `rest.invites.bulk_remove_target_users` | `POST /invites/{invite_code}/target-users/bulk-delete` |
+| yes | [Delete Invite](https://docs.discord.com/developers/resources/invite#delete-invite) | `rest.invites.delete` | `DELETE /invites/{invite_code}` |
+| yes | [Get Invite](https://docs.discord.com/developers/resources/invite#get-invite) | `rest.invites.get` | `GET /invites/{invite_code}` |
+| yes | [Get Target Users](https://docs.discord.com/developers/resources/invite#get-target-users) | `rest.invites.list_target_users` | `GET /invites/{invite_code}/target-users` |
+| yes | [Get Target Users Job Status](https://docs.discord.com/developers/resources/invite#get-target-users-job-status) | `rest.invites.get_target_users_status` | `GET /invites/{invite_code}/target-users/job-status` |
+| yes | [Remove Target User](https://docs.discord.com/developers/resources/invite#remove-target-user) | `rest.invites.remove_target_user` | `DELETE /invites/{invite_code}/target-users/{user_id}` |
+| yes | [Update Target Users](https://docs.discord.com/developers/resources/invite#update-target-users) | `rest.invites.overwrite_target_users` | `PUT /invites/{invite_code}/target-users` |
 
 ## [resources/lobby](https://docs.discord.com/developers/resources/lobby)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Add a Member to a Lobby](https://docs.discord.com/developers/resources/lobby#add-a-member-to-a-lobby) | `PUT /lobbies/{lobby_id}/members/{user_id}` |
-| yes | [Bulk Update Lobby Members](https://docs.discord.com/developers/resources/lobby#bulk-update-lobby-members) | `POST /lobbies/{lobby_id}/members/bulk` |
-| yes | [Create Lobby](https://docs.discord.com/developers/resources/lobby#create-lobby) | `POST /lobbies` |
-| yes | [Create Lobby Channel Invite for Self](https://docs.discord.com/developers/resources/lobby#create-lobby-channel-invite-for-self) | `POST /lobbies/{lobby_id}/members/@me/invites` |
-| yes | [Create Lobby Channel Invite for User](https://docs.discord.com/developers/resources/lobby#create-lobby-channel-invite-for-user) | `POST /lobbies/{lobby_id}/members/{user_id}/invites` |
-| yes | [Create or Join Lobby](https://docs.discord.com/developers/resources/lobby#create-or-join-lobby) | `PUT /lobbies` |
-| yes | [Delete Lobby](https://docs.discord.com/developers/resources/lobby#delete-lobby) | `DELETE /lobbies/{lobby_id}` |
-| yes | [Get Lobby](https://docs.discord.com/developers/resources/lobby#get-lobby) | `GET /lobbies/{lobby_id}` |
-| yes | [Get Lobby Messages](https://docs.discord.com/developers/resources/lobby#get-lobby-messages) | `GET /lobbies/{lobby_id}/messages` |
-| yes | [Leave Lobby](https://docs.discord.com/developers/resources/lobby#leave-lobby) | `DELETE /lobbies/{lobby_id}/members/@me` |
-| yes | [Link Channel to Lobby](https://docs.discord.com/developers/resources/lobby#link-channel-to-lobby) | `PATCH /lobbies/{lobby_id}/channel-linking` |
-| yes | [Modify Lobby](https://docs.discord.com/developers/resources/lobby#modify-lobby) | `PATCH /lobbies/{lobby_id}` |
-| yes | [Remove a Member from a Lobby](https://docs.discord.com/developers/resources/lobby#remove-a-member-from-a-lobby) | `DELETE /lobbies/{lobby_id}/members/{user_id}` |
-| yes | [Send Lobby Message](https://docs.discord.com/developers/resources/lobby#send-lobby-message) | `POST /lobbies/{lobby_id}/messages` |
-| yes | [Unlink Channel from Lobby](https://docs.discord.com/developers/resources/lobby#unlink-channel-from-lobby) | `PATCH /lobbies/{lobby_id}/channel-linking` |
-| yes | [Update Lobby Message Moderation Metadata](https://docs.discord.com/developers/resources/lobby#update-lobby-message-moderation-metadata) | `PUT /lobbies/{lobby_id}/messages/{message_id}/moderation-metadata` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Add a Member to a Lobby](https://docs.discord.com/developers/resources/lobby#add-a-member-to-a-lobby) | `rest.lobbies.add_member` | `PUT /lobbies/{lobby_id}/members/{user_id}` |
+| yes | [Bulk Update Lobby Members](https://docs.discord.com/developers/resources/lobby#bulk-update-lobby-members) | `rest.lobbies.bulk_edit_members` | `POST /lobbies/{lobby_id}/members/bulk` |
+| yes | [Create Lobby](https://docs.discord.com/developers/resources/lobby#create-lobby) | `rest.lobbies.create` | `POST /lobbies` |
+| yes | [Create Lobby Channel Invite for Self](https://docs.discord.com/developers/resources/lobby#create-lobby-channel-invite-for-self) | `rest.lobbies.create_my_invite` | `POST /lobbies/{lobby_id}/members/@me/invites` |
+| yes | [Create Lobby Channel Invite for User](https://docs.discord.com/developers/resources/lobby#create-lobby-channel-invite-for-user) | `rest.lobbies.create_invite` | `POST /lobbies/{lobby_id}/members/{user_id}/invites` |
+| yes | [Create or Join Lobby](https://docs.discord.com/developers/resources/lobby#create-or-join-lobby) | `rest.lobbies.create_or_join` | `PUT /lobbies` |
+| yes | [Delete Lobby](https://docs.discord.com/developers/resources/lobby#delete-lobby) | `rest.lobbies.delete` | `DELETE /lobbies/{lobby_id}` |
+| yes | [Get Lobby](https://docs.discord.com/developers/resources/lobby#get-lobby) | `rest.lobbies.get` | `GET /lobbies/{lobby_id}` |
+| yes | [Get Lobby Messages](https://docs.discord.com/developers/resources/lobby#get-lobby-messages) | `rest.lobbies.list_messages` | `GET /lobbies/{lobby_id}/messages` |
+| yes | [Leave Lobby](https://docs.discord.com/developers/resources/lobby#leave-lobby) | `rest.lobbies.leave` | `DELETE /lobbies/{lobby_id}/members/@me` |
+| yes | [Link Channel to Lobby](https://docs.discord.com/developers/resources/lobby#link-channel-to-lobby) | `rest.lobbies.link_channel`, `rest.lobbies.unlink_channel` | `PATCH /lobbies/{lobby_id}/channel-linking` |
+| yes | [Modify Lobby](https://docs.discord.com/developers/resources/lobby#modify-lobby) | `rest.lobbies.edit` | `PATCH /lobbies/{lobby_id}` |
+| yes | [Remove a Member from a Lobby](https://docs.discord.com/developers/resources/lobby#remove-a-member-from-a-lobby) | `rest.lobbies.remove_member` | `DELETE /lobbies/{lobby_id}/members/{user_id}` |
+| yes | [Send Lobby Message](https://docs.discord.com/developers/resources/lobby#send-lobby-message) | `rest.lobbies.send_message` | `POST /lobbies/{lobby_id}/messages` |
+| yes | [Unlink Channel from Lobby](https://docs.discord.com/developers/resources/lobby#unlink-channel-from-lobby) | `rest.lobbies.link_channel`, `rest.lobbies.unlink_channel` | `PATCH /lobbies/{lobby_id}/channel-linking` |
+| yes | [Update Lobby Message Moderation Metadata](https://docs.discord.com/developers/resources/lobby#update-lobby-message-moderation-metadata) | `rest.lobbies.edit_message_moderation` | `PUT /lobbies/{lobby_id}/messages/{message_id}/moderation-metadata` |
 
 ## [resources/message](https://docs.discord.com/developers/resources/message)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Bulk Delete Messages](https://docs.discord.com/developers/resources/message#bulk-delete-messages) | `POST /channels/{channel_id}/messages/bulk-delete` |
-| yes | [Create Message](https://docs.discord.com/developers/resources/message#create-message) | `POST /channels/{channel_id}/messages` |
-| yes | [Create Reaction](https://docs.discord.com/developers/resources/message#create-reaction) | `PUT /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me` |
-| yes | [Crosspost Message](https://docs.discord.com/developers/resources/message#crosspost-message) | `POST /channels/{channel_id}/messages/{message_id}/crosspost` |
-| yes | [Delete All Reactions](https://docs.discord.com/developers/resources/message#delete-all-reactions) | `DELETE /channels/{channel_id}/messages/{message_id}/reactions` |
-| yes | [Delete All Reactions for Emoji](https://docs.discord.com/developers/resources/message#delete-all-reactions-for-emoji) | `DELETE /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}` |
-| yes | [Delete Message](https://docs.discord.com/developers/resources/message#delete-message) | `DELETE /channels/{channel_id}/messages/{message_id}` |
-| yes | [Delete Own Reaction](https://docs.discord.com/developers/resources/message#delete-own-reaction) | `DELETE /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me` |
-| yes | [Delete User Reaction](https://docs.discord.com/developers/resources/message#delete-user-reaction) | `DELETE /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/{user_id}` |
-| yes | [Edit Message](https://docs.discord.com/developers/resources/message#edit-message) | `PATCH /channels/{channel_id}/messages/{message_id}` |
-| yes | [Get Channel Message](https://docs.discord.com/developers/resources/message#get-channel-message) | `GET /channels/{channel_id}/messages/{message_id}` |
-| yes | [Get Channel Messages](https://docs.discord.com/developers/resources/message#get-channel-messages) | `GET /channels/{channel_id}/messages` |
-| yes | [Get Channel Pins](https://docs.discord.com/developers/resources/message#get-channel-pins) | `GET /channels/{channel_id}/messages/pins` |
-| deprecated | [Get Pinned Messages (deprecated)](https://docs.discord.com/developers/resources/message#get-pinned-messages-deprecated) | `GET /channels/{channel_id}/pins` |
-| yes | [Get Reactions](https://docs.discord.com/developers/resources/message#get-reactions) | `GET /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}` |
-| yes | [Pin Message](https://docs.discord.com/developers/resources/message#pin-message) | `PUT /channels/{channel_id}/messages/pins/{message_id}` |
-| deprecated | [Pin Message (deprecated)](https://docs.discord.com/developers/resources/message#pin-message-deprecated) | `PUT /channels/{channel_id}/pins/{message_id}` |
-| yes | [Search Guild Messages](https://docs.discord.com/developers/resources/message#search-guild-messages) | `GET /guilds/{guild_id}/messages/search` |
-| yes | [Unpin Message](https://docs.discord.com/developers/resources/message#unpin-message) | `DELETE /channels/{channel_id}/messages/pins/{message_id}` |
-| deprecated | [Unpin Message (deprecated)](https://docs.discord.com/developers/resources/message#unpin-message-deprecated) | `DELETE /channels/{channel_id}/pins/{message_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Bulk Delete Messages](https://docs.discord.com/developers/resources/message#bulk-delete-messages) | `rest.messages.bulk_delete` | `POST /channels/{channel_id}/messages/bulk-delete` |
+| yes | [Create Message](https://docs.discord.com/developers/resources/message#create-message) | `rest.messages.create` | `POST /channels/{channel_id}/messages` |
+| yes | [Create Reaction](https://docs.discord.com/developers/resources/message#create-reaction) | `rest.reactions.add` | `PUT /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me` |
+| yes | [Crosspost Message](https://docs.discord.com/developers/resources/message#crosspost-message) | `rest.messages.crosspost` | `POST /channels/{channel_id}/messages/{message_id}/crosspost` |
+| yes | [Delete All Reactions](https://docs.discord.com/developers/resources/message#delete-all-reactions) | `rest.reactions.clear` | `DELETE /channels/{channel_id}/messages/{message_id}/reactions` |
+| yes | [Delete All Reactions for Emoji](https://docs.discord.com/developers/resources/message#delete-all-reactions-for-emoji) | `rest.reactions.clear_emoji` | `DELETE /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}` |
+| yes | [Delete Message](https://docs.discord.com/developers/resources/message#delete-message) | `rest.messages.delete` | `DELETE /channels/{channel_id}/messages/{message_id}` |
+| yes | [Delete Own Reaction](https://docs.discord.com/developers/resources/message#delete-own-reaction) | `rest.reactions.remove_mine` | `DELETE /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/@me` |
+| yes | [Delete User Reaction](https://docs.discord.com/developers/resources/message#delete-user-reaction) | `rest.reactions.remove` | `DELETE /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/{user_id}` |
+| yes | [Edit Message](https://docs.discord.com/developers/resources/message#edit-message) | `rest.messages.edit` | `PATCH /channels/{channel_id}/messages/{message_id}` |
+| yes | [Get Channel Message](https://docs.discord.com/developers/resources/message#get-channel-message) | `rest.messages.get` | `GET /channels/{channel_id}/messages/{message_id}` |
+| yes | [Get Channel Messages](https://docs.discord.com/developers/resources/message#get-channel-messages) | `rest.messages.list` | `GET /channels/{channel_id}/messages` |
+| yes | [Get Channel Pins](https://docs.discord.com/developers/resources/message#get-channel-pins) | `rest.messages.list_pins` | `GET /channels/{channel_id}/messages/pins` |
+| deprecated | [Get Pinned Messages (deprecated)](https://docs.discord.com/developers/resources/message#get-pinned-messages-deprecated) |  | `GET /channels/{channel_id}/pins` |
+| yes | [Get Reactions](https://docs.discord.com/developers/resources/message#get-reactions) | `rest.reactions.list` | `GET /channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}` |
+| yes | [Pin Message](https://docs.discord.com/developers/resources/message#pin-message) | `rest.messages.pin` | `PUT /channels/{channel_id}/messages/pins/{message_id}` |
+| deprecated | [Pin Message (deprecated)](https://docs.discord.com/developers/resources/message#pin-message-deprecated) |  | `PUT /channels/{channel_id}/pins/{message_id}` |
+| yes | [Search Guild Messages](https://docs.discord.com/developers/resources/message#search-guild-messages) | `rest.messages.search` | `GET /guilds/{guild_id}/messages/search` |
+| yes | [Unpin Message](https://docs.discord.com/developers/resources/message#unpin-message) | `rest.messages.unpin` | `DELETE /channels/{channel_id}/messages/pins/{message_id}` |
+| deprecated | [Unpin Message (deprecated)](https://docs.discord.com/developers/resources/message#unpin-message-deprecated) |  | `DELETE /channels/{channel_id}/pins/{message_id}` |
 
 ## [resources/poll](https://docs.discord.com/developers/resources/poll)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [End Poll](https://docs.discord.com/developers/resources/poll#end-poll) | `POST /channels/{channel_id}/polls/{message_id}/expire` |
-| yes | [Get Answer Voters](https://docs.discord.com/developers/resources/poll#get-answer-voters) | `GET /channels/{channel_id}/polls/{message_id}/answers/{answer_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [End Poll](https://docs.discord.com/developers/resources/poll#end-poll) | `rest.polls.end` | `POST /channels/{channel_id}/polls/{message_id}/expire` |
+| yes | [Get Answer Voters](https://docs.discord.com/developers/resources/poll#get-answer-voters) | `rest.polls.list_voters` | `GET /channels/{channel_id}/polls/{message_id}/answers/{answer_id}` |
 
 ## [resources/sku](https://docs.discord.com/developers/resources/sku)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [List SKUs](https://docs.discord.com/developers/resources/sku#list-skus) | `GET /applications/{application_id}/skus` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [List SKUs](https://docs.discord.com/developers/resources/sku#list-skus) | `rest.skus.list` | `GET /applications/{application_id}/skus` |
 
 ## [resources/soundboard](https://docs.discord.com/developers/resources/soundboard)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#create-guild-soundboard-sound) | `POST /guilds/{guild_id}/soundboard-sounds` |
-| yes | [Delete Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#delete-guild-soundboard-sound) | `DELETE /guilds/{guild_id}/soundboard-sounds/{sound_id}` |
-| yes | [Get Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#get-guild-soundboard-sound) | `GET /guilds/{guild_id}/soundboard-sounds/{sound_id}` |
-| yes | [List Default Soundboard Sounds](https://docs.discord.com/developers/resources/soundboard#list-default-soundboard-sounds) | `GET /soundboard-default-sounds` |
-| yes | [List Guild Soundboard Sounds](https://docs.discord.com/developers/resources/soundboard#list-guild-soundboard-sounds) | `GET /guilds/{guild_id}/soundboard-sounds` |
-| yes | [Modify Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#modify-guild-soundboard-sound) | `PATCH /guilds/{guild_id}/soundboard-sounds/{sound_id}` |
-| yes | [Send Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#send-soundboard-sound) | `POST /channels/{channel_id}/send-soundboard-sound` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#create-guild-soundboard-sound) | `rest.soundboard.create` | `POST /guilds/{guild_id}/soundboard-sounds` |
+| yes | [Delete Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#delete-guild-soundboard-sound) | `rest.soundboard.delete` | `DELETE /guilds/{guild_id}/soundboard-sounds/{sound_id}` |
+| yes | [Get Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#get-guild-soundboard-sound) | `rest.soundboard.get` | `GET /guilds/{guild_id}/soundboard-sounds/{sound_id}` |
+| yes | [List Default Soundboard Sounds](https://docs.discord.com/developers/resources/soundboard#list-default-soundboard-sounds) | `rest.soundboard.list_default` | `GET /soundboard-default-sounds` |
+| yes | [List Guild Soundboard Sounds](https://docs.discord.com/developers/resources/soundboard#list-guild-soundboard-sounds) | `rest.soundboard.list` | `GET /guilds/{guild_id}/soundboard-sounds` |
+| yes | [Modify Guild Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#modify-guild-soundboard-sound) | `rest.soundboard.edit` | `PATCH /guilds/{guild_id}/soundboard-sounds/{sound_id}` |
+| yes | [Send Soundboard Sound](https://docs.discord.com/developers/resources/soundboard#send-soundboard-sound) | `rest.soundboard.send` | `POST /channels/{channel_id}/send-soundboard-sound` |
 
 ## [resources/stage-instance](https://docs.discord.com/developers/resources/stage-instance)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Stage Instance](https://docs.discord.com/developers/resources/stage-instance#create-stage-instance) | `POST /stage-instances` |
-| yes | [Delete Stage Instance](https://docs.discord.com/developers/resources/stage-instance#delete-stage-instance) | `DELETE /stage-instances/{channel_id}` |
-| yes | [Get Stage Instance](https://docs.discord.com/developers/resources/stage-instance#get-stage-instance) | `GET /stage-instances/{channel_id}` |
-| yes | [Modify Stage Instance](https://docs.discord.com/developers/resources/stage-instance#modify-stage-instance) | `PATCH /stage-instances/{channel_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Stage Instance](https://docs.discord.com/developers/resources/stage-instance#create-stage-instance) | `rest.stage_instances.create` | `POST /stage-instances` |
+| yes | [Delete Stage Instance](https://docs.discord.com/developers/resources/stage-instance#delete-stage-instance) | `rest.stage_instances.delete` | `DELETE /stage-instances/{channel_id}` |
+| yes | [Get Stage Instance](https://docs.discord.com/developers/resources/stage-instance#get-stage-instance) | `rest.stage_instances.get` | `GET /stage-instances/{channel_id}` |
+| yes | [Modify Stage Instance](https://docs.discord.com/developers/resources/stage-instance#modify-stage-instance) | `rest.stage_instances.edit` | `PATCH /stage-instances/{channel_id}` |
 
 ## [resources/sticker](https://docs.discord.com/developers/resources/sticker)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Guild Sticker](https://docs.discord.com/developers/resources/sticker#create-guild-sticker) | `POST /guilds/{guild_id}/stickers` |
-| yes | [Delete Guild Sticker](https://docs.discord.com/developers/resources/sticker#delete-guild-sticker) | `DELETE /guilds/{guild_id}/stickers/{sticker_id}` |
-| yes | [Get Guild Sticker](https://docs.discord.com/developers/resources/sticker#get-guild-sticker) | `GET /guilds/{guild_id}/stickers/{sticker_id}` |
-| yes | [Get Sticker](https://docs.discord.com/developers/resources/sticker#get-sticker) | `GET /stickers/{sticker_id}` |
-| yes | [Get Sticker Pack](https://docs.discord.com/developers/resources/sticker#get-sticker-pack) | `GET /sticker-packs/{pack_id}` |
-| yes | [List Guild Stickers](https://docs.discord.com/developers/resources/sticker#list-guild-stickers) | `GET /guilds/{guild_id}/stickers` |
-| yes | [List Sticker Packs](https://docs.discord.com/developers/resources/sticker#list-sticker-packs) | `GET /sticker-packs` |
-| yes | [Modify Guild Sticker](https://docs.discord.com/developers/resources/sticker#modify-guild-sticker) | `PATCH /guilds/{guild_id}/stickers/{sticker_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Guild Sticker](https://docs.discord.com/developers/resources/sticker#create-guild-sticker) | `rest.stickers.create` | `POST /guilds/{guild_id}/stickers` |
+| yes | [Delete Guild Sticker](https://docs.discord.com/developers/resources/sticker#delete-guild-sticker) | `rest.stickers.delete` | `DELETE /guilds/{guild_id}/stickers/{sticker_id}` |
+| yes | [Get Guild Sticker](https://docs.discord.com/developers/resources/sticker#get-guild-sticker) | `rest.stickers.get` | `GET /guilds/{guild_id}/stickers/{sticker_id}` |
+| yes | [Get Sticker](https://docs.discord.com/developers/resources/sticker#get-sticker) | `rest.stickers.get_any` | `GET /stickers/{sticker_id}` |
+| yes | [Get Sticker Pack](https://docs.discord.com/developers/resources/sticker#get-sticker-pack) | `rest.stickers.get_pack` | `GET /sticker-packs/{pack_id}` |
+| yes | [List Guild Stickers](https://docs.discord.com/developers/resources/sticker#list-guild-stickers) | `rest.stickers.list` | `GET /guilds/{guild_id}/stickers` |
+| yes | [List Sticker Packs](https://docs.discord.com/developers/resources/sticker#list-sticker-packs) | `rest.stickers.list_packs` | `GET /sticker-packs` |
+| yes | [Modify Guild Sticker](https://docs.discord.com/developers/resources/sticker#modify-guild-sticker) | `rest.stickers.edit` | `PATCH /guilds/{guild_id}/stickers/{sticker_id}` |
 
 ## [resources/subscription](https://docs.discord.com/developers/resources/subscription)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Get SKU Subscription](https://docs.discord.com/developers/resources/subscription#get-sku-subscription) | `GET /skus/{sku_id}/subscriptions/{subscription_id}` |
-| yes | [List SKU Subscriptions](https://docs.discord.com/developers/resources/subscription#list-sku-subscriptions) | `GET /skus/{sku_id}/subscriptions` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Get SKU Subscription](https://docs.discord.com/developers/resources/subscription#get-sku-subscription) | `rest.subscriptions.get` | `GET /skus/{sku_id}/subscriptions/{subscription_id}` |
+| yes | [List SKU Subscriptions](https://docs.discord.com/developers/resources/subscription#list-sku-subscriptions) | `rest.subscriptions.list` | `GET /skus/{sku_id}/subscriptions` |
 
 ## [resources/user](https://docs.discord.com/developers/resources/user)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create DM](https://docs.discord.com/developers/resources/user#create-dm) | `POST /users/@me/channels` |
-| yes | [Create Group DM](https://docs.discord.com/developers/resources/user#create-group-dm) | `POST /users/@me/channels` |
-| yes | [Delete Current User Application Role Connection](https://docs.discord.com/developers/resources/user#delete-current-user-application-role-connection) | `DELETE /users/@me/applications/{application_id}/role-connection` |
-| yes | [Get Current User](https://docs.discord.com/developers/resources/user#get-current-user) | `GET /users/@me` |
-| yes | [Get Current User Application Role Connection](https://docs.discord.com/developers/resources/user#get-current-user-application-role-connection) | `GET /users/@me/applications/{application_id}/role-connection` |
-| yes | [Get Current User Connections](https://docs.discord.com/developers/resources/user#get-current-user-connections) | `GET /users/@me/connections` |
-| yes | [Get Current User Guild Member](https://docs.discord.com/developers/resources/user#get-current-user-guild-member) | `GET /users/@me/guilds/{guild_id}/member` |
-| yes | [Get Current User Guilds](https://docs.discord.com/developers/resources/user#get-current-user-guilds) | `GET /users/@me/guilds` |
-| yes | [Get User](https://docs.discord.com/developers/resources/user#get-user) | `GET /users/{user_id}` |
-| yes | [Leave Guild](https://docs.discord.com/developers/resources/user#leave-guild) | `DELETE /users/@me/guilds/{guild_id}` |
-| yes | [Modify Current User](https://docs.discord.com/developers/resources/user#modify-current-user) | `PATCH /users/@me` |
-| yes | [Update Current User Application Role Connection](https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection) | `PUT /users/@me/applications/{application_id}/role-connection` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create DM](https://docs.discord.com/developers/resources/user#create-dm) | `rest.users.create_dm`, `rest.users.create_group_dm` | `POST /users/@me/channels` |
+| yes | [Create Group DM](https://docs.discord.com/developers/resources/user#create-group-dm) | `rest.users.create_dm`, `rest.users.create_group_dm` | `POST /users/@me/channels` |
+| yes | [Delete Current User Application Role Connection](https://docs.discord.com/developers/resources/user#delete-current-user-application-role-connection) | `rest.role_connections.delete_me` | `DELETE /users/@me/applications/{application_id}/role-connection` |
+| yes | [Get Current User](https://docs.discord.com/developers/resources/user#get-current-user) | `rest.users.get_me` | `GET /users/@me` |
+| yes | [Get Current User Application Role Connection](https://docs.discord.com/developers/resources/user#get-current-user-application-role-connection) | `rest.role_connections.get_me` | `GET /users/@me/applications/{application_id}/role-connection` |
+| yes | [Get Current User Connections](https://docs.discord.com/developers/resources/user#get-current-user-connections) | `rest.users.list_connections` | `GET /users/@me/connections` |
+| yes | [Get Current User Guild Member](https://docs.discord.com/developers/resources/user#get-current-user-guild-member) | `rest.members.get_me` | `GET /users/@me/guilds/{guild_id}/member` |
+| yes | [Get Current User Guilds](https://docs.discord.com/developers/resources/user#get-current-user-guilds) | `rest.guilds.list` | `GET /users/@me/guilds` |
+| yes | [Get User](https://docs.discord.com/developers/resources/user#get-user) | `rest.users.get` | `GET /users/{user_id}` |
+| yes | [Leave Guild](https://docs.discord.com/developers/resources/user#leave-guild) | `rest.guilds.leave` | `DELETE /users/@me/guilds/{guild_id}` |
+| yes | [Modify Current User](https://docs.discord.com/developers/resources/user#modify-current-user) | `rest.users.edit_me` | `PATCH /users/@me` |
+| yes | [Update Current User Application Role Connection](https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection) | `rest.role_connections.edit_me` | `PUT /users/@me/applications/{application_id}/role-connection` |
 
 ## [resources/voice](https://docs.discord.com/developers/resources/voice)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Get Current User Voice State](https://docs.discord.com/developers/resources/voice#get-current-user-voice-state) | `GET /guilds/{guild_id}/voice-states/@me` |
-| yes | [Get User Voice State](https://docs.discord.com/developers/resources/voice#get-user-voice-state) | `GET /guilds/{guild_id}/voice-states/{user_id}` |
-| yes | [List Voice Regions](https://docs.discord.com/developers/resources/voice#list-voice-regions) | `GET /voice/regions` |
-| yes | [Modify Current User Voice State](https://docs.discord.com/developers/resources/voice#modify-current-user-voice-state) | `PATCH /guilds/{guild_id}/voice-states/@me` |
-| yes | [Modify User Voice State](https://docs.discord.com/developers/resources/voice#modify-user-voice-state) | `PATCH /guilds/{guild_id}/voice-states/{user_id}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Get Current User Voice State](https://docs.discord.com/developers/resources/voice#get-current-user-voice-state) | `rest.voice_states.get_me` | `GET /guilds/{guild_id}/voice-states/@me` |
+| yes | [Get User Voice State](https://docs.discord.com/developers/resources/voice#get-user-voice-state) | `rest.voice_states.get` | `GET /guilds/{guild_id}/voice-states/{user_id}` |
+| yes | [List Voice Regions](https://docs.discord.com/developers/resources/voice#list-voice-regions) | `rest.voice.list_regions` | `GET /voice/regions` |
+| yes | [Modify Current User Voice State](https://docs.discord.com/developers/resources/voice#modify-current-user-voice-state) | `rest.voice_states.edit_me` | `PATCH /guilds/{guild_id}/voice-states/@me` |
+| yes | [Modify User Voice State](https://docs.discord.com/developers/resources/voice#modify-user-voice-state) | `rest.voice_states.edit` | `PATCH /guilds/{guild_id}/voice-states/{user_id}` |
 
 ## [resources/webhook](https://docs.discord.com/developers/resources/webhook)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Create Webhook](https://docs.discord.com/developers/resources/webhook#create-webhook) | `POST /channels/{channel_id}/webhooks` |
-| yes | [Delete Webhook](https://docs.discord.com/developers/resources/webhook#delete-webhook) | `DELETE /webhooks/{webhook_id}` |
-| yes | [Delete Webhook Message](https://docs.discord.com/developers/resources/webhook#delete-webhook-message) | `DELETE /webhooks/{webhook_id}/{webhook_token}/messages/{message_id}` |
-| yes | [Delete Webhook with Token](https://docs.discord.com/developers/resources/webhook#delete-webhook-with-token) | `DELETE /webhooks/{webhook_id}/{webhook_token}` |
-| yes | [Edit Webhook Message](https://docs.discord.com/developers/resources/webhook#edit-webhook-message) | `PATCH /webhooks/{webhook_id}/{webhook_token}/messages/{message_id}` |
-| yes | [Execute GitHub-Compatible Webhook](https://docs.discord.com/developers/resources/webhook#execute-github-compatible-webhook) | `POST /webhooks/{webhook_id}/{webhook_token}/github` |
-| yes | [Execute Slack-Compatible Webhook](https://docs.discord.com/developers/resources/webhook#execute-slack-compatible-webhook) | `POST /webhooks/{webhook_id}/{webhook_token}/slack` |
-| yes | [Execute Webhook](https://docs.discord.com/developers/resources/webhook#execute-webhook) | `POST /webhooks/{webhook_id}/{webhook_token}` |
-| yes | [Get Channel Webhooks](https://docs.discord.com/developers/resources/webhook#get-channel-webhooks) | `GET /channels/{channel_id}/webhooks` |
-| yes | [Get Guild Webhooks](https://docs.discord.com/developers/resources/webhook#get-guild-webhooks) | `GET /guilds/{guild_id}/webhooks` |
-| yes | [Get Webhook](https://docs.discord.com/developers/resources/webhook#get-webhook) | `GET /webhooks/{webhook_id}` |
-| yes | [Get Webhook Message](https://docs.discord.com/developers/resources/webhook#get-webhook-message) | `GET /webhooks/{webhook_id}/{webhook_token}/messages/{message_id}` |
-| yes | [Get Webhook with Token](https://docs.discord.com/developers/resources/webhook#get-webhook-with-token) | `GET /webhooks/{webhook_id}/{webhook_token}` |
-| yes | [Modify Webhook](https://docs.discord.com/developers/resources/webhook#modify-webhook) | `PATCH /webhooks/{webhook_id}` |
-| yes | [Modify Webhook with Token](https://docs.discord.com/developers/resources/webhook#modify-webhook-with-token) | `PATCH /webhooks/{webhook_id}/{webhook_token}` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Create Webhook](https://docs.discord.com/developers/resources/webhook#create-webhook) | `rest.webhooks.create` | `POST /channels/{channel_id}/webhooks` |
+| yes | [Delete Webhook](https://docs.discord.com/developers/resources/webhook#delete-webhook) | `rest.webhooks.delete` | `DELETE /webhooks/{webhook_id}` |
+| yes | [Delete Webhook Message](https://docs.discord.com/developers/resources/webhook#delete-webhook-message) | `rest.webhooks.delete_message` | `DELETE /webhooks/{webhook_id}/{webhook_token}/messages/{message_id}` |
+| yes | [Delete Webhook with Token](https://docs.discord.com/developers/resources/webhook#delete-webhook-with-token) | `rest.webhooks.delete_with_token` | `DELETE /webhooks/{webhook_id}/{webhook_token}` |
+| yes | [Edit Webhook Message](https://docs.discord.com/developers/resources/webhook#edit-webhook-message) | `rest.webhooks.edit_message` | `PATCH /webhooks/{webhook_id}/{webhook_token}/messages/{message_id}` |
+| yes | [Execute GitHub-Compatible Webhook](https://docs.discord.com/developers/resources/webhook#execute-github-compatible-webhook) | `rest.webhooks.execute_github` | `POST /webhooks/{webhook_id}/{webhook_token}/github` |
+| yes | [Execute Slack-Compatible Webhook](https://docs.discord.com/developers/resources/webhook#execute-slack-compatible-webhook) | `rest.webhooks.execute_slack` | `POST /webhooks/{webhook_id}/{webhook_token}/slack` |
+| yes | [Execute Webhook](https://docs.discord.com/developers/resources/webhook#execute-webhook) | `rest.webhooks.execute` | `POST /webhooks/{webhook_id}/{webhook_token}` |
+| yes | [Get Channel Webhooks](https://docs.discord.com/developers/resources/webhook#get-channel-webhooks) | `rest.webhooks.list_for_channel` | `GET /channels/{channel_id}/webhooks` |
+| yes | [Get Guild Webhooks](https://docs.discord.com/developers/resources/webhook#get-guild-webhooks) | `rest.webhooks.list` | `GET /guilds/{guild_id}/webhooks` |
+| yes | [Get Webhook](https://docs.discord.com/developers/resources/webhook#get-webhook) | `rest.webhooks.get` | `GET /webhooks/{webhook_id}` |
+| yes | [Get Webhook Message](https://docs.discord.com/developers/resources/webhook#get-webhook-message) | `rest.webhooks.get_message` | `GET /webhooks/{webhook_id}/{webhook_token}/messages/{message_id}` |
+| yes | [Get Webhook with Token](https://docs.discord.com/developers/resources/webhook#get-webhook-with-token) | `rest.webhooks.get_with_token` | `GET /webhooks/{webhook_id}/{webhook_token}` |
+| yes | [Modify Webhook](https://docs.discord.com/developers/resources/webhook#modify-webhook) | `rest.webhooks.edit` | `PATCH /webhooks/{webhook_id}` |
+| yes | [Modify Webhook with Token](https://docs.discord.com/developers/resources/webhook#modify-webhook-with-token) | `rest.webhooks.edit_with_token` | `PATCH /webhooks/{webhook_id}/{webhook_token}` |
 
 ## [social-layer/game-stats-widgets/sending-game-data](https://docs.discord.com/developers/social-layer/game-stats-widgets/sending-game-data)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Reading the Profile Back](https://docs.discord.com/developers/social-layer/game-stats-widgets/sending-game-data#reading-the-profile-back) | `GET /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
-| yes | [Sending Your First Payload](https://docs.discord.com/developers/social-layer/game-stats-widgets/sending-game-data#sending-your-first-payload) | `PATCH /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Reading the Profile Back](https://docs.discord.com/developers/social-layer/game-stats-widgets/sending-game-data#reading-the-profile-back) | `rest.identities.get_profile` | `GET /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
+| yes | [Sending Your First Payload](https://docs.discord.com/developers/social-layer/game-stats-widgets/sending-game-data#sending-your-first-payload) | `rest.identities.edit_profile` | `PATCH /applications/{application_id}/users/{user_id}/identities/{provider_issued_user_id}/profile` |
 
 ## [topics/oauth2](https://docs.discord.com/developers/topics/oauth2)
 
-| | Endpoint | Route |
-| --- | --- | --- |
-| yes | [Get Current Authorization Information](https://docs.discord.com/developers/topics/oauth2#get-current-authorization-information) | `GET /oauth2/@me` |
-| yes | [Get Current Bot Application Information](https://docs.discord.com/developers/topics/oauth2#get-current-bot-application-information) | `GET /oauth2/applications/@me` |
+| | Endpoint | Shoal | Route |
+| --- | --- | --- | --- |
+| yes | [Get Current Authorization Information](https://docs.discord.com/developers/topics/oauth2#get-current-authorization-information) | `rest.oauth2.get_authorization` | `GET /oauth2/@me` |
+| yes | [Get Current Bot Application Information](https://docs.discord.com/developers/topics/oauth2#get-current-bot-application-information) | `rest.oauth2.get_application` | `GET /oauth2/applications/@me` |

@@ -10,7 +10,7 @@
 
 Every request is checked against the application's public key before anything else runs. `PING`
 is answered by the server. Everything else goes to the handler, which either returns a response
-(sent back in the HTTP reply) or `None` after answering through `RestClient.create_interaction_response`
+(sent back in the HTTP reply) or `None` after answering through `RestClient.interactions.respond`
 (the server then replies `202`, as Discord requires).
 
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#receiving-an-interaction

@@ -561,7 +561,7 @@ class GuildOnboarding(Payload):
     mode: OnboardingMode
 
 
-class ModifyGuildParams(Payload):
+class EditGuildParams(Payload):
     """JSON body of Modify Guild. Needs Manage Guild; changing `COMMUNITY` needs Administrator.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-guild-json-params
@@ -595,7 +595,7 @@ class ModifyGuildParams(Payload):
     safety_alerts_channel_id: Snowflake | UnsetType | None = UNSET
 
 
-class ListGuildMembersParams(Payload):
+class ListMembersParams(Payload):
     """Query of List Guild Members. Needs the Guild Members privileged intent.
 
     Discord: https://docs.discord.com/developers/resources/guild#list-guild-members-query-string-params
@@ -607,7 +607,7 @@ class ListGuildMembersParams(Payload):
     """The highest user ID of the previous page."""
 
 
-class SearchGuildMembersParams(Payload):
+class SearchMembersParams(Payload):
     """Query of Search Guild Members: members whose username or nickname starts with `query`.
 
     Discord: https://docs.discord.com/developers/resources/guild#search-guild-members-query-string-params
@@ -618,7 +618,7 @@ class SearchGuildMembersParams(Payload):
     """1 to 1000; Discord's default is 1."""
 
 
-class AddGuildMemberParams(Payload):
+class AddMemberParams(Payload):
     """JSON body of Add Guild Member.
 
     Discord: https://docs.discord.com/developers/resources/guild#add-guild-member-json-params
@@ -638,7 +638,7 @@ class AddGuildMemberParams(Payload):
     """Needs Deafen Members."""
 
 
-class ModifyGuildMemberParams(Payload):
+class EditMemberParams(Payload):
     """JSON body of Modify Guild Member. Each field needs its own permission (see Discord's table).
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-guild-member-json-params
@@ -658,7 +658,7 @@ class ModifyGuildMemberParams(Payload):
     """Only `bypasses_verification` can be changed."""
 
 
-class ModifyCurrentMemberParams(Payload):
+class EditCurrentMemberParams(Payload):
     """JSON body of Modify Current Member.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-current-member-json-params
@@ -671,7 +671,7 @@ class ModifyCurrentMemberParams(Payload):
     bio: str | UnsetType | None = UNSET
 
 
-class ModifyCurrentUserNickParams(Payload):
+class EditCurrentNickParams(Payload):
     """JSON body of the deprecated Modify Current User Nick.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-current-user-nick-json-params
@@ -680,7 +680,7 @@ class ModifyCurrentUserNickParams(Payload):
     nick: str | UnsetType | None = UNSET
 
 
-class GetGuildBansParams(Payload):
+class ListBansParams(Payload):
     """Query of Get Guild Bans. Bans come in ascending user ID order; `before` wins over `after`.
 
     Discord: https://docs.discord.com/developers/resources/guild#get-guild-bans-query-string-params
@@ -692,7 +692,7 @@ class GetGuildBansParams(Payload):
     after: Snowflake | UnsetType = UNSET
 
 
-class CreateGuildBanParams(Payload):
+class BanParams(Payload):
     """JSON body of Create Guild Ban.
 
     Discord: https://docs.discord.com/developers/resources/guild#create-guild-ban-json-params
@@ -704,7 +704,7 @@ class CreateGuildBanParams(Payload):
     """Delete the user's messages from this many seconds back, up to 604800 (7 days)."""
 
 
-class BulkGuildBanParams(Payload):
+class BulkBanParams(Payload):
     """JSON body of Bulk Guild Ban.
 
     Discord: https://docs.discord.com/developers/resources/guild#bulk-guild-ban-json-params
@@ -726,7 +726,7 @@ class BulkBanResponse(Payload):
     failed_users: list[Snowflake]
 
 
-class CreateGuildRoleParams(Payload):
+class CreateRoleParams(Payload):
     """JSON body of Create Guild Role.
 
     Discord: https://docs.discord.com/developers/resources/guild#create-guild-role-json-params
@@ -757,7 +757,7 @@ class RolePositionParams(Payload):
     position: int | UnsetType | None = UNSET
 
 
-class ModifyGuildRoleParams(Payload):
+class EditRoleParams(Payload):
     """JSON body of Modify Guild Role.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-guild-role-json-params
@@ -774,7 +774,7 @@ class ModifyGuildRoleParams(Payload):
     mentionable: bool | UnsetType | None = UNSET
 
 
-class GetGuildPruneCountParams(Payload):
+class GetPruneCountParams(Payload):
     """Query of Get Guild Prune Count.
 
     Discord: https://docs.discord.com/developers/resources/guild#get-guild-prune-count-query-string-params
@@ -786,7 +786,7 @@ class GetGuildPruneCountParams(Payload):
     """Also count members whose roles are all among these. Sent comma-separated."""
 
 
-class BeginGuildPruneParams(Payload):
+class PruneParams(Payload):
     """JSON body of Begin Guild Prune.
 
     Discord: https://docs.discord.com/developers/resources/guild#begin-guild-prune-json-params
@@ -811,7 +811,7 @@ class PruneCount(Payload):
     """`None` when `compute_prune_count` was false."""
 
 
-class ModifyGuildWidgetParams(Payload):
+class EditWidgetParams(Payload):
     """JSON body of Modify Guild Widget.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-guild-widget
@@ -821,7 +821,7 @@ class ModifyGuildWidgetParams(Payload):
     channel_id: Snowflake | UnsetType | None = UNSET
 
 
-class ModifyGuildWelcomeScreenParams(Payload):
+class EditWelcomeScreenParams(Payload):
     """JSON body of Modify Guild Welcome Screen.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-guild-welcome-screen-json-params
@@ -863,7 +863,7 @@ class OnboardingPromptParams(Payload):
     in_onboarding: bool
 
 
-class ModifyGuildOnboardingParams(Payload):
+class EditOnboardingParams(Payload):
     """JSON body of Modify Guild Onboarding. Needs Manage Guild and Manage Roles.
 
     When enabled, onboarding needs at least 7 default channels, 5 of which @everyone can send in.
@@ -877,7 +877,7 @@ class ModifyGuildOnboardingParams(Payload):
     mode: OnboardingMode | UnsetType = UNSET
 
 
-class ModifyGuildIncidentActionsParams(Payload):
+class EditIncidentActionsParams(Payload):
     """JSON body of Modify Guild Incident Actions. Each pause can last up to 24 hours; `None` ends it.
 
     Discord: https://docs.discord.com/developers/resources/guild#modify-guild-incident-actions-json-params

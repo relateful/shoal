@@ -3,13 +3,15 @@
 Discord: https://docs.discord.com/developers/resources/emoji
 """
 
+import builtins
+
 from shoal.payloads.emoji import (
     ApplicationEmojis,
     CreateApplicationEmojiParams,
-    CreateGuildEmojiParams,
+    CreateEmojiParams,
+    EditApplicationEmojiParams,
+    EditEmojiParams,
     Emoji,
-    ModifyApplicationEmojiParams,
-    ModifyGuildEmojiParams,
 )
 from shoal.rest.endpoints import (
     CREATE_APPLICATION_EMOJI,
@@ -23,31 +25,32 @@ from shoal.rest.endpoints import (
     MODIFY_APPLICATION_EMOJI,
     MODIFY_GUILD_EMOJI,
 )
-from shoal.rest.requester import Requester
+from shoal.rest.requester import Resource
 
 
-class EmojiEndpoints(Requester):
-    """Endpoints for guild and application emojis; part of `RestClient`."""
+class Emojis(Resource):
+    """Guild emojis and application emojis.
+
+    Use it as `rest.emojis`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def list_guild_emojis(self, guild_id: int) -> list[Emoji]:
+    async def list(self, guild_id: int) -> builtins.list[Emoji]:
         """List a guild's custom emojis. `user` is set with Create or Manage Expressions.
 
         Discord: https://docs.discord.com/developers/resources/emoji#list-guild-emojis
         """
         return await self.request(LIST_GUILD_EMOJIS.compile(guild_id=guild_id), list[Emoji])
 
-    async def get_guild_emoji(self, guild_id: int, emoji_id: int) -> Emoji:
+    async def get(self, guild_id: int, emoji_id: int) -> Emoji:
         """Get one of a guild's custom emojis.
 
         Discord: https://docs.discord.com/developers/resources/emoji#get-guild-emoji
         """
         return await self.request(GET_GUILD_EMOJI.compile(guild_id=guild_id, emoji_id=emoji_id), Emoji)
 
-    async def create_guild_emoji(
-        self, guild_id: int, params: CreateGuildEmojiParams, *, reason: str | None = None
-    ) -> Emoji:
+    async def create(self, guild_id: int, params: CreateEmojiParams, *, reason: str | None = None) -> Emoji:
         """Add a custom emoji to a guild. Needs Create Expressions.
 
         Discord: https://docs.discord.com/developers/resources/emoji#create-guild-emoji
@@ -56,8 +59,8 @@ class EmojiEndpoints(Requester):
             CREATE_GUILD_EMOJI.compile(guild_id=guild_id), Emoji, body=params, reason=reason
         )
 
-    async def modify_guild_emoji(
-        self, guild_id: int, emoji_id: int, params: ModifyGuildEmojiParams, *, reason: str | None = None
+    async def edit(
+        self, guild_id: int, emoji_id: int, params: EditEmojiParams, *, reason: str | None = None
     ) -> Emoji:
         """Rename an emoji or change who can use it.
 
@@ -72,7 +75,7 @@ class EmojiEndpoints(Requester):
             reason=reason,
         )
 
-    async def delete_guild_emoji(self, guild_id: int, emoji_id: int, *, reason: str | None = None) -> None:
+    async def delete(self, guild_id: int, emoji_id: int, *, reason: str | None = None) -> None:
         """Delete a custom emoji.
 
         Needs Manage Expressions, or Create Expressions for emojis the bot created.
@@ -83,7 +86,7 @@ class EmojiEndpoints(Requester):
             DELETE_GUILD_EMOJI.compile(guild_id=guild_id, emoji_id=emoji_id), reason=reason
         )
 
-    async def list_application_emojis(self, application_id: int) -> list[Emoji]:
+    async def list_for_application(self, application_id: int) -> builtins.list[Emoji]:
         """List the app's own emojis, which it can use in any guild.
 
         Discord: https://docs.discord.com/developers/resources/emoji#list-application-emojis
@@ -93,7 +96,7 @@ class EmojiEndpoints(Requester):
         )
         return response.items
 
-    async def get_application_emoji(self, application_id: int, emoji_id: int) -> Emoji:
+    async def get_for_application(self, application_id: int, emoji_id: int) -> Emoji:
         """Get one of the app's emojis.
 
         Discord: https://docs.discord.com/developers/resources/emoji#get-application-emoji
@@ -102,7 +105,7 @@ class EmojiEndpoints(Requester):
             GET_APPLICATION_EMOJI.compile(application_id=application_id, emoji_id=emoji_id), Emoji
         )
 
-    async def create_application_emoji(
+    async def create_for_application(
         self, application_id: int, params: CreateApplicationEmojiParams
     ) -> Emoji:
         """Add an emoji to the app.
@@ -113,8 +116,8 @@ class EmojiEndpoints(Requester):
             CREATE_APPLICATION_EMOJI.compile(application_id=application_id), Emoji, body=params
         )
 
-    async def modify_application_emoji(
-        self, application_id: int, emoji_id: int, params: ModifyApplicationEmojiParams
+    async def edit_for_application(
+        self, application_id: int, emoji_id: int, params: EditApplicationEmojiParams
     ) -> Emoji:
         """Rename one of the app's emojis.
 
@@ -126,7 +129,7 @@ class EmojiEndpoints(Requester):
             body=params,
         )
 
-    async def delete_application_emoji(self, application_id: int, emoji_id: int) -> None:
+    async def delete_for_application(self, application_id: int, emoji_id: int) -> None:
         """Delete one of the app's emojis.
 
         Discord: https://docs.discord.com/developers/resources/emoji#delete-application-emoji

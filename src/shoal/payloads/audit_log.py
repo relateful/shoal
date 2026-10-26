@@ -184,7 +184,7 @@ class AuditLog(Payload):
     webhooks: list[Webhook]
 
 
-class GetGuildAuditLogParams(Payload):
+class GetAuditLogParams(Payload):
     """Query of Get Guild Audit Log.
 
     Without `before` or `after`, the newest entries come first; `after=0` gives the oldest.

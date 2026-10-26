@@ -1,5 +1,5 @@
 from shoal.core.snowflake import Snowflake
-from shoal.payloads import CreateStageInstanceParams, ModifyStageInstanceParams
+from shoal.payloads import CreateStageInstanceParams, EditStageInstanceParams
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
 STAGE: dict[str, object] = {
@@ -16,7 +16,7 @@ STAGE: dict[str, object] = {
 CASES = [
     EndpointCase(
         name="create",
-        call=lambda client: client.create_stage_instance(
+        call=lambda client: client.stage_instances.create(
             CreateStageInstanceParams(
                 channel_id=Snowflake(733488538393510049),
                 topic="Testing Testing, 123",
@@ -36,15 +36,15 @@ CASES = [
     ),
     EndpointCase(
         name="get",
-        call=lambda client: client.get_stage_instance(733488538393510049),
+        call=lambda client: client.stage_instances.get(733488538393510049),
         method="GET",
         path="/stage-instances/733488538393510049",
         response=STAGE,
     ),
     EndpointCase(
         name="modify",
-        call=lambda client: client.modify_stage_instance(
-            733488538393510049, ModifyStageInstanceParams(topic="Q&A")
+        call=lambda client: client.stage_instances.edit(
+            733488538393510049, EditStageInstanceParams(topic="Q&A")
         ),
         method="PATCH",
         path="/stage-instances/733488538393510049",
@@ -53,7 +53,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete",
-        call=lambda client: client.delete_stage_instance(733488538393510049),
+        call=lambda client: client.stage_instances.delete(733488538393510049),
         method="DELETE",
         path="/stage-instances/733488538393510049",
     ),

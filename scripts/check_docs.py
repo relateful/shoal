@@ -16,6 +16,7 @@ whether Shoal implements it; `--check-coverage FILE` fails when that report is o
 """
 
 import argparse
+import ast
 import re
 import sys
 from dataclasses import dataclass, field
@@ -175,9 +176,36 @@ def _is_retired(title: str, method: str, path: str) -> bool:
     return _is_deprecated(title) or (method, path) in DISABLED_ROUTES
 
 
+def shoal_methods() -> dict[tuple[str, str], list[str]]:
+    """The `rest.<resource>.<method>` that calls each route, read from `shoal.rest.resources`."""
+    sys.path.insert(0, str(SOURCE.parent))
+    from shoal.rest import endpoints  # noqa: PLC0415 - imported after adjusting sys.path
+    from shoal.rest.route import Route  # noqa: PLC0415
+
+    client = (SOURCE / "rest" / "client.py").read_text(encoding="utf-8")
+    attribute_of = {cls: attr for attr, cls in re.findall(r"self\.(\w+): (\w+) = \2\(self\)", client)}
+    found: dict[tuple[str, str], list[str]] = {}
+    for module in sorted((SOURCE / "rest" / "resources").glob("*.py")):
+        for cls in ast.parse(module.read_text(encoding="utf-8")).body:
+            if not isinstance(cls, ast.ClassDef) or cls.name not in attribute_of:
+                continue
+            for func in cls.body:
+                if not isinstance(func, ast.AsyncFunctionDef) or func.name.startswith("_"):
+                    continue
+                for node in ast.walk(func):
+                    route = getattr(endpoints, node.id, None) if isinstance(node, ast.Name) else None
+                    if isinstance(route, Route):
+                        name = f"rest.{attribute_of[cls.name]}.{func.name}"
+                        names = found.setdefault((route.method.value, route.path), [])
+                        if name not in names:
+                            names.append(name)
+    return found
+
+
 def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) -> str:
-    """Markdown listing every documented endpoint and whether Shoal implements it."""
+    """Markdown listing every documented endpoint, whether Shoal implements it, and the method."""
     implemented = {(method, path) for method, path, _ in routes}
+    methods = shoal_methods()
     documented = sorted(
         {
             (route.page, route.title, route.method, route.path, route.anchor)
@@ -205,7 +233,7 @@ def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) 
         if page != current:
             current = page
             heading = f"## [{page}]({DOCS_BASE}{page})"
-            lines += ["", heading, "", "| | Endpoint | Route |", "| --- | --- | --- |"]
+            lines += ["", heading, "", "| | Endpoint | Shoal | Route |", "| --- | --- | --- | --- |"]
         if (method, path) in implemented:
             mark = "yes"
         elif (method, path) in DISABLED_ROUTES:
@@ -214,7 +242,8 @@ def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) 
             mark = "deprecated"
         else:
             mark = "no"
-        lines.append(f"| {mark} | [{title}]({DOCS_BASE}{page}#{anchor}) | `{method} {path}` |")
+        shoal = ", ".join(f"`{name}`" for name in methods.get((method, path), []))
+        lines.append(f"| {mark} | [{title}]({DOCS_BASE}{page}#{anchor}) | {shoal} | `{method} {path}` |")
     return "\n".join(lines) + "\n"
 
 

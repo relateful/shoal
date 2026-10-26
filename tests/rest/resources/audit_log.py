@@ -2,7 +2,7 @@ import msgspec
 
 from shoal.core.codec import decode_json
 from shoal.core.snowflake import Snowflake
-from shoal.payloads import AuditLog, AuditLogEvent, GetGuildAuditLogParams
+from shoal.payloads import AuditLog, AuditLogEvent, GetAuditLogParams
 from tests.support.json_payloads import USER
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -47,9 +47,9 @@ AUDIT_LOG: dict[str, object] = {
 CASES = [
     EndpointCase(
         name="get audit log",
-        call=lambda client: client.get_guild_audit_log(
+        call=lambda client: client.audit_logs.get(
             2,
-            GetGuildAuditLogParams(action_type=AuditLogEvent.CHANNEL_UPDATE, before=Snowflake(100), limit=10),
+            GetAuditLogParams(action_type=AuditLogEvent.CHANNEL_UPDATE, before=Snowflake(100), limit=10),
         ),
         method="GET",
         path="/guilds/2/audit-logs?action_type=11&before=100&limit=10",

@@ -495,7 +495,7 @@ class InteractionCallbackResponse(Payload):
     resource: InteractionCallbackResource | UnsetType = UNSET
 
 
-class CreateFollowupMessageParams(Payload):
+class SendFollowupParams(Payload):
     """JSON body of Create Followup Message.
 
     It is Execute Webhook's body without `username`, `avatar_url` and `thread_id`, which follow-ups

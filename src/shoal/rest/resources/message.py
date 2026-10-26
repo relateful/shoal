@@ -3,6 +3,7 @@
 Discord: https://docs.discord.com/developers/resources/message
 """
 
+import builtins
 from collections.abc import Sequence
 
 from shoal.core.snowflake import Snowflake
@@ -12,12 +13,14 @@ from shoal.payloads.message import (
     ChannelPins,
     CreateMessageParams,
     EditMessageParams,
-    GetChannelMessagesParams,
-    GetChannelPinsParams,
-    GetReactionsParams,
+    ListMessagesParams,
+    ListPinsParams,
+    ListReactionsParams,
     Message,
+    SearchGuildMessagesResponse,
+    SearchMessagesParams,
 )
-from shoal.payloads.poll import AnswerVoters, GetAnswerVotersParams
+from shoal.payloads.poll import AnswerVoters, ListVotersParams
 from shoal.payloads.user import User
 from shoal.rest.endpoints import (
     BULK_DELETE_MESSAGES,
@@ -37,10 +40,11 @@ from shoal.rest.endpoints import (
     GET_CHANNEL_PINS,
     GET_REACTIONS,
     PIN_MESSAGE,
+    SEARCH_GUILD_MESSAGES,
     UNPIN_MESSAGE,
 )
 from shoal.rest.files import File
-from shoal.rest.requester import Requester, query_of, with_attachments
+from shoal.rest.requester import Resource, query_of, with_attachments
 
 type ReactionEmoji = str | Emoji | PartialEmoji
 """An emoji to react with: a unicode emoji, `name:id` for a custom one, or an emoji object."""
@@ -64,14 +68,15 @@ def reaction_emoji(emoji: ReactionEmoji) -> str:
     return name if emoji_id is None else f"{name}:{emoji_id}"
 
 
-class MessageEndpoints(Requester):
-    """Endpoints for messages, reactions, pins and polls; part of `RestClient`."""
+class Messages(Resource):
+    """Messages, pins and message search.
+
+    Use it as `rest.messages`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def get_channel_messages(
-        self, channel_id: int, params: GetChannelMessagesParams | None = None
-    ) -> list[Message]:
+    async def list(self, channel_id: int, params: ListMessagesParams | None = None) -> builtins.list[Message]:
         """List a channel's messages, newest first.
 
         Needs View Channel (and Connect in voice channels); without Read Message History the list
@@ -85,7 +90,7 @@ class MessageEndpoints(Requester):
             query=query_of(params) if params is not None else None,
         )
 
-    async def get_channel_message(self, channel_id: int, message_id: int) -> Message:
+    async def get(self, channel_id: int, message_id: int) -> Message:
         """Get one message.
 
         Discord: https://docs.discord.com/developers/resources/message#get-channel-message
@@ -94,7 +99,7 @@ class MessageEndpoints(Requester):
             GET_CHANNEL_MESSAGE.compile(channel_id=channel_id, message_id=message_id), Message
         )
 
-    async def create_message(
+    async def create(
         self, channel_id: int, params: CreateMessageParams, *, files: Sequence[File] = ()
     ) -> Message:
         """Send a message, with any files attached.
@@ -109,7 +114,7 @@ class MessageEndpoints(Requester):
             CREATE_MESSAGE.compile(channel_id=channel_id), Message, body=body, files=named
         )
 
-    async def crosspost_message(self, channel_id: int, message_id: int) -> Message:
+    async def crosspost(self, channel_id: int, message_id: int) -> Message:
         """Publish a message in an announcement channel to the channels following it.
 
         Needs Send Messages for the bot's own messages, and Manage Messages for others'.
@@ -120,81 +125,7 @@ class MessageEndpoints(Requester):
             CROSSPOST_MESSAGE.compile(channel_id=channel_id, message_id=message_id), Message
         )
 
-    async def create_reaction(self, channel_id: int, message_id: int, emoji: ReactionEmoji) -> None:
-        """React to a message. Needs Read Message History, and Add Reactions for a new emoji.
-
-        Discord: https://docs.discord.com/developers/resources/message#create-reaction
-        """
-        await self.request_empty(
-            CREATE_REACTION.compile(
-                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
-            )
-        )
-
-    async def delete_own_reaction(self, channel_id: int, message_id: int, emoji: ReactionEmoji) -> None:
-        """Remove the current user's reaction.
-
-        Discord: https://docs.discord.com/developers/resources/message#delete-own-reaction
-        """
-        await self.request_empty(
-            DELETE_OWN_REACTION.compile(
-                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
-            )
-        )
-
-    async def delete_user_reaction(
-        self, channel_id: int, message_id: int, emoji: ReactionEmoji, user_id: int
-    ) -> None:
-        """Remove another user's reaction. Needs Manage Messages.
-
-        Discord: https://docs.discord.com/developers/resources/message#delete-user-reaction
-        """
-        await self.request_empty(
-            DELETE_USER_REACTION.compile(
-                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji), user_id=user_id
-            )
-        )
-
-    async def get_reactions(
-        self,
-        channel_id: int,
-        message_id: int,
-        emoji: ReactionEmoji,
-        params: GetReactionsParams | None = None,
-    ) -> list[User]:
-        """List the users who reacted with an emoji.
-
-        Discord: https://docs.discord.com/developers/resources/message#get-reactions
-        """
-        return await self.request(
-            GET_REACTIONS.compile(
-                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
-            ),
-            list[User],
-            query=query_of(params) if params is not None else None,
-        )
-
-    async def delete_all_reactions(self, channel_id: int, message_id: int) -> None:
-        """Remove every reaction from a message. Needs Manage Messages.
-
-        Discord: https://docs.discord.com/developers/resources/message#delete-all-reactions
-        """
-        await self.request_empty(DELETE_ALL_REACTIONS.compile(channel_id=channel_id, message_id=message_id))
-
-    async def delete_all_reactions_for_emoji(
-        self, channel_id: int, message_id: int, emoji: ReactionEmoji
-    ) -> None:
-        """Remove every reaction with one emoji from a message. Needs Manage Messages.
-
-        Discord: https://docs.discord.com/developers/resources/message#delete-all-reactions-for-emoji
-        """
-        await self.request_empty(
-            DELETE_ALL_REACTIONS_FOR_EMOJI.compile(
-                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
-            )
-        )
-
-    async def edit_message(
+    async def edit(
         self, channel_id: int, message_id: int, params: EditMessageParams, *, files: Sequence[File] = ()
     ) -> Message:
         """Edit a message; files passed are added to it.
@@ -209,7 +140,7 @@ class MessageEndpoints(Requester):
             files=named,
         )
 
-    async def delete_message(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
+    async def delete(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
         """Delete a message. Needs Manage Messages for other users' messages in a guild.
 
         Discord: https://docs.discord.com/developers/resources/message#delete-message
@@ -218,7 +149,7 @@ class MessageEndpoints(Requester):
             DELETE_MESSAGE.compile(channel_id=channel_id, message_id=message_id), reason=reason
         )
 
-    async def bulk_delete_messages(
+    async def bulk_delete(
         self, channel_id: int, message_ids: Sequence[int], *, reason: str | None = None
     ) -> None:
         """Delete 2 to 100 messages at once, none older than two weeks. Needs Manage Messages.
@@ -231,9 +162,7 @@ class MessageEndpoints(Requester):
             reason=reason,
         )
 
-    async def get_channel_pins(
-        self, channel_id: int, params: GetChannelPinsParams | None = None
-    ) -> ChannelPins:
+    async def list_pins(self, channel_id: int, params: ListPinsParams | None = None) -> ChannelPins:
         """List a channel's pins, up to 50 at a time, most recently pinned first.
 
         Discord: https://docs.discord.com/developers/resources/message#get-channel-pins
@@ -244,7 +173,7 @@ class MessageEndpoints(Requester):
             query=query_of(params) if params is not None else None,
         )
 
-    async def pin_message(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
+    async def pin(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
         """Pin a message. Needs Pin Messages.
 
         Discord: https://docs.discord.com/developers/resources/message#pin-message
@@ -253,7 +182,7 @@ class MessageEndpoints(Requester):
             PIN_MESSAGE.compile(channel_id=channel_id, message_id=message_id), reason=reason
         )
 
-    async def unpin_message(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
+    async def unpin(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
         """Unpin a message. Needs Pin Messages.
 
         Discord: https://docs.discord.com/developers/resources/message#unpin-message
@@ -262,12 +191,117 @@ class MessageEndpoints(Requester):
             UNPIN_MESSAGE.compile(channel_id=channel_id, message_id=message_id), reason=reason
         )
 
-    async def get_answer_voters(
+    async def search(self, guild_id: int, params: SearchMessagesParams) -> SearchGuildMessagesResponse:
+        """Search a guild's messages. Needs the Message Content intent and Read Message History.
+
+        While Discord is still indexing the guild it answers `202 Accepted`; the client waits the
+        `retry_after` Discord gives and tries again, within `max_retries`.
+
+        Raises:
+            SearchIndexNotReadyError: The index was still not ready after every retry.
+
+        Discord: https://docs.discord.com/developers/resources/message#search-guild-messages
+        """
+        return await self.request_search(
+            SEARCH_GUILD_MESSAGES.compile(guild_id=guild_id),
+            SearchGuildMessagesResponse,
+            query=query_of(params),
+        )
+
+
+class Reactions(Resource):
+    """Reactions on messages.
+
+    Use it as `rest.reactions`, where `rest` is a `RestClient`.
+    """
+
+    __slots__ = ()
+
+    async def add(self, channel_id: int, message_id: int, emoji: ReactionEmoji) -> None:
+        """React to a message. Needs Read Message History, and Add Reactions for a new emoji.
+
+        Discord: https://docs.discord.com/developers/resources/message#create-reaction
+        """
+        await self.request_empty(
+            CREATE_REACTION.compile(
+                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
+            )
+        )
+
+    async def remove_mine(self, channel_id: int, message_id: int, emoji: ReactionEmoji) -> None:
+        """Remove the current user's reaction.
+
+        Discord: https://docs.discord.com/developers/resources/message#delete-own-reaction
+        """
+        await self.request_empty(
+            DELETE_OWN_REACTION.compile(
+                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
+            )
+        )
+
+    async def remove(self, channel_id: int, message_id: int, emoji: ReactionEmoji, user_id: int) -> None:
+        """Remove another user's reaction. Needs Manage Messages.
+
+        Discord: https://docs.discord.com/developers/resources/message#delete-user-reaction
+        """
+        await self.request_empty(
+            DELETE_USER_REACTION.compile(
+                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji), user_id=user_id
+            )
+        )
+
+    async def list(
+        self,
+        channel_id: int,
+        message_id: int,
+        emoji: ReactionEmoji,
+        params: ListReactionsParams | None = None,
+    ) -> builtins.list[User]:
+        """List the users who reacted with an emoji.
+
+        Discord: https://docs.discord.com/developers/resources/message#get-reactions
+        """
+        return await self.request(
+            GET_REACTIONS.compile(
+                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
+            ),
+            list[User],
+            query=query_of(params) if params is not None else None,
+        )
+
+    async def clear(self, channel_id: int, message_id: int) -> None:
+        """Remove every reaction from a message. Needs Manage Messages.
+
+        Discord: https://docs.discord.com/developers/resources/message#delete-all-reactions
+        """
+        await self.request_empty(DELETE_ALL_REACTIONS.compile(channel_id=channel_id, message_id=message_id))
+
+    async def clear_emoji(self, channel_id: int, message_id: int, emoji: ReactionEmoji) -> None:
+        """Remove every reaction with one emoji from a message. Needs Manage Messages.
+
+        Discord: https://docs.discord.com/developers/resources/message#delete-all-reactions-for-emoji
+        """
+        await self.request_empty(
+            DELETE_ALL_REACTIONS_FOR_EMOJI.compile(
+                channel_id=channel_id, message_id=message_id, emoji_id=reaction_emoji(emoji)
+            )
+        )
+
+
+class Polls(Resource):
+    """Polls on messages.
+
+    Use it as `rest.polls`, where `rest` is a `RestClient`.
+    """
+
+    __slots__ = ()
+
+    async def list_voters(
         self,
         channel_id: int,
         message_id: int,
         answer_id: int,
-        params: GetAnswerVotersParams | None = None,
+        params: ListVotersParams | None = None,
     ) -> list[User]:
         """List the users who voted for one answer of a poll.
 
@@ -280,7 +314,7 @@ class MessageEndpoints(Requester):
         )
         return response.users
 
-    async def end_poll(self, channel_id: int, message_id: int) -> Message:
+    async def end(self, channel_id: int, message_id: int) -> Message:
         """End one of the bot's polls now.
 
         Discord: https://docs.discord.com/developers/resources/poll#end-poll

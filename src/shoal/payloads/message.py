@@ -681,7 +681,7 @@ class SearchSortOrder(DiscordStrEnum):
     DESC = "desc"
 
 
-class SearchGuildMessagesParams(Payload):
+class SearchMessagesParams(Payload):
     """Query of Search Guild Messages. List filters are sent as repeated query parameters.
 
     The `author_type` and `has` lists take `SearchAuthorType` and `SearchHasType` values; prefix one with
@@ -758,7 +758,7 @@ class SearchIndexNotReady(Payload):
     retry_after: float
 
 
-class GetChannelMessagesParams(Payload):
+class ListMessagesParams(Payload):
     """Query of Get Channel Messages. `around`, `before` and `after` are mutually exclusive.
 
     Discord: https://docs.discord.com/developers/resources/message#get-channel-messages-query-string-params
@@ -771,7 +771,7 @@ class GetChannelMessagesParams(Payload):
     """1 to 100; Discord's default is 50."""
 
 
-class GetReactionsParams(Payload):
+class ListReactionsParams(Payload):
     """Query of Get Reactions.
 
     Discord: https://docs.discord.com/developers/resources/message#get-reactions-query-string-params
@@ -815,7 +815,7 @@ class BulkDeleteMessagesParams(Payload):
     """2 to 100 message IDs, none older than two weeks and none repeated."""
 
 
-class GetChannelPinsParams(Payload):
+class ListPinsParams(Payload):
     """Query of Get Channel Pins; page with the last pin's `pinned_at` as `before`.
 
     Discord: https://docs.discord.com/developers/resources/message#get-channel-pins-query-string-params

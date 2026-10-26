@@ -194,7 +194,7 @@ class ApplicationRoleConnection(Payload):
     """Values by metadata key, each up to 100 characters."""
 
 
-class ModifyCurrentUserParams(Payload):
+class EditCurrentUserParams(Payload):
     """JSON body of Modify Current User.
 
     Discord: https://docs.discord.com/developers/resources/user#modify-current-user-json-params
@@ -206,7 +206,7 @@ class ModifyCurrentUserParams(Payload):
     banner: ImageData | UnsetType | None = UNSET
 
 
-class GetCurrentUserGuildsParams(Payload):
+class ListGuildsParams(Payload):
     """Query of Get Current User Guilds.
 
     Discord: https://docs.discord.com/developers/resources/user#get-current-user-guilds-query-string-params
@@ -244,7 +244,7 @@ class CreateGroupDMParams(Payload):
     """Nicknames by user ID."""
 
 
-class UpdateApplicationRoleConnectionParams(Payload):
+class EditRoleConnectionParams(Payload):
     """JSON body of Update Current User Application Role Connection.
 
     Discord: https://docs.discord.com/developers/resources/user#update-current-user-application-role-connection-json-params

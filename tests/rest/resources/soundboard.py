@@ -1,7 +1,7 @@
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
-    CreateGuildSoundboardSoundParams,
-    ModifyGuildSoundboardSoundParams,
+    CreateSoundboardSoundParams,
+    EditSoundboardSoundParams,
     SendSoundboardSoundParams,
 )
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
@@ -31,7 +31,7 @@ GUILD_SOUNDS = "/guilds/613425648685547541/soundboard-sounds"
 CASES = [
     EndpointCase(
         name="send sound",
-        call=lambda client: client.send_soundboard_sound(
+        call=lambda client: client.soundboard.send(
             6,
             SendSoundboardSoundParams(
                 sound_id=Snowflake(1106714396018884649), source_guild_id=Snowflake(613425648685547541)
@@ -43,14 +43,14 @@ CASES = [
     ),
     EndpointCase(
         name="list default sounds",
-        call=lambda client: client.list_default_soundboard_sounds(),
+        call=lambda client: client.soundboard.list_default(),
         method="GET",
         path="/soundboard-default-sounds",
         response=[DEFAULT_SOUND],
     ),
     EndpointCase(
         name="list guild sounds",
-        call=lambda client: client.list_guild_soundboard_sounds(613425648685547541),
+        call=lambda client: client.soundboard.list(613425648685547541),
         method="GET",
         path=GUILD_SOUNDS,
         response={"items": [GUILD_SOUND]},
@@ -58,16 +58,16 @@ CASES = [
     ),
     EndpointCase(
         name="get guild sound",
-        call=lambda client: client.get_guild_soundboard_sound(613425648685547541, 1106714396018884649),
+        call=lambda client: client.soundboard.get(613425648685547541, 1106714396018884649),
         method="GET",
         path=f"{GUILD_SOUNDS}/1106714396018884649",
         response=GUILD_SOUND,
     ),
     EndpointCase(
         name="create guild sound",
-        call=lambda client: client.create_guild_soundboard_sound(
+        call=lambda client: client.soundboard.create(
             613425648685547541,
-            CreateGuildSoundboardSoundParams(name="Yay", sound=SOUND, emoji_id=Snowflake(989193655938064464)),
+            CreateSoundboardSoundParams(name="Yay", sound=SOUND, emoji_id=Snowflake(989193655938064464)),
             reason="new sound",
         ),
         method="POST",
@@ -78,10 +78,10 @@ CASES = [
     ),
     EndpointCase(
         name="modify guild sound",
-        call=lambda client: client.modify_guild_soundboard_sound(
+        call=lambda client: client.soundboard.edit(
             613425648685547541,
             1106714396018884649,
-            ModifyGuildSoundboardSoundParams(volume=0.5, emoji_id=None),
+            EditSoundboardSoundParams(volume=0.5, emoji_id=None),
         ),
         method="PATCH",
         path=f"{GUILD_SOUNDS}/1106714396018884649",
@@ -90,7 +90,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete guild sound",
-        call=lambda client: client.delete_guild_soundboard_sound(613425648685547541, 1106714396018884649),
+        call=lambda client: client.soundboard.delete(613425648685547541, 1106714396018884649),
         method="DELETE",
         path=f"{GUILD_SOUNDS}/1106714396018884649",
     ),

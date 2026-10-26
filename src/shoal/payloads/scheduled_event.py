@@ -188,7 +188,7 @@ class GuildScheduledEventUser(Payload):
     """Only with `with_member`, and only when the user is still in the guild."""
 
 
-class CreateGuildScheduledEventParams(Payload):
+class CreateScheduledEventParams(Payload):
     """JSON body of Create Guild Scheduled Event. A guild can have 100 scheduled or active events.
 
     Discord: https://docs.discord.com/developers/resources/guild-scheduled-event#create-guild-scheduled-event-json-params
@@ -209,7 +209,7 @@ class CreateGuildScheduledEventParams(Payload):
     recurrence_rule: RecurrenceRule | UnsetType = UNSET
 
 
-class ModifyGuildScheduledEventParams(Payload):
+class EditScheduledEventParams(Payload):
     """JSON body of Modify Guild Scheduled Event; set `status` to start or end an event.
 
     Changing to `EXTERNAL` needs `channel_id=None`, `entity_metadata.location` and
@@ -231,7 +231,7 @@ class ModifyGuildScheduledEventParams(Payload):
     recurrence_rule: RecurrenceRule | UnsetType | None = UNSET
 
 
-class GetGuildScheduledEventUsersParams(Payload):
+class ListScheduledEventUsersParams(Payload):
     """Query of Get Guild Scheduled Event Users. Users come in ascending ID order; `before` wins.
 
     Discord: https://docs.discord.com/developers/resources/guild-scheduled-event#get-guild-scheduled-event-users-query-string-params

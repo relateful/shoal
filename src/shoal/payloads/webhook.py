@@ -99,7 +99,7 @@ class CreateWebhookParams(Payload):
     avatar: ImageData | UnsetType | None = UNSET
 
 
-class ModifyWebhookParams(Payload):
+class EditWebhookParams(Payload):
     """JSON body of Modify Webhook. Modify Webhook with Token does not take `channel_id`.
 
     Discord: https://docs.discord.com/developers/resources/webhook#modify-webhook-json-params
@@ -111,7 +111,7 @@ class ModifyWebhookParams(Payload):
     """Move the webhook to another channel."""
 
 
-class ModifyWebhookWithTokenParams(Payload):
+class EditWebhookWithTokenParams(Payload):
     """JSON body of Modify Webhook with Token, which cannot move the webhook.
 
     Discord: https://docs.discord.com/developers/resources/webhook#modify-webhook-with-token

@@ -2,9 +2,9 @@ from datetime import UTC, datetime
 
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
-    CreateGuildScheduledEventParams,
-    GetGuildScheduledEventUsersParams,
-    ModifyGuildScheduledEventParams,
+    CreateScheduledEventParams,
+    EditScheduledEventParams,
+    ListScheduledEventUsersParams,
     RecurrenceRule,
     RecurrenceRuleFrequency,
     RecurrenceRuleWeekday,
@@ -51,16 +51,16 @@ EVENTS = "/guilds/2/scheduled-events"
 CASES = [
     EndpointCase(
         name="list",
-        call=lambda client: client.list_scheduled_events_for_guild(2, with_user_count=True),
+        call=lambda client: client.scheduled_events.list(2, with_user_count=True),
         method="GET",
         path=f"{EVENTS}?with_user_count=true",
         response=[EVENT],
     ),
     EndpointCase(
         name="create",
-        call=lambda client: client.create_guild_scheduled_event(
+        call=lambda client: client.scheduled_events.create(
             2,
-            CreateGuildScheduledEventParams(
+            CreateScheduledEventParams(
                 entity_metadata=ScheduledEventEntityMetadata(location="Town hall"),
                 name="Meetup",
                 privacy_level=ScheduledEventPrivacyLevel.GUILD_ONLY,
@@ -97,15 +97,15 @@ CASES = [
     ),
     EndpointCase(
         name="get",
-        call=lambda client: client.get_guild_scheduled_event(2, 40),
+        call=lambda client: client.scheduled_events.get(2, 40),
         method="GET",
         path=f"{EVENTS}/40",
         response=EVENT,
     ),
     EndpointCase(
         name="start",
-        call=lambda client: client.modify_guild_scheduled_event(
-            2, 40, ModifyGuildScheduledEventParams(status=ScheduledEventStatus.ACTIVE, recurrence_rule=None)
+        call=lambda client: client.scheduled_events.edit(
+            2, 40, EditScheduledEventParams(status=ScheduledEventStatus.ACTIVE, recurrence_rule=None)
         ),
         method="PATCH",
         path=f"{EVENTS}/40",
@@ -114,14 +114,14 @@ CASES = [
     ),
     EndpointCase(
         name="delete",
-        call=lambda client: client.delete_guild_scheduled_event(2, 40),
+        call=lambda client: client.scheduled_events.delete(2, 40),
         method="DELETE",
         path=f"{EVENTS}/40",
     ),
     EndpointCase(
         name="users",
-        call=lambda client: client.get_guild_scheduled_event_users(
-            2, 40, GetGuildScheduledEventUsersParams(with_member=True, after=Snowflake(1))
+        call=lambda client: client.scheduled_events.list_users(
+            2, 40, ListScheduledEventUsersParams(with_member=True, after=Snowflake(1))
         ),
         method="GET",
         path=f"{EVENTS}/40/users?with_member=true&after=1",

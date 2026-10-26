@@ -1,8 +1,8 @@
 """What the per-resource endpoint classes need from a client: a way to send one request.
 
-`RestClient` is assembled from one class per Discord resource (`shoal.rest.resources`), so each
-resource's methods live next to each other instead of in one very long file. Each of those classes
-builds on `Requester`, which `RestClient` implements with rate limiting, retries and errors.
+`RestClient` reaches each Discord resource through one class in `shoal.rest.resources`, as an
+attribute (`rest.messages`, `rest.members`). Those classes are `Resource`s: they send through the
+client, which implements `Requester` with rate limiting, retries and errors.
 
 Discord: https://docs.discord.com/developers/reference#http-api
 """
@@ -10,7 +10,7 @@ Discord: https://docs.discord.com/developers/reference#http-api
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import cast
+from typing import cast, override
 from urllib.parse import urlencode
 
 import msgspec
@@ -85,6 +85,82 @@ class Requester(ABC):
         self, route: CompiledRoute, *, query: Mapping[str, QueryValue] | None = None
     ) -> bytes:
         """Send a request and return the body undecoded, for endpoints that do not answer JSON."""
+
+    @abstractmethod
+    async def request_search[T](
+        self, route: CompiledRoute, response_type: type[T], *, query: Mapping[str, QueryValue]
+    ) -> T:
+        """Send a search, which Discord answers with `202 Accepted` while it is still indexing.
+
+        The implementation waits and retries until the results are ready.
+        """
+
+
+class Resource(Requester):
+    """One resource's endpoints, reached as an attribute of `RestClient` (`rest.messages`).
+
+    Every request goes through the client the resource was created with.
+    """
+
+    __slots__ = ("_requester",)
+
+    def __init__(self, requester: Requester) -> None:
+        """Send this resource's requests through `requester`."""
+        self._requester: Requester = requester
+
+    @override
+    async def request[T](
+        self,
+        route: CompiledRoute,
+        response_type: type[T],
+        *,
+        body: object = None,
+        query: Mapping[str, QueryValue] | None = None,
+        reason: str | None = None,
+        files: Mapping[str, File] | None = None,
+        form: Mapping[str, str] | None = None,
+    ) -> T:
+        return await self._requester.request(
+            route, response_type, body=body, query=query, reason=reason, files=files, form=form
+        )
+
+    @override
+    async def request_empty(
+        self,
+        route: CompiledRoute,
+        *,
+        body: object = None,
+        query: Mapping[str, QueryValue] | None = None,
+        reason: str | None = None,
+        files: Mapping[str, File] | None = None,
+        form: Mapping[str, str] | None = None,
+    ) -> None:
+        await self._requester.request_empty(
+            route, body=body, query=query, reason=reason, files=files, form=form
+        )
+
+    @override
+    async def request_optional[T](
+        self,
+        route: CompiledRoute,
+        response_type: type[T],
+        *,
+        body: object = None,
+        reason: str | None = None,
+    ) -> T | None:
+        return await self._requester.request_optional(route, response_type, body=body, reason=reason)
+
+    @override
+    async def request_bytes(
+        self, route: CompiledRoute, *, query: Mapping[str, QueryValue] | None = None
+    ) -> bytes:
+        return await self._requester.request_bytes(route, query=query)
+
+    @override
+    async def request_search[T](
+        self, route: CompiledRoute, response_type: type[T], *, query: Mapping[str, QueryValue]
+    ) -> T:
+        return await self._requester.request_search(route, response_type, query=query)
 
 
 def _query_scalar(value: QueryScalar) -> str:

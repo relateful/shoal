@@ -114,6 +114,8 @@ known-first-party = ["shoal"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "S101", "PLR2004", "SLF001", "FBT", "S105", "S106", "S311"]
 "scripts/**" = ["T201", "S310"]
+# `rest.roles.list(...)`: resource methods are named `list`; their signatures say `builtins.list`.
+"src/shoal/rest/resources/**" = ["A003"]
 
 [tool.pyright]
 include = ["src", "tests", "scripts"]

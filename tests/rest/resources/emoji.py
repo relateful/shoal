@@ -1,9 +1,9 @@
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
     CreateApplicationEmojiParams,
-    CreateGuildEmojiParams,
-    ModifyApplicationEmojiParams,
-    ModifyGuildEmojiParams,
+    CreateEmojiParams,
+    EditApplicationEmojiParams,
+    EditEmojiParams,
 )
 from tests.support.json_payloads import USER
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
@@ -25,23 +25,23 @@ APPLICATION_EMOJIS = "/applications/7/emojis"
 CASES = [
     EndpointCase(
         name="list guild emojis",
-        call=lambda client: client.list_guild_emojis(2),
+        call=lambda client: client.emojis.list(2),
         method="GET",
         path=GUILD_EMOJIS,
         response=[EMOJI],
     ),
     EndpointCase(
         name="get guild emoji",
-        call=lambda client: client.get_guild_emoji(2, 41771983429993937),
+        call=lambda client: client.emojis.get(2, 41771983429993937),
         method="GET",
         path=f"{GUILD_EMOJIS}/41771983429993937",
         response=EMOJI,
     ),
     EndpointCase(
         name="create guild emoji",
-        call=lambda client: client.create_guild_emoji(
+        call=lambda client: client.emojis.create(
             2,
-            CreateGuildEmojiParams(name="LUL", image=IMAGE, roles=[Snowflake(41771983429993000)]),
+            CreateEmojiParams(name="LUL", image=IMAGE, roles=[Snowflake(41771983429993000)]),
             reason="new emote",
         ),
         method="POST",
@@ -52,9 +52,7 @@ CASES = [
     ),
     EndpointCase(
         name="modify guild emoji",
-        call=lambda client: client.modify_guild_emoji(
-            2, 41771983429993937, ModifyGuildEmojiParams(roles=None)
-        ),
+        call=lambda client: client.emojis.edit(2, 41771983429993937, EditEmojiParams(roles=None)),
         method="PATCH",
         path=f"{GUILD_EMOJIS}/41771983429993937",
         body={"roles": None},
@@ -62,14 +60,14 @@ CASES = [
     ),
     EndpointCase(
         name="delete guild emoji",
-        call=lambda client: client.delete_guild_emoji(2, 41771983429993937, reason="unused"),
+        call=lambda client: client.emojis.delete(2, 41771983429993937, reason="unused"),
         method="DELETE",
         path=f"{GUILD_EMOJIS}/41771983429993937",
         reason="unused",
     ),
     EndpointCase(
         name="list application emojis",
-        call=lambda client: client.list_application_emojis(7),
+        call=lambda client: client.emojis.list_for_application(7),
         method="GET",
         path=APPLICATION_EMOJIS,
         response={"items": [EMOJI]},
@@ -77,14 +75,14 @@ CASES = [
     ),
     EndpointCase(
         name="get application emoji",
-        call=lambda client: client.get_application_emoji(7, 41771983429993937),
+        call=lambda client: client.emojis.get_for_application(7, 41771983429993937),
         method="GET",
         path=f"{APPLICATION_EMOJIS}/41771983429993937",
         response=EMOJI,
     ),
     EndpointCase(
         name="create application emoji",
-        call=lambda client: client.create_application_emoji(
+        call=lambda client: client.emojis.create_for_application(
             7, CreateApplicationEmojiParams(name="LUL", image=IMAGE)
         ),
         method="POST",
@@ -94,8 +92,8 @@ CASES = [
     ),
     EndpointCase(
         name="modify application emoji",
-        call=lambda client: client.modify_application_emoji(
-            7, 41771983429993937, ModifyApplicationEmojiParams(name="KEKW")
+        call=lambda client: client.emojis.edit_for_application(
+            7, 41771983429993937, EditApplicationEmojiParams(name="KEKW")
         ),
         method="PATCH",
         path=f"{APPLICATION_EMOJIS}/41771983429993937",
@@ -104,7 +102,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete application emoji",
-        call=lambda client: client.delete_application_emoji(7, 41771983429993937),
+        call=lambda client: client.emojis.delete_for_application(7, 41771983429993937),
         method="DELETE",
         path=f"{APPLICATION_EMOJIS}/41771983429993937",
     ),

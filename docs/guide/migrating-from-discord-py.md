@@ -33,11 +33,11 @@ Until the command framework lands, these are the building blocks underneath it. 
 
 | discord.py | Shoal |
 | --- | --- |
-| `await tree.sync()` | `rest.bulk_overwrite_global_application_commands(application_id, commands)` |
+| `await tree.sync()` | `rest.commands.overwrite_global(application_id, commands)` |
 | `discord.Interaction` | `ApplicationCommandInteraction`, `ComponentInteraction`, `ModalSubmitInteraction`, `AutocompleteInteraction` |
-| `interaction.response.send_message(...)` | `rest.create_interaction_response(id, token, MessageResponse(...))` |
-| `interaction.response.defer()` | `DeferredMessageResponse()`, then `edit_original_interaction_response` |
-| `interaction.followup.send(...)` | `rest.create_followup_message(application_id, token, ...)` |
+| `interaction.response.send_message(...)` | `rest.interactions.respond(id, token, MessageResponse(...))` |
+| `interaction.response.defer()` | `DeferredMessageResponse()`, then `rest.interactions.edit_original` |
+| `interaction.followup.send(...)` | `rest.interactions.send_followup(application_id, token, ...)` |
 | `interaction.response.send_modal(modal)` | `ModalResponse(data=Modal(...))` |
 | `discord.ui.Button`, `discord.ui.Select` | `Button`, `StringSelect` and the other select types |
 | `ephemeral=True` | `flags=MessageFlags(ephemeral=True)` |

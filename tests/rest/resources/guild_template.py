@@ -1,4 +1,4 @@
-from shoal.payloads import CreateGuildTemplateParams, ModifyGuildTemplateParams
+from shoal.payloads import CreateTemplateParams, EditTemplateParams
 from tests.support.json_payloads import USER
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -24,23 +24,21 @@ TEMPLATE: dict[str, object] = {
 CASES = [
     EndpointCase(
         name="get by code",
-        call=lambda client: client.get_guild_template("hgM48av5Q69A"),
+        call=lambda client: client.templates.get("hgM48av5Q69A"),
         method="GET",
         path="/guilds/templates/hgM48av5Q69A",
         response=TEMPLATE,
     ),
     EndpointCase(
         name="list",
-        call=lambda client: client.get_guild_templates(2),
+        call=lambda client: client.templates.list(2),
         method="GET",
         path="/guilds/2/templates",
         response=[TEMPLATE],
     ),
     EndpointCase(
         name="create",
-        call=lambda client: client.create_guild_template(
-            2, CreateGuildTemplateParams(name="Friends & Family")
-        ),
+        call=lambda client: client.templates.create(2, CreateTemplateParams(name="Friends & Family")),
         method="POST",
         path="/guilds/2/templates",
         body={"name": "Friends & Family"},
@@ -48,16 +46,14 @@ CASES = [
     ),
     EndpointCase(
         name="sync",
-        call=lambda client: client.sync_guild_template(2, "hgM48av5Q69A"),
+        call=lambda client: client.templates.sync(2, "hgM48av5Q69A"),
         method="PUT",
         path="/guilds/2/templates/hgM48av5Q69A",
         response=TEMPLATE,
     ),
     EndpointCase(
         name="modify",
-        call=lambda client: client.modify_guild_template(
-            2, "hgM48av5Q69A", ModifyGuildTemplateParams(description=None)
-        ),
+        call=lambda client: client.templates.edit(2, "hgM48av5Q69A", EditTemplateParams(description=None)),
         method="PATCH",
         path="/guilds/2/templates/hgM48av5Q69A",
         body={"description": None},
@@ -65,7 +61,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete",
-        call=lambda client: client.delete_guild_template(2, "hgM48av5Q69A"),
+        call=lambda client: client.templates.delete(2, "hgM48av5Q69A"),
         method="DELETE",
         path="/guilds/2/templates/hgM48av5Q69A",
         response=TEMPLATE,

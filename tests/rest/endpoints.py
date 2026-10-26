@@ -1,8 +1,9 @@
 import inspect
 
 from shoal.payloads.api import DOCS_BASE_URL
-from shoal.rest import endpoints
+from shoal.rest import endpoints, resources
 from shoal.rest.client import RestClient
+from shoal.rest.requester import Resource
 from tests.rest.resources import (
     application,
     application_commands,
@@ -27,7 +28,8 @@ from tests.rest.resources import (
     voice,
     webhook,
 )
-from tests.support.rest import EndpointCase, check_endpoint
+from tests.support.fakes import FakeTransport
+from tests.support.rest import EndpointCase, check_endpoint, endpoint_methods, make_client
 
 ALL_CASES: list[EndpointCase] = [
     *application.CASES,
@@ -82,9 +84,22 @@ async def test_every_endpoint_has_a_checked_call() -> None:
 
 def test_every_reason_reaches_the_request() -> None:
     # The endpoint cases check the header only where a case passes a reason; this covers the rest.
-    for name, method in inspect.getmembers(RestClient, inspect.iscoroutinefunction):
-        if name.startswith("_") or name in {"request", "request_empty", "request_optional"}:
-            continue
+    checked = 0
+    for name, method in endpoint_methods():
         if "reason" in inspect.signature(method).parameters:
-            source = inspect.getsource(method)
-            assert "reason=reason" in source, f"RestClient.{name} takes reason but does not send it"
+            checked += 1
+            assert "reason=reason" in inspect.getsource(method), f"{name} takes reason but does not send it"
+    assert checked > 0
+
+
+def test_every_resource_is_reached_from_the_client() -> None:
+    client = make_client(FakeTransport())
+    wired = {
+        type(value).__name__: name
+        for name in RestClient.__slots__
+        if isinstance(value := getattr(client, name, None), Resource)
+    }
+    assert sorted(wired) == sorted(resources.__all__)
+    for class_name, attribute in wired.items():
+        # One spelling: `Messages` is `rest.messages`, `ScheduledEvents` is `rest.scheduled_events`.
+        assert attribute.replace("_", "") == class_name.lower(), class_name

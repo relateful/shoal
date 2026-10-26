@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from shoal.core.snowflake import Snowflake
-from shoal.payloads import ModifyCurrentUserVoiceStateParams, ModifyUserVoiceStateParams
+from shoal.payloads import EditCurrentVoiceStateParams, EditVoiceStateParams
 from tests.support.json_payloads import REGION
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -22,30 +22,30 @@ VOICE_STATE: dict[str, object] = {
 CASES = [
     EndpointCase(
         name="list regions",
-        call=lambda client: client.list_voice_regions(),
+        call=lambda client: client.voice.list_regions(),
         method="GET",
         path="/voice/regions",
         response=[REGION],
     ),
     EndpointCase(
         name="get own voice state",
-        call=lambda client: client.get_current_user_voice_state(2),
+        call=lambda client: client.voice_states.get_me(2),
         method="GET",
         path="/guilds/2/voice-states/@me",
         response=VOICE_STATE,
     ),
     EndpointCase(
         name="get user voice state",
-        call=lambda client: client.get_user_voice_state(2, 1),
+        call=lambda client: client.voice_states.get(2, 1),
         method="GET",
         path="/guilds/2/voice-states/1",
         response=VOICE_STATE,
     ),
     EndpointCase(
         name="request to speak",
-        call=lambda client: client.modify_current_user_voice_state(
+        call=lambda client: client.voice_states.edit_me(
             2,
-            ModifyCurrentUserVoiceStateParams(
+            EditCurrentVoiceStateParams(
                 channel_id=Snowflake(6), request_to_speak_timestamp=datetime(2026, 1, 1, tzinfo=UTC)
             ),
         ),
@@ -55,8 +55,8 @@ CASES = [
     ),
     EndpointCase(
         name="unsuppress a user",
-        call=lambda client: client.modify_user_voice_state(
-            2, 1, ModifyUserVoiceStateParams(channel_id=Snowflake(6), suppress=False)
+        call=lambda client: client.voice_states.edit(
+            2, 1, EditVoiceStateParams(channel_id=Snowflake(6), suppress=False)
         ),
         method="PATCH",
         path="/guilds/2/voice-states/1",

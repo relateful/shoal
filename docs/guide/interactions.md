@@ -15,12 +15,12 @@ from shoal.payloads import (
     ApplicationCommandOption,
     ApplicationCommandOptionType,
     ApplicationCommandType,
-    BulkApplicationCommandParams,
+    OverwriteCommandParams,
     InteractionContextType,
 )
 
 commands = [
-    BulkApplicationCommandParams(
+    OverwriteCommandParams(
         name="remind",
         description="Remind me about something",
         options=[
@@ -33,14 +33,14 @@ commands = [
         ],
         contexts=[InteractionContextType.GUILD, InteractionContextType.BOT_DM],
     ),
-    BulkApplicationCommandParams(name="Report message", type=ApplicationCommandType.MESSAGE),
+    OverwriteCommandParams(name="Report message", type=ApplicationCommandType.MESSAGE),
 ]
-await rest.bulk_overwrite_global_application_commands(application_id, commands)
+await rest.commands.overwrite_global(application_id, commands)
 ```
 
-Guild commands (`bulk_overwrite_guild_application_commands`) update instantly and suit development.
+Guild commands (`rest.commands.overwrite_guild`) update instantly and suit development.
 Discord applies `contexts` and `integration_types` to global commands only.
-`CreateGuildApplicationCommandParams` and `EditGuildApplicationCommandParams` leave them out, so
+`CreateGuildCommandParams` and `EditGuildCommandParams` leave them out, so
 creating or editing one guild command cannot set them. Bulk overwrite uses one type for both scopes,
 and Discord ignores those fields on guild commands.
 
@@ -72,7 +72,7 @@ async def dispatch(event: DispatchEvent) -> None:
         ...
 ```
 
-Answer with `rest.create_interaction_response(interaction.id, interaction.token, response)`.
+Answer with `rest.interactions.respond(interaction.id, interaction.token, response)`.
 
 An interaction's repr includes its token, like every other field. Log `interaction.id` rather than
 the whole object.
@@ -124,7 +124,7 @@ own class, so a modal cannot be sent with message data by mistake:
 | Response | Use it to |
 | --- | --- |
 | `MessageResponse` | reply with a message |
-| `DeferredMessageResponse` | show "thinking…", then fill it in with `edit_original_interaction_response` |
+| `DeferredMessageResponse` | show "thinking…", then fill it in with `rest.interactions.edit_original` |
 | `UpdateMessageResponse` | edit the message a component is on |
 | `DeferredUpdateResponse` | acknowledge a component now and edit its message later |
 | `AutocompleteResponse` | suggest up to 25 choices, in `AutocompleteChoices` |
@@ -139,16 +139,16 @@ These calls go to the application's webhook, so they take `application_id`, not 
 id:
 
 ```python
-from shoal.payloads import CreateFollowupMessageParams, MessageFlags
+from shoal.payloads import SendFollowupParams, MessageFlags
 
-await rest.create_followup_message(
+await rest.interactions.send_followup(
     application_id,
     interaction.token,
-    CreateFollowupMessageParams(content="Done.", flags=MessageFlags(ephemeral=True)),
+    SendFollowupParams(content="Done.", flags=MessageFlags(ephemeral=True)),
 )
 ```
 
-`edit_followup_message` and `delete_followup_message` take the follow-up's message id as well.
+`edit_followup` and `delete_followup` take the follow-up's message id as well.
 
 Responses that carry a message (`MessageResponse`, `UpdateMessageResponse`), follow-ups and their
 edits take `files=`, as in [Files and images](dashboards.md#files-and-images). Passing files with any

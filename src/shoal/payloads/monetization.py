@@ -168,7 +168,7 @@ class Subscription(Payload):
     """ISO 3166-1 alpha-2 code; only with a private OAuth2 scope."""
 
 
-class ListSKUSubscriptionsParams(Payload):
+class ListSubscriptionsParams(Payload):
     """Query of List SKU Subscriptions.
 
     Discord: https://docs.discord.com/developers/resources/subscription#list-sku-subscriptions

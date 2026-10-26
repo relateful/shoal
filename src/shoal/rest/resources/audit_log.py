@@ -3,19 +3,20 @@
 Discord: https://docs.discord.com/developers/resources/audit-log
 """
 
-from shoal.payloads.audit_log import AuditLog, GetGuildAuditLogParams
+from shoal.payloads.audit_log import AuditLog, GetAuditLogParams
 from shoal.rest.endpoints import GET_GUILD_AUDIT_LOG
-from shoal.rest.requester import Requester, query_of
+from shoal.rest.requester import Resource, query_of
 
 
-class AuditLogEndpoints(Requester):
-    """Endpoints for audit logs; part of `RestClient`."""
+class AuditLogs(Resource):
+    """A guild's audit log.
+
+    Use it as `rest.audit_logs`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def get_guild_audit_log(
-        self, guild_id: int, params: GetGuildAuditLogParams | None = None
-    ) -> AuditLog:
+    async def get(self, guild_id: int, params: GetAuditLogParams | None = None) -> AuditLog:
         """Get a page of a guild's audit log. Needs View Audit Log.
 
         Discord: https://docs.discord.com/developers/resources/audit-log#get-guild-audit-log

@@ -36,7 +36,7 @@ class GuildTemplate(Payload):
     """Whether the guild has changed since the last sync."""
 
 
-class CreateGuildTemplateParams(Payload):
+class CreateTemplateParams(Payload):
     """JSON body of Create Guild Template.
 
     Discord: https://docs.discord.com/developers/resources/guild-template#create-guild-template-json-params
@@ -48,7 +48,7 @@ class CreateGuildTemplateParams(Payload):
     """Up to 120 characters."""
 
 
-class ModifyGuildTemplateParams(Payload):
+class EditTemplateParams(Payload):
     """JSON body of Modify Guild Template.
 
     Discord: https://docs.discord.com/developers/resources/guild-template#modify-guild-template-json-params

@@ -1,9 +1,9 @@
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
     CreateGroupDMParams,
-    GetCurrentUserGuildsParams,
-    ModifyCurrentUserParams,
-    UpdateApplicationRoleConnectionParams,
+    EditCurrentUserParams,
+    EditRoleConnectionParams,
+    ListGuildsParams,
 )
 from tests.support.json_payloads import MEMBER, USER
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
@@ -37,21 +37,21 @@ ROLE_CONNECTION_PATH = "/users/@me/applications/7/role-connection"
 CASES = [
     EndpointCase(
         name="get current user",
-        call=lambda client: client.get_current_user(),
+        call=lambda client: client.users.get_me(),
         method="GET",
         path="/users/@me",
         response=USER,
     ),
     EndpointCase(
         name="get user",
-        call=lambda client: client.get_user(1),
+        call=lambda client: client.users.get(1),
         method="GET",
         path="/users/1",
         response=USER,
     ),
     EndpointCase(
         name="modify current user",
-        call=lambda client: client.modify_current_user(ModifyCurrentUserParams(username="bot", avatar=None)),
+        call=lambda client: client.users.edit_me(EditCurrentUserParams(username="bot", avatar=None)),
         method="PATCH",
         path="/users/@me",
         body={"username": "bot", "avatar": None},
@@ -59,15 +59,15 @@ CASES = [
     ),
     EndpointCase(
         name="get guilds",
-        call=lambda client: client.get_current_user_guilds(),
+        call=lambda client: client.guilds.list(),
         method="GET",
         path="/users/@me/guilds",
         response=[PARTIAL_GUILD],
     ),
     EndpointCase(
         name="get guilds of one shard",
-        call=lambda client: client.get_current_user_guilds(
-            GetCurrentUserGuildsParams(after=Snowflake(5), limit=10, shard=2, with_counts=True)
+        call=lambda client: client.guilds.list(
+            ListGuildsParams(after=Snowflake(5), limit=10, shard=2, with_counts=True)
         ),
         method="GET",
         path="/users/@me/guilds?after=5&limit=10&shard=2&with_counts=true",
@@ -75,20 +75,20 @@ CASES = [
     ),
     EndpointCase(
         name="get own member",
-        call=lambda client: client.get_current_user_guild_member(2),
+        call=lambda client: client.members.get_me(2),
         method="GET",
         path="/users/@me/guilds/2/member",
         response=MEMBER,
     ),
     EndpointCase(
         name="leave guild",
-        call=lambda client: client.leave_guild(2),
+        call=lambda client: client.guilds.leave(2),
         method="DELETE",
         path="/users/@me/guilds/2",
     ),
     EndpointCase(
         name="create dm",
-        call=lambda client: client.create_dm(1),
+        call=lambda client: client.users.create_dm(1),
         method="POST",
         path="/users/@me/channels",
         body={"recipient_id": "1"},
@@ -96,7 +96,7 @@ CASES = [
     ),
     EndpointCase(
         name="create group dm",
-        call=lambda client: client.create_group_dm(
+        call=lambda client: client.users.create_group_dm(
             CreateGroupDMParams(access_tokens=["token"], nicks={Snowflake(1): "Ada"})
         ),
         method="POST",
@@ -106,22 +106,22 @@ CASES = [
     ),
     EndpointCase(
         name="get connections",
-        call=lambda client: client.get_current_user_connections(),
+        call=lambda client: client.users.list_connections(),
         method="GET",
         path="/users/@me/connections",
         response=[CONNECTION],
     ),
     EndpointCase(
         name="get role connection",
-        call=lambda client: client.get_current_user_application_role_connection(7),
+        call=lambda client: client.role_connections.get_me(7),
         method="GET",
         path=ROLE_CONNECTION_PATH,
         response=ROLE_CONNECTION,
     ),
     EndpointCase(
         name="update role connection",
-        call=lambda client: client.update_current_user_application_role_connection(
-            7, UpdateApplicationRoleConnectionParams(platform_name="Example", metadata={"level": "12"})
+        call=lambda client: client.role_connections.edit_me(
+            7, EditRoleConnectionParams(platform_name="Example", metadata={"level": "12"})
         ),
         method="PUT",
         path=ROLE_CONNECTION_PATH,
@@ -130,7 +130,7 @@ CASES = [
     ),
     EndpointCase(
         name="delete role connection",
-        call=lambda client: client.delete_current_user_application_role_connection(7),
+        call=lambda client: client.role_connections.delete_me(7),
         method="DELETE",
         path=ROLE_CONNECTION_PATH,
     ),

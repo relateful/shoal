@@ -146,8 +146,8 @@ from shoal.payloads import (
 from shoal.rest import RestClient, Token
 
 async with RestClient(Token.bot(token)) as rest:
-    me = await rest.get_current_user()
-    await rest.create_message(
+    me = await rest.users.get_me()
+    await rest.messages.create(
         channel_id,
         CreateMessageParams(
             content=f"hello from {me.username}",

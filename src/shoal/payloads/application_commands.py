@@ -158,7 +158,7 @@ class ApplicationCommand(Payload):
     """See `ApplicationCommandOptionChoice.name_localized`."""
 
 
-class CreateGlobalApplicationCommandParams(Payload):
+class CreateGlobalCommandParams(Payload):
     """JSON body of Create Global Application Command. A command with the same name is replaced.
 
     Discord: https://docs.discord.com/developers/interactions/application-commands#create-global-application-command-json-params
@@ -182,7 +182,7 @@ class CreateGlobalApplicationCommandParams(Payload):
     handler: EntryPointCommandHandlerType | UnsetType = UNSET
 
 
-class EditGlobalApplicationCommandParams(Payload):
+class EditGlobalCommandParams(Payload):
     """JSON body of Edit Global Application Command. Fields given replace the existing values.
 
     Discord: https://docs.discord.com/developers/interactions/application-commands#edit-global-application-command-json-params
@@ -204,7 +204,7 @@ class EditGlobalApplicationCommandParams(Payload):
     handler: EntryPointCommandHandlerType | UnsetType = UNSET
 
 
-class CreateGuildApplicationCommandParams(Payload):
+class CreateGuildCommandParams(Payload):
     """JSON body of Create Guild Application Command. A command with the same name is replaced.
 
     Guild commands have no `contexts` or `integration_types`: those apply to global commands only.
@@ -225,7 +225,7 @@ class CreateGuildApplicationCommandParams(Payload):
     nsfw: bool | UnsetType = UNSET
 
 
-class EditGuildApplicationCommandParams(Payload):
+class EditGuildCommandParams(Payload):
     """JSON body of Edit Guild Application Command. Fields given replace the existing values.
 
     Discord: https://docs.discord.com/developers/interactions/application-commands#edit-guild-application-command-json-params
@@ -242,7 +242,7 @@ class EditGuildApplicationCommandParams(Payload):
     nsfw: bool | UnsetType = UNSET
 
 
-class BulkApplicationCommandParams(Payload):
+class OverwriteCommandParams(Payload):
     """One command in a Bulk Overwrite request; commands left out of the list are deleted.
 
     Give `id` to update a known command in place instead of matching it by name. `contexts`,
@@ -302,7 +302,7 @@ class GuildApplicationCommandPermissions(Payload):
     """At most 100."""
 
 
-class EditApplicationCommandPermissionsParams(Payload):
+class EditCommandPermissionsParams(Payload):
     """JSON body of Edit Application Command Permissions; replaces every existing overwrite.
 
     The request needs an OAuth2 bearer token of a user who can manage the guild and its roles.

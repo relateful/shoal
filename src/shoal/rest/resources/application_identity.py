@@ -10,8 +10,8 @@ from shoal.payloads.application_identity import (
     ApplicationIdentities,
     ApplicationIdentity,
     ApplicationIdentityProfile,
-    DeleteApplicationIdentityParams,
-    UpdateApplicationIdentityProfileParams,
+    DeleteIdentityParams,
+    EditIdentityProfileParams,
 )
 from shoal.rest.endpoints import (
     DELETE_APPLICATION_IDENTITY,
@@ -20,20 +20,23 @@ from shoal.rest.endpoints import (
     GET_APPLICATION_IDENTITY_PROFILE,
     UPDATE_APPLICATION_IDENTITY_PROFILE,
 )
-from shoal.rest.requester import Requester
+from shoal.rest.requester import Resource
 
 
-class ApplicationIdentityEndpoints(Requester):
-    """Endpoints for application identity profiles; part of `RestClient`."""
+class Identities(Resource):
+    """Application identities and their profiles.
+
+    Use it as `rest.identities`, where `rest` is a `RestClient`.
+    """
 
     __slots__ = ()
 
-    async def update_application_identity_profile(
+    async def edit_profile(
         self,
         application_id: int,
         user_id: int,
         provider_issued_user_id: str,
-        params: UpdateApplicationIdentityProfileParams,
+        params: EditIdentityProfileParams,
     ) -> ApplicationIdentityProfile | None:
         """Store a player's stats; `data`, when given, replaces all of them.
 
@@ -51,7 +54,7 @@ class ApplicationIdentityEndpoints(Requester):
             body=params,
         )
 
-    async def get_application_identity_profile(
+    async def get_profile(
         self, application_id: int, user_id: int, provider_issued_user_id: str
     ) -> ApplicationIdentityProfile:
         """Get the stats stored for a player.
@@ -67,9 +70,7 @@ class ApplicationIdentityEndpoints(Requester):
             ApplicationIdentityProfile,
         )
 
-    async def get_application_identities_by_user_id(
-        self, user_id: int, application_id: int
-    ) -> list[ApplicationIdentity]:
+    async def list_by_user(self, user_id: int, application_id: int) -> list[ApplicationIdentity]:
         """List a Discord user's identities in the app.
 
         Discord: https://docs.discord.com/developers/resources/application-identity-profile#get-application-identities-by-user-id
@@ -80,7 +81,7 @@ class ApplicationIdentityEndpoints(Requester):
         )
         return response.identities
 
-    async def get_application_identities_by_external_id(
+    async def list_by_external_id(
         self,
         application_id: int,
         provider_type: str,
@@ -103,7 +104,7 @@ class ApplicationIdentityEndpoints(Requester):
         )
         return response.identities
 
-    async def delete_application_identity(
+    async def delete(
         self,
         user_id: int,
         application_id: int,
@@ -123,7 +124,5 @@ class ApplicationIdentityEndpoints(Requester):
                 provider_type=provider_type,
                 provider_issued_user_id=provider_issued_user_id,
             ),
-            body=DeleteApplicationIdentityParams(provider_id=provider_id)
-            if provider_id is not None
-            else None,
+            body=DeleteIdentityParams(provider_id=provider_id) if provider_id is not None else None,
         )

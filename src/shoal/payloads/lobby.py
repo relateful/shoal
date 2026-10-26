@@ -111,7 +111,7 @@ class CreateOrJoinLobbyParams(Payload):
     """Set on the calling user's membership."""
 
 
-class ModifyLobbyParams(Payload):
+class EditLobbyParams(Payload):
     """JSON body of Modify Lobby.
 
     Discord: https://docs.discord.com/developers/resources/lobby#modify-lobby
@@ -135,7 +135,7 @@ class AddLobbyMemberParams(Payload):
     additional_name: str | UnsetType | None = UNSET
 
 
-class LinkChannelToLobbyParams(Payload):
+class LinkLobbyChannelParams(Payload):
     """JSON body of Link Channel to Lobby.
 
     Discord: https://docs.discord.com/developers/resources/lobby#link-channel-to-lobby
@@ -188,7 +188,7 @@ class LobbyMessage(Payload):
     application_id: Snowflake
 
 
-class GetLobbyMessagesParams(Payload):
+class ListLobbyMessagesParams(Payload):
     """Query of Get Lobby Messages.
 
     Discord: https://docs.discord.com/developers/resources/lobby#get-lobby-messages

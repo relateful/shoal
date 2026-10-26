@@ -3,32 +3,32 @@ from datetime import UTC, datetime
 
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
-    AddGuildMemberParams,
-    BeginGuildPruneParams,
-    BulkGuildBanParams,
+    AddMemberParams,
+    BanParams,
+    BulkBanParams,
     ChannelPositionParams,
     ChannelType,
-    CreateGuildBanParams,
-    CreateGuildChannelParams,
-    CreateGuildRoleParams,
-    GetGuildBansParams,
-    GetGuildPruneCountParams,
-    ListGuildMembersParams,
-    ModifyCurrentMemberParams,
-    ModifyGuildIncidentActionsParams,
-    ModifyGuildMemberParams,
-    ModifyGuildOnboardingParams,
-    ModifyGuildParams,
-    ModifyGuildRoleParams,
-    ModifyGuildWelcomeScreenParams,
-    ModifyGuildWidgetParams,
+    CreateChannelParams,
+    CreateRoleParams,
+    EditCurrentMemberParams,
+    EditGuildParams,
+    EditIncidentActionsParams,
+    EditMemberParams,
+    EditOnboardingParams,
+    EditRoleParams,
+    EditWelcomeScreenParams,
+    EditWidgetParams,
+    GetPruneCountParams,
+    ListBansParams,
+    ListMembersParams,
     OnboardingMode,
     OnboardingPromptParams,
     PromptOptionParams,
     PromptType,
+    PruneParams,
     RoleColors,
     RolePositionParams,
-    SearchGuildMembersParams,
+    SearchMembersParams,
     VerificationLevel,
     WelcomeScreenChannel,
     WidgetStyle,
@@ -176,30 +176,30 @@ TIMED_OUT_MEMBER: dict[str, object] = {
 CASES = [
     EndpointCase(
         name="get guild",
-        call=lambda client: client.get_guild(2),
+        call=lambda client: client.guilds.get(2),
         method="GET",
         path=f"{G}?with_counts=false",
         response={**GUILD, "incidents_data": INCIDENTS},
     ),
     EndpointCase(
         name="get guild with counts",
-        call=lambda client: client.get_guild(2, with_counts=True),
+        call=lambda client: client.guilds.get(2, with_counts=True),
         method="GET",
         path=f"{G}?with_counts=true",
         response={**GUILD, "approximate_member_count": 120, "approximate_presence_count": 40},
     ),
     EndpointCase(
         name="preview",
-        call=lambda client: client.get_guild_preview(2),
+        call=lambda client: client.guilds.get_preview(2),
         method="GET",
         path=f"{G}/preview",
         response=PREVIEW,
     ),
     EndpointCase(
         name="modify guild",
-        call=lambda client: client.modify_guild(
+        call=lambda client: client.guilds.edit(
             2,
-            ModifyGuildParams(name="g", verification_level=VerificationLevel.HIGH, icon=None),
+            EditGuildParams(name="g", verification_level=VerificationLevel.HIGH, icon=None),
             reason="rebrand",
         ),
         method="PATCH",
@@ -210,15 +210,15 @@ CASES = [
     ),
     EndpointCase(
         name="channels",
-        call=lambda client: client.get_guild_channels(2),
+        call=lambda client: client.channels.list(2),
         method="GET",
         path=f"{G}/channels",
         response=[CHANNEL],
     ),
     EndpointCase(
         name="create channel",
-        call=lambda client: client.create_guild_channel(
-            2, CreateGuildChannelParams(name="general", type=ChannelType.GUILD_TEXT, topic=None)
+        call=lambda client: client.channels.create(
+            2, CreateChannelParams(name="general", type=ChannelType.GUILD_TEXT, topic=None)
         ),
         method="POST",
         path=f"{G}/channels",
@@ -227,7 +227,7 @@ CASES = [
     ),
     EndpointCase(
         name="channel positions",
-        call=lambda client: client.modify_guild_channel_positions(
+        call=lambda client: client.channels.edit_positions(
             2,
             [
                 ChannelPositionParams(id=Snowflake(3), position=0),
@@ -240,38 +240,36 @@ CASES = [
     ),
     EndpointCase(
         name="active threads",
-        call=lambda client: client.list_active_guild_threads(2),
+        call=lambda client: client.threads.list_active(2),
         method="GET",
         path=f"{G}/threads/active",
         response={"threads": [THREAD], "members": [THREAD_MEMBER]},
     ),
     EndpointCase(
         name="get member",
-        call=lambda client: client.get_guild_member(2, 1),
+        call=lambda client: client.members.get(2, 1),
         method="GET",
         path=f"{G}/members/1",
         response=MEMBER,
     ),
     EndpointCase(
         name="list members",
-        call=lambda client: client.list_guild_members(
-            2, ListGuildMembersParams(limit=1000, after=Snowflake(1))
-        ),
+        call=lambda client: client.members.list(2, ListMembersParams(limit=1000, after=Snowflake(1))),
         method="GET",
         path=f"{G}/members?limit=1000&after=1",
         response=[MEMBER],
     ),
     EndpointCase(
         name="search members",
-        call=lambda client: client.search_guild_members(2, SearchGuildMembersParams(query="ad", limit=5)),
+        call=lambda client: client.members.search(2, SearchMembersParams(query="ad", limit=5)),
         method="GET",
         path=f"{G}/members/search?query=ad&limit=5",
         response=[MEMBER],
     ),
     EndpointCase(
         name="add member",
-        call=lambda client: client.add_guild_member(
-            2, 1, AddGuildMemberParams(access_token="oauth", roles=[Snowflake(5)])
+        call=lambda client: client.members.add(
+            2, 1, AddMemberParams(access_token="oauth", roles=[Snowflake(5)])
         ),
         method="PUT",
         path=f"{G}/members/1",
@@ -280,19 +278,17 @@ CASES = [
     ),
     EndpointCase(
         name="add a member who is already in",
-        call=lambda client: client.add_guild_member(2, 1, AddGuildMemberParams(access_token="oauth")),
+        call=lambda client: client.members.add(2, 1, AddMemberParams(access_token="oauth")),
         method="PUT",
         path=f"{G}/members/1",
         body={"access_token": "oauth"},
     ),
     EndpointCase(
         name="time out a member",
-        call=lambda client: client.modify_guild_member(
+        call=lambda client: client.members.edit(
             2,
             1,
-            ModifyGuildMemberParams(
-                communication_disabled_until=datetime(2026, 1, 1, tzinfo=UTC), channel_id=None
-            ),
+            EditMemberParams(communication_disabled_until=datetime(2026, 1, 1, tzinfo=UTC), channel_id=None),
             reason="spam",
         ),
         method="PATCH",
@@ -303,9 +299,7 @@ CASES = [
     ),
     EndpointCase(
         name="modify current member",
-        call=lambda client: client.modify_current_member(
-            2, ModifyCurrentMemberParams(nick="Shoal", bio=None)
-        ),
+        call=lambda client: client.members.edit_me(2, EditCurrentMemberParams(nick="Shoal", bio=None)),
         method="PATCH",
         path=f"{G}/members/@me",
         body={"nick": "Shoal", "bio": None},
@@ -313,50 +307,48 @@ CASES = [
     ),
     EndpointCase(
         name="modify current nick",
-        call=lambda client: client.modify_current_user_nick(2, None),
+        call=lambda client: client.members.edit_my_nick(2, None),
         method="PATCH",
         path=f"{G}/members/@me/nick",
         body={"nick": None},
     ),
     EndpointCase(
         name="add member role",
-        call=lambda client: client.add_guild_member_role(2, 1, 5, reason="promoted"),
+        call=lambda client: client.members.add_role(2, 1, 5, reason="promoted"),
         method="PUT",
         path=f"{G}/members/1/roles/5",
         reason="promoted",
     ),
     EndpointCase(
         name="remove member role",
-        call=lambda client: client.remove_guild_member_role(2, 1, 5),
+        call=lambda client: client.members.remove_role(2, 1, 5),
         method="DELETE",
         path=f"{G}/members/1/roles/5",
     ),
     EndpointCase(
         name="kick",
-        call=lambda client: client.remove_guild_member(2, 1, reason="rules"),
+        call=lambda client: client.members.kick(2, 1, reason="rules"),
         method="DELETE",
         path=f"{G}/members/1",
         reason="rules",
     ),
     EndpointCase(
         name="bans",
-        call=lambda client: client.get_guild_bans(2, GetGuildBansParams(limit=10, after=Snowflake(1))),
+        call=lambda client: client.members.list_bans(2, ListBansParams(limit=10, after=Snowflake(1))),
         method="GET",
         path=f"{G}/bans?limit=10&after=1",
         response=[BAN],
     ),
     EndpointCase(
         name="ban",
-        call=lambda client: client.get_guild_ban(2, 1),
+        call=lambda client: client.members.get_ban(2, 1),
         method="GET",
         path=f"{G}/bans/1",
         response=BAN,
     ),
     EndpointCase(
         name="create ban",
-        call=lambda client: client.create_guild_ban(
-            2, 1, CreateGuildBanParams(delete_message_seconds=3600), reason="raid"
-        ),
+        call=lambda client: client.members.ban(2, 1, BanParams(delete_message_seconds=3600), reason="raid"),
         method="PUT",
         path=f"{G}/bans/1",
         body={"delete_message_seconds": 3600},
@@ -364,22 +356,20 @@ CASES = [
     ),
     EndpointCase(
         name="create ban without deleting messages",
-        call=lambda client: client.create_guild_ban(2, 1),
+        call=lambda client: client.members.ban(2, 1),
         method="PUT",
         path=f"{G}/bans/1",
     ),
     EndpointCase(
         name="unban",
-        call=lambda client: client.remove_guild_ban(2, 1, reason="appeal"),
+        call=lambda client: client.members.unban(2, 1, reason="appeal"),
         method="DELETE",
         path=f"{G}/bans/1",
         reason="appeal",
     ),
     EndpointCase(
         name="bulk ban",
-        call=lambda client: client.bulk_guild_ban(
-            2, BulkGuildBanParams(user_ids=[Snowflake(1), Snowflake(8)])
-        ),
+        call=lambda client: client.members.bulk_ban(2, BulkBanParams(user_ids=[Snowflake(1), Snowflake(8)])),
         method="POST",
         path=f"{G}/bulk-ban",
         body={"user_ids": ["1", "8"]},
@@ -387,30 +377,30 @@ CASES = [
     ),
     EndpointCase(
         name="roles",
-        call=lambda client: client.get_guild_roles(2),
+        call=lambda client: client.roles.list(2),
         method="GET",
         path=f"{G}/roles",
         response=[ROLE],
     ),
     EndpointCase(
         name="role",
-        call=lambda client: client.get_guild_role(2, 5),
+        call=lambda client: client.roles.get(2, 5),
         method="GET",
         path=f"{G}/roles/5",
         response=ROLE,
     ),
     EndpointCase(
         name="role member counts",
-        call=lambda client: client.get_guild_role_member_counts(2),
+        call=lambda client: client.roles.get_member_counts(2),
         method="GET",
         path=f"{G}/roles/member-counts",
         response={"613425648685547541": 1337, "697138785317814292": 67},
     ),
     EndpointCase(
         name="create role",
-        call=lambda client: client.create_guild_role(
+        call=lambda client: client.roles.create(
             2,
-            CreateGuildRoleParams(
+            CreateRoleParams(
                 name="mods", colors=RoleColors(primary_color=255, secondary_color=None, tertiary_color=None)
             ),
         ),
@@ -424,7 +414,7 @@ CASES = [
     ),
     EndpointCase(
         name="create role with defaults",
-        call=lambda client: client.create_guild_role(2),
+        call=lambda client: client.roles.create(2),
         method="POST",
         path=f"{G}/roles",
         body={},
@@ -432,9 +422,7 @@ CASES = [
     ),
     EndpointCase(
         name="role positions",
-        call=lambda client: client.modify_guild_role_positions(
-            2, [RolePositionParams(id=Snowflake(5), position=2)]
-        ),
+        call=lambda client: client.roles.edit_positions(2, [RolePositionParams(id=Snowflake(5), position=2)]),
         method="PATCH",
         path=f"{G}/roles",
         body=[{"id": "5", "position": 2}],
@@ -442,9 +430,7 @@ CASES = [
     ),
     EndpointCase(
         name="modify role",
-        call=lambda client: client.modify_guild_role(
-            2, 5, ModifyGuildRoleParams(icon=None, mentionable=False)
-        ),
+        call=lambda client: client.roles.edit(2, 5, EditRoleParams(icon=None, mentionable=False)),
         method="PATCH",
         path=f"{G}/roles/5",
         body={"icon": None, "mentionable": False},
@@ -452,15 +438,15 @@ CASES = [
     ),
     EndpointCase(
         name="delete role",
-        call=lambda client: client.delete_guild_role(2, 5, reason="unused"),
+        call=lambda client: client.roles.delete(2, 5, reason="unused"),
         method="DELETE",
         path=f"{G}/roles/5",
         reason="unused",
     ),
     EndpointCase(
         name="prune count",
-        call=lambda client: client.get_guild_prune_count(
-            2, GetGuildPruneCountParams(days=30, include_roles=[Snowflake(5), Snowflake(6)])
+        call=lambda client: client.guilds.get_prune_count(
+            2, GetPruneCountParams(days=30, include_roles=[Snowflake(5), Snowflake(6)])
         ),
         method="GET",
         path=f"{G}/prune?days=30&include_roles=5%2C6",
@@ -468,22 +454,22 @@ CASES = [
     ),
     EndpointCase(
         name="prune count with defaults",
-        call=lambda client: client.get_guild_prune_count(2),
+        call=lambda client: client.guilds.get_prune_count(2),
         method="GET",
         path=f"{G}/prune",
         response={"pruned": 3},
     ),
     EndpointCase(
         name="prune count with no extra roles",
-        call=lambda client: client.get_guild_prune_count(2, GetGuildPruneCountParams(include_roles=[])),
+        call=lambda client: client.guilds.get_prune_count(2, GetPruneCountParams(include_roles=[])),
         method="GET",
         path=f"{G}/prune",
         response={"pruned": 3},
     ),
     EndpointCase(
         name="prune",
-        call=lambda client: client.begin_guild_prune(
-            2, BeginGuildPruneParams(days=30, compute_prune_count=False), reason="cleanup"
+        call=lambda client: client.guilds.prune(
+            2, PruneParams(days=30, compute_prune_count=False), reason="cleanup"
         ),
         method="POST",
         path=f"{G}/prune",
@@ -493,44 +479,42 @@ CASES = [
     ),
     EndpointCase(
         name="voice regions",
-        call=lambda client: client.get_guild_voice_regions(2),
+        call=lambda client: client.guilds.list_voice_regions(2),
         method="GET",
         path=f"{G}/regions",
         response=[REGION],
     ),
     EndpointCase(
         name="invites",
-        call=lambda client: client.get_guild_invites(2),
+        call=lambda client: client.invites.list(2),
         method="GET",
         path=f"{G}/invites",
         response=[INVITE_WITH_METADATA],
     ),
     EndpointCase(
         name="integrations",
-        call=lambda client: client.get_guild_integrations(2),
+        call=lambda client: client.guilds.list_integrations(2),
         method="GET",
         path=f"{G}/integrations",
         response=[INTEGRATION, BOT_INTEGRATION],
     ),
     EndpointCase(
         name="delete integration",
-        call=lambda client: client.delete_guild_integration(2, 33, reason="unused"),
+        call=lambda client: client.guilds.delete_integration(2, 33, reason="unused"),
         method="DELETE",
         path=f"{G}/integrations/33",
         reason="unused",
     ),
     EndpointCase(
         name="widget settings",
-        call=lambda client: client.get_guild_widget_settings(2),
+        call=lambda client: client.guilds.get_widget_settings(2),
         method="GET",
         path=f"{G}/widget",
         response={"enabled": True, "channel_id": "41771983444115456"},
     ),
     EndpointCase(
         name="modify widget",
-        call=lambda client: client.modify_guild_widget(
-            2, ModifyGuildWidgetParams(enabled=False, channel_id=None)
-        ),
+        call=lambda client: client.guilds.edit_widget(2, EditWidgetParams(enabled=False, channel_id=None)),
         method="PATCH",
         path=f"{G}/widget",
         body={"enabled": False, "channel_id": None},
@@ -538,21 +522,21 @@ CASES = [
     ),
     EndpointCase(
         name="widget",
-        call=lambda client: client.get_guild_widget(2),
+        call=lambda client: client.guilds.get_widget(2),
         method="GET",
         path=f"{G}/widget.json",
         response=WIDGET,
     ),
     EndpointCase(
         name="vanity url",
-        call=lambda client: client.get_guild_vanity_url(2),
+        call=lambda client: client.guilds.get_vanity_url(2),
         method="GET",
         path=f"{G}/vanity-url",
         response={"code": "abc", "uses": 12},
     ),
     EndpointCase(
         name="widget image",
-        call=lambda client: client.get_guild_widget_image(2, style=WidgetStyle.BANNER2),
+        call=lambda client: client.guilds.get_widget_image(2, style=WidgetStyle.BANNER2),
         method="GET",
         path=f"{G}/widget.png?style=banner2",
         response=PNG,
@@ -560,16 +544,16 @@ CASES = [
     ),
     EndpointCase(
         name="welcome screen",
-        call=lambda client: client.get_guild_welcome_screen(2),
+        call=lambda client: client.guilds.get_welcome_screen(2),
         method="GET",
         path=f"{G}/welcome-screen",
         response=WELCOME,
     ),
     EndpointCase(
         name="modify welcome screen",
-        call=lambda client: client.modify_guild_welcome_screen(
+        call=lambda client: client.guilds.edit_welcome_screen(
             2,
-            ModifyGuildWelcomeScreenParams(
+            EditWelcomeScreenParams(
                 enabled=True,
                 welcome_channels=[
                     WelcomeScreenChannel(
@@ -590,16 +574,16 @@ CASES = [
     ),
     EndpointCase(
         name="onboarding",
-        call=lambda client: client.get_guild_onboarding(2),
+        call=lambda client: client.guilds.get_onboarding(2),
         method="GET",
         path=f"{G}/onboarding",
         response=ONBOARDING,
     ),
     EndpointCase(
         name="modify onboarding",
-        call=lambda client: client.modify_guild_onboarding(
+        call=lambda client: client.guilds.edit_onboarding(
             2,
-            ModifyGuildOnboardingParams(
+            EditOnboardingParams(
                 prompts=[
                     OnboardingPromptParams(
                         id=Snowflake(1067461047608422473),
@@ -652,9 +636,9 @@ CASES = [
     ),
     EndpointCase(
         name="incident actions",
-        call=lambda client: client.modify_guild_incident_actions(
+        call=lambda client: client.guilds.edit_incident_actions(
             2,
-            ModifyGuildIncidentActionsParams(
+            EditIncidentActionsParams(
                 invites_disabled_until=datetime(2026, 1, 1, 12, tzinfo=UTC), dms_disabled_until=None
             ),
         ),

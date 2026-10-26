@@ -57,19 +57,53 @@ own process. `import-linter` enforces this.
 | A Discord JSON object | `payloads/<domain>.py` |
 | A constant Discord documents | next to its types in `payloads/<domain>.py` |
 | A Shoal default (timeout, threshold, size) | `<layer>/defaults.py` |
-| An HTTP endpoint | a `Route` in `rest/endpoints.py`, a method in `rest/resources/<resource>.py`, and an `EndpointCase` in `tests/rest/resources/<resource>.py` |
+| An HTTP endpoint | a `Route` in `rest/endpoints.py`, a method on the resource's class in `rest/resources/<resource>.py` (named per [Naming](#naming)), and an `EndpointCase` in `tests/rest/resources/<resource>.py` |
 | A metric | `core/metrics.py`, recorded where the event happens |
 | A test for `src/shoal/<layer>/<module>.py` | `tests/<layer>/<module>.py` |
 | A helper shared by tests | `tests/support/` |
 
 Every constant is defined once. Import it; never redefine it.
 
+## Naming
+
+Names are short, predictable and the same everywhere. When a concept exists in discord.py, use
+discord.py's name for it (`send_message`, `defer`, `followup`, `get_member`, `ephemeral`), so a
+migrating bot changes its imports and little else.
+
+**REST.** Endpoints are grouped by the resource they act on, as attributes of `RestClient`:
+`rest.<resource>.<verb>(...)`. The attribute is the class name in snake case (`Messages` is
+`rest.messages`, `ScheduledEvents` is `rest.scheduled_events`); a test enforces it.
+
+| Verb | For |
+| --- | --- |
+| `get` | one object |
+| `list` | many objects (paged or not) |
+| `create`, `edit`, `delete` | never `modify`, `update` or `remove_x` for the resource itself |
+| `add_x`, `remove_x` | linking something to the resource (`members.add_role`, `threads.remove_member`) |
+| `overwrite` | replacing a whole set at once (`commands.overwrite_global`) |
+| a domain verb | when Discord's action has one: `ban`, `unban`, `kick`, `pin`, `crosspost`, `prune`, `sync`, `execute`, `respond`, `follow`, `typing`, `end` |
+
+- The current user or app is `me` (`users.get_me`, `members.edit_me`); something it owns is `my`
+  (`members.edit_my_nick`, `reactions.remove_mine`).
+- Commands exist at two scopes and name both: `list_global`, `list_guild`. Elsewhere the guild is
+  the default scope and another scope is a suffix: `webhooks.list_for_channel`,
+  `emojis.create_for_application`.
+- A qualifier follows the verb: `list_bans`, `get_member_counts`, `edit_positions`.
+- Resource classes name a method `list`, so their signatures write the builtin as `builtins.list`.
+
+**Parameter structs** are named after the method that takes them: `<Verb><Thing>Params`
+(`EditMemberParams` for `members.edit`, `BanParams` for `members.ban`). Where the current user is
+meant, the struct says `Current` (`EditCurrentUserParams`), as Discord's docs do.
+
+**Payloads** keep the name of the Discord object they mirror (`GuildMember`, `StageInstance`); a
+gateway event's body is named after the event (`GuildBanAdd` for `GUILD_BAN_ADD`).
+
 ## Discord documentation links
 
 - Every Discord type, enum, flag set, documented constant and gateway event links to the section
   that documents it, as the last line of its docstring:
   `Discord: https://docs.discord.com/developers/resources/user#user-object`. A `Route` carries its
-  link in `docs=`, and the `RestClient` method that calls it repeats the link in its docstring.
+  link in `docs=`, and the resource method that calls it repeats the link in its docstring.
 - Links use `https://docs.discord.com/developers/` and point at the narrowest section that exists.
 - `scripts/check_docs.py` verifies every link and anchor against the Discord docs source, and every
   `Route`'s method and path against Discord's `<Route>` declaration. CI runs it on every change.
