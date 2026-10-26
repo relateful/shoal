@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import msgspec
+import pytest
 
 from shoal.rest.files import File, encode_multipart
 from tests.support.multipart import FormPart, parse_form
@@ -63,3 +64,17 @@ def test_text_fields_come_before_the_files() -> None:
         ("tags", None, b"tada"),
         ("file", "s.png", b"x"),
     ]
+
+
+def test_a_content_type_cannot_inject_a_header() -> None:
+    with pytest.raises(ValueError, match="line break"):
+        File("a.png", b"x", content_type="image/png\r\nX-Evil: 1")
+
+
+async def test_the_content_type_is_guessed_from_the_extension(tmp_path: Path) -> None:
+    (tmp_path / "chart.png").write_bytes(b"\x89PNG")
+    (tmp_path / "data.unknownext").write_bytes(b"?")
+    assert (await File.from_path(tmp_path / "chart.png")).content_type == "image/png"
+    assert (await File.from_path(tmp_path / "data.unknownext")).content_type == "application/octet-stream"
+    given = await File.from_path(tmp_path / "chart.png", content_type="image/apng")
+    assert given.content_type == "image/apng"

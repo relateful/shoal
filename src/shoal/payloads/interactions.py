@@ -147,6 +147,8 @@ class ModalSubmitData(Payload):
 class _InteractionCommon(Payload):
     """Fields every interaction type except `PING` carries."""
 
+    REDACTED_FIELDS = frozenset({"token"})
+
     id: Snowflake
     application_id: Snowflake
     guild_id: Snowflake | UnsetType = UNSET
@@ -182,6 +184,8 @@ class PingInteraction(Payload, tag=1, tag_field="type"):
 
     Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-interaction-structure
     """
+
+    REDACTED_FIELDS = frozenset({"token"})
 
     id: Snowflake
     application_id: Snowflake
@@ -245,6 +249,8 @@ class UnknownInteraction(Payload):
 
     Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-interaction-type
     """
+
+    REDACTED_FIELDS = frozenset({"token"})
 
     id: Snowflake
     application_id: Snowflake

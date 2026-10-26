@@ -1,8 +1,10 @@
 import asyncio
 import logging
+import random
 
 import pytest
 
+from shoal.core.codec import PayloadDecodeError
 from shoal.core.metrics import REST_RATE_LIMITED, REST_REQUESTS, REST_RETRIES, InMemoryMetrics
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
@@ -15,7 +17,7 @@ from shoal.payloads import (
 )
 from shoal.rest import endpoints
 from shoal.rest.client import RestClient, Token, TokenType
-from shoal.rest.defaults import DEFAULT_USER_AGENT
+from shoal.rest.defaults import DEFAULT_USER_AGENT, SEARCH_INDEX_RETRY_DELAY
 from shoal.rest.errors import (
     ClientClosedError,
     ForbiddenError,
@@ -26,8 +28,9 @@ from shoal.rest.errors import (
     UnauthorizedError,
 )
 from shoal.rest.transport import TransportError
-from tests.support.fakes import FakeTransport
+from tests.support.fakes import FakeClock, FakeTransport
 from tests.support.json_payloads import GUILD, MESSAGE, USER
+from tests.support.multipart import parse_form
 from tests.support.rest import make_client
 
 
@@ -241,10 +244,13 @@ async def test_search_waits_while_the_guild_is_being_indexed() -> None:
     transport.queue(202, pending)
     transport.queue(202, pending | {"retry_after": 0})
     transport.queue(200, {"doing_deep_historical_index": True, "total_results": 0, "messages": []})
-    client = make_client(transport)
+    clock = FakeClock()
+    client = RestClient(Token.bot("secret"), transport=transport, clock=clock, random_source=random.Random(0))
     result = await client.search_guild_messages(5, SearchGuildMessagesParams())
     assert result.total_results == 0
-    assert len(transport.requests) == 3
+    assert [request.method for request in transport.requests] == ["GET", "GET", "GET"]
+    # Discord's retry_after, then Shoal's own delay when Discord says 0.
+    assert clock.sleeps[:2] == [2, SEARCH_INDEX_RETRY_DELAY]
 
 
 async def test_search_gives_up_with_a_typed_error() -> None:
@@ -260,3 +266,31 @@ async def test_search_gives_up_with_a_typed_error() -> None:
     with pytest.raises(SearchIndexNotReadyError) as caught:
         await make_client(transport).search_guild_messages(5, SearchGuildMessagesParams())
     assert caught.value.documents_indexed == 40
+
+
+async def test_a_success_that_fails_to_decode_says_the_request_went_through() -> None:
+    transport = FakeTransport()
+    transport.queue(200, {"not": "a message"})
+    with pytest.raises(PayloadDecodeError) as caught:
+        await make_client(transport).create_message(3, CreateMessageParams(content="hi"))
+    [note] = caught.value.__notes__
+    assert note.startswith("POST /channels/3/messages succeeded with HTTP 200")
+
+
+async def test_form_fields_are_sent_without_files() -> None:
+    transport = FakeTransport()
+    transport.queue(204)
+    client = make_client(transport)
+    await client.request_empty(endpoints.TRIGGER_TYPING_INDICATOR.compile(channel_id=3), form={"a": "b"})
+    request = transport.requests[0]
+    assert request.headers["Content-Type"].startswith("multipart/form-data")
+    [part] = parse_form(request.body or b"", request.headers["Content-Type"])
+    assert (part.name, part.data) == ("a", b"b")
+
+
+async def test_without_a_token_no_authorization_is_sent() -> None:
+    transport = FakeTransport()
+    transport.queue(204)
+    client = RestClient(None, transport=transport)
+    await client.delete_webhook_with_token(1, "secret-token")
+    assert "Authorization" not in transport.requests[0].headers

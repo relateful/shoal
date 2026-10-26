@@ -236,6 +236,8 @@ class CreateGroupDMParams(Payload):
     Discord: https://docs.discord.com/developers/resources/user#create-group-dm-json-params
     """
 
+    REDACTED_FIELDS = frozenset({"access_tokens"})
+
     access_tokens: list[str]
     """OAuth2 tokens of users who granted the app the `gdm.join` scope."""
     nicks: dict[Snowflake, str]

@@ -73,7 +73,9 @@ Every constant is defined once. Import it; never redefine it.
 - Links use `https://docs.discord.com/developers/` and point at the narrowest section that exists.
 - `scripts/check_docs.py` verifies every link and anchor against the Discord docs source, and every
   `Route`'s method and path against Discord's `<Route>` declaration. CI runs it on every change.
-- `docs/coverage.md` is generated and lists every documented endpoint Shoal does not implement yet.
+- `docs/coverage.md` is generated and lists every documented endpoint with whether Shoal implements
+  it. Every endpoint is implemented except the ones Discord has deprecated (marked in the heading)
+  or disabled (`DISABLED_ROUTES` in `scripts/check_docs.py`), which are marked and not counted.
 
 ## Payloads
 
@@ -107,6 +109,9 @@ Payloads mirror Discord's JSON exactly and hold data only.
   because they have no fixed shape at all: a guild template's snapshot (placeholder integer IDs)
   and an identity profile's `metadata` (the game's own data). Aliases may rename `JSONObject`, but
   no other alias may wrap `Any`. Tests use it for JSON fixtures.
+- A payload holding a credential (a token, an OAuth2 access token, a lobby secret) names it in
+  `REDACTED_FIELDS`, so its repr never shows it. Path parameters that grant access (tokens, invite
+  and template codes) are in `rest.route.SECRET_PARAMETERS`, which keeps them out of logs.
 - A value whose type depends on another field, like an audit log change's `old_value` and
   `new_value`, is `msgspec.Raw`: the caller decodes it into the type the other field names.
 - `cast` and `type: ignore` are a last resort: name the error code and say why on the same line.

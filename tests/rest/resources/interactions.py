@@ -6,6 +6,7 @@ from shoal.payloads import (
     DeferredUpdateResponse,
     EditWebhookMessageParams,
     InteractionMessage,
+    MessageFlags,
     MessageResponse,
     UpdateMessageResponse,
 )
@@ -174,6 +175,10 @@ async def test_interaction_tokens_stay_out_of_errors() -> None:
 
 async def test_files_need_a_response_that_carries_a_message() -> None:
     client = make_client(FakeTransport())
+    # A deferred message response has data (its flags), but Discord does not use files with it.
+    deferred = DeferredMessageResponse(data=InteractionMessage(flags=MessageFlags(ephemeral=True)))
+    with pytest.raises(TypeError, match="DeferredMessageResponse carries no message"):
+        await client.create_interaction_response(9, "aW50ZXJhY3Rpb24", deferred, files=[File("a", b"")])
     with pytest.raises(TypeError, match="DeferredUpdateResponse carries no message"):
         await client.create_interaction_response(
             9, "aW50ZXJhY3Rpb24", DeferredUpdateResponse(), files=[File("a", b"")]

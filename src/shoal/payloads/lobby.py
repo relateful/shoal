@@ -57,7 +57,7 @@ class Lobby(Payload):
 class LobbyMemberParams(Payload):
     """A member in Create Lobby or Modify Lobby.
 
-    Discord: https://docs.discord.com/developers/resources/lobby#create-lobby
+    Discord: https://docs.discord.com/developers/resources/lobby#lobby-member-json-params
     """
 
     id: Snowflake
@@ -99,6 +99,8 @@ class CreateOrJoinLobbyParams(Payload):
 
     Discord: https://docs.discord.com/developers/resources/lobby#create-or-join-lobby
     """
+
+    REDACTED_FIELDS = frozenset({"secret"})
 
     secret: str
     """Identifies the lobby; up to 250 characters."""

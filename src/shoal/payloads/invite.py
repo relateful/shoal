@@ -226,5 +226,6 @@ class TargetUsersJobStatus(Payload):
     total_users: int
     processed_users: int
     created_at: datetime
-    completed_at: datetime | None
-    error_message: str | None
+    completed_at: datetime | UnsetType | None = UNSET
+    """Optional here: Discord documents this object only by example, so a running job may leave it out."""
+    error_message: str | UnsetType | None = UNSET

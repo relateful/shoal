@@ -128,6 +128,9 @@ class RecurrenceRule(Payload):
     combinations work (see its "System limitations"): for example `by_weekday`, `by_n_weekday` and
     `by_month` with `by_month_day` are mutually exclusive.
 
+    Discord always sends every field, `None` when unused. They are optional here so the same type
+    works in requests, where unused fields are left out.
+
     Discord: https://docs.discord.com/developers/resources/guild-scheduled-event#guild-scheduled-event-recurrence-rule-object
     """
 

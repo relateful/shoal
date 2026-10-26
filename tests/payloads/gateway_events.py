@@ -42,10 +42,17 @@ def test_ready_and_guild_create_decode() -> None:
         b'"vanity_url_code":null,"description":null,"banner":null,"premium_tier":0,"preferred_locale":"en-US",'
         b'"public_updates_channel_id":null,"nsfw_level":0,"premium_progress_bar_enabled":false,'
         b'"safety_alerts_channel_id":null,"joined_at":"2020-01-01T00:00:00+00:00","large":false,'
-        b'"member_count":1,"members":[],"channels":[],"threads":[]}',
+        b'"member_count":1,"members":[],"channels":[],"threads":[],'
+        b'"stage_instances":[{"id":"8","guild_id":"2","channel_id":"9","topic":"t","privacy_level":2,'
+        b'"discoverable_disabled":false,"guild_scheduled_event_id":null}],'
+        b'"soundboard_sounds":[{"name":"quack","sound_id":"1","volume":1.0,"emoji_id":null,'
+        b'"emoji_name":"q","available":true}]}',
         GuildCreate,
     )
     assert guild.member_count == 1
+    assert guild.stage_instances[0].topic == "t"
+    assert guild.soundboard_sounds[0].name == "quack"
+    assert guild.guild_scheduled_events == []
 
 
 def test_message_create_extra_fields_are_optional() -> None:

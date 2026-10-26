@@ -33,9 +33,16 @@ from shoal.payloads import (
     WelcomeScreenChannel,
     WidgetStyle,
 )
-from tests.rest.resources.channel import INVITE_WITH_METADATA, THREAD, THREAD_MEMBER
-from tests.rest.resources.voice import REGION
-from tests.support.json_payloads import CHANNEL, GUILD, MEMBER, USER
+from tests.support.json_payloads import (
+    CHANNEL,
+    GUILD,
+    INVITE_WITH_METADATA,
+    MEMBER,
+    REGION,
+    THREAD,
+    THREAD_MEMBER,
+    USER,
+)
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
 G = "/guilds/2"
@@ -151,6 +158,20 @@ INCIDENTS: dict[str, object] = {
     "dms_disabled_until": None,
 }
 PNG = b"\x89PNG\r\n\x1a\n"
+TIMED_OUT_MEMBER: dict[str, object] = {
+    "user": USER,
+    "nick": None,
+    "avatar": None,
+    "roles": ["5"],
+    "joined_at": "2024-01-01T00:00:00+00:00",
+    "premium_since": None,
+    "deaf": False,
+    "mute": False,
+    "flags": 4,
+    "pending": False,
+    "communication_disabled_until": "2026-01-01T00:00:00+00:00",
+}
+"""A member with the timeout set and the nullable fields sent as `null`."""
 
 CASES = [
     EndpointCase(
@@ -159,6 +180,13 @@ CASES = [
         method="GET",
         path=f"{G}?with_counts=false",
         response={**GUILD, "incidents_data": INCIDENTS},
+    ),
+    EndpointCase(
+        name="get guild with counts",
+        call=lambda client: client.get_guild(2, with_counts=True),
+        method="GET",
+        path=f"{G}?with_counts=true",
+        response={**GUILD, "approximate_member_count": 120, "approximate_presence_count": 40},
     ),
     EndpointCase(
         name="preview",
@@ -270,7 +298,7 @@ CASES = [
         method="PATCH",
         path=f"{G}/members/1",
         body={"channel_id": None, "communication_disabled_until": "2026-01-01T00:00:00Z"},
-        response=MEMBER,
+        response=TIMED_OUT_MEMBER,
         reason="spam",
     ),
     EndpointCase(
@@ -439,6 +467,20 @@ CASES = [
         response={"pruned": 12},
     ),
     EndpointCase(
+        name="prune count with defaults",
+        call=lambda client: client.get_guild_prune_count(2),
+        method="GET",
+        path=f"{G}/prune",
+        response={"pruned": 3},
+    ),
+    EndpointCase(
+        name="prune count with no extra roles",
+        call=lambda client: client.get_guild_prune_count(2, GetGuildPruneCountParams(include_roles=[])),
+        method="GET",
+        path=f"{G}/prune",
+        response={"pruned": 3},
+    ),
+    EndpointCase(
         name="prune",
         call=lambda client: client.begin_guild_prune(
             2, BeginGuildPruneParams(days=30, compute_prune_count=False), reason="cleanup"
@@ -564,6 +606,7 @@ CASES = [
                         type=PromptType.DROPDOWN,
                         options=[
                             PromptOptionParams(
+                                id=Snowflake(1070004843541954678),
                                 channel_ids=[],
                                 role_ids=[Snowflake(5)],
                                 emoji_name="\N{GRINNING FACE}",
@@ -589,6 +632,7 @@ CASES = [
                     "type": 1,
                     "options": [
                         {
+                            "id": "1070004843541954678",
                             "channel_ids": [],
                             "role_ids": ["5"],
                             "emoji_name": "\N{GRINNING FACE}",

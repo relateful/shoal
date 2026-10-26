@@ -11,8 +11,8 @@ import msgspec
 from shoal.payloads.interactions import (
     CreateFollowupMessageParams,
     InteractionCallbackResponse,
-    InteractionMessage,
     InteractionResponse,
+    MessageResponse,
     UpdateMessageResponse,
 )
 from shoal.payloads.message import (
@@ -127,7 +127,7 @@ class InteractionEndpoints(Requester):
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response
         """
-        body, named = with_attachments(params, files, describe=False)
+        body, named = with_attachments(params, files, edit=True)
         return await self.request(
             EDIT_ORIGINAL_INTERACTION_RESPONSE.compile(
                 application_id=application_id, interaction_token=interaction_token
@@ -197,7 +197,7 @@ class InteractionEndpoints(Requester):
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-followup-message
         """
-        body, named = with_attachments(params, files, describe=False)
+        body, named = with_attachments(params, files, edit=True)
         return await self.request(
             EDIT_FOLLOWUP_MESSAGE.compile(
                 application_id=application_id, interaction_token=interaction_token, message_id=message_id
@@ -233,9 +233,8 @@ def _response_with_files(
     """
     if not files:
         return response, {}
-    data: object = getattr(response, "data", msgspec.UNSET)
-    if not isinstance(data, InteractionMessage):
+    if not isinstance(response, MessageResponse | UpdateMessageResponse):
         msg = f"{type(response).__name__} carries no message to attach files to"
         raise TypeError(msg)
-    message, named = with_attachments(data, files, describe=not isinstance(response, UpdateMessageResponse))
+    message, named = with_attachments(response.data, files, edit=isinstance(response, UpdateMessageResponse))
     return msgspec.structs.replace(response, data=message), named

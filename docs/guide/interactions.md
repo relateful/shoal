@@ -149,6 +149,10 @@ await rest.create_followup_message(
 ```
 
 `edit_followup_message` and `delete_followup_message` take the follow-up's message id as well.
+
+Responses that carry a message (`MessageResponse`, `UpdateMessageResponse`), follow-ups and their
+edits take `files=`, as in [Files and images](dashboards.md#files-and-images). Passing files with any
+other response raises `TypeError`.
 `MessageFlags(ephemeral=True)` shows a message only to the user who acted.
 
 ## Components and modals

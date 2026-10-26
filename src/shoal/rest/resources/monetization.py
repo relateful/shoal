@@ -21,7 +21,7 @@ from shoal.rest.endpoints import (
     LIST_SKU_SUBSCRIPTIONS,
     LIST_SKUS,
 )
-from shoal.rest.requester import QueryValue, Requester, query_of
+from shoal.rest.requester import Requester, comma_joined, query_of
 
 
 class MonetizationEndpoints(Requester):
@@ -43,13 +43,7 @@ class MonetizationEndpoints(Requester):
 
         Discord: https://docs.discord.com/developers/resources/entitlement#list-entitlements
         """
-        query: dict[str, QueryValue] = {}
-        if params is not None:
-            query = query_of(params)
-            sku_ids = query.pop("sku_ids", None)
-            if isinstance(sku_ids, list):
-                # This parameter alone is one comma-separated value, not a repeated one.
-                query["sku_ids"] = ",".join(str(sku_id) for sku_id in sku_ids)
+        query = comma_joined(query_of(params), "sku_ids") if params is not None else {}
         return await self.request(
             LIST_ENTITLEMENTS.compile(application_id=application_id), list[Entitlement], query=query or None
         )

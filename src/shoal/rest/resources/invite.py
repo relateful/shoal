@@ -3,8 +3,11 @@
 Discord: https://docs.discord.com/developers/resources/invite
 """
 
+import csv
+import io
 from collections.abc import Sequence
 
+from shoal.core.codec import PayloadDecodeError
 from shoal.core.snowflake import Snowflake
 from shoal.payloads.invite import GetInviteParams, Invite, TargetUserIDs, TargetUsersJobStatus
 from shoal.rest.endpoints import (
@@ -20,6 +23,24 @@ from shoal.rest.endpoints import (
 )
 from shoal.rest.files import File
 from shoal.rest.requester import Requester, query_of
+
+
+def parse_target_users(body: bytes) -> list[Snowflake]:
+    """Read the CSV Get Target Users answers with: a `user_id` header, then one ID per row.
+
+    Raises:
+        PayloadDecodeError: The body is not that CSV, so the list is never silently cut short.
+    """
+    try:
+        rows = list(csv.reader(io.StringIO(body.decode("utf-8-sig"))))
+    except (UnicodeDecodeError, csv.Error) as error:
+        raise PayloadDecodeError(list[Snowflake], f"target users CSV: {error}") from None
+    cells = [row[0].strip() for row in rows if row and row[0].strip()]
+    if cells and cells[0] == "user_id":
+        cells = cells[1:]
+    if not all(cell.isascii() and cell.isdigit() for cell in cells):
+        raise PayloadDecodeError(list[Snowflake], "target users CSV has a row that is not a user ID")
+    return [Snowflake(cell) for cell in cells]
 
 
 class InviteEndpoints(Requester):
@@ -50,11 +71,13 @@ class InviteEndpoints(Requester):
 
         Needs to be the inviter, or Manage Guild or View Audit Log.
 
+        Raises:
+            PayloadDecodeError: Discord's CSV could not be read.
+
         Discord: https://docs.discord.com/developers/resources/invite#get-target-users
         """
         body = await self.request_bytes(GET_TARGET_USERS.compile(invite_code=invite_code))
-        # A CSV file: a `user_id` header, then one ID per line.
-        return [Snowflake(line) for line in body.decode().split() if line.isdigit()]
+        return parse_target_users(body)
 
     async def add_target_user(self, invite_code: str, user_id: int) -> None:
         """Let one more user see and accept an invite. Needs to be the inviter, or Manage Guild.

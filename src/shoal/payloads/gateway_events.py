@@ -3,9 +3,9 @@
 Discord: https://docs.discord.com/developers/events/gateway-events
 
 Dispatch event bodies that are plain resources (`CHANNEL_CREATE` is a `Channel`) reuse the resource
-type; only events with their own shape are declared here. Not yet modeled: stage instances, scheduled
-events and soundboard sounds inside `GUILD_CREATE`, and the events of resources Shoal does not model
-yet; `docs/coverage.md` lists them.
+type; only events with their own shape are declared here. Not yet modeled: the events of scheduled
+events, stage instances, stickers, soundboard sounds, Auto Moderation, integrations, entitlements and
+subscriptions; `docs/roadmap.md` tracks them.
 """
 
 from datetime import datetime
@@ -24,6 +24,9 @@ from shoal.payloads.gateway import GatewayOpcode, Intents
 from shoal.payloads.guild import Guild, GuildMember, GuildMemberFlags, UnavailableGuild
 from shoal.payloads.message import Message, ReactionType
 from shoal.payloads.permissions import Role
+from shoal.payloads.scheduled_event import GuildScheduledEvent
+from shoal.payloads.soundboard import SoundboardSound
+from shoal.payloads.stage_instance import StageInstance
 from shoal.payloads.user import AvatarDecorationData, Collectibles, User
 from shoal.payloads.voice import VoiceState
 
@@ -386,6 +389,11 @@ class GuildCreate(Guild):
     threads: list[Channel]
     voice_states: list[VoiceState] = msgspec.field(default_factory=list[VoiceState])
     presences: list[Presence] = msgspec.field(default_factory=list[Presence])
+    stage_instances: list[StageInstance] = msgspec.field(default_factory=list[StageInstance])
+    guild_scheduled_events: list[GuildScheduledEvent] = msgspec.field(
+        default_factory=list[GuildScheduledEvent]
+    )
+    soundboard_sounds: list[SoundboardSound] = msgspec.field(default_factory=list[SoundboardSound])
 
 
 class GuildDelete(Payload):

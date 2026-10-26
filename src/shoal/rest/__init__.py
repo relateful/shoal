@@ -7,7 +7,7 @@ in `shoal.rest.defaults`.
 Discord: https://docs.discord.com/developers/reference#http-api
 """
 
-from shoal.rest import defaults, endpoints
+from shoal.rest import defaults, endpoints, resources
 from shoal.rest.client import RestClient, Token, TokenType
 from shoal.rest.errors import (
     BadRequestError,
@@ -26,6 +26,7 @@ from shoal.rest.errors import (
 from shoal.rest.files import File
 from shoal.rest.ratelimit import InvalidRequestGuard, LocalRateLimiter, RateLimiter, RateLimitHeaders
 from shoal.rest.requester import QueryScalar, QueryValue, Requester
+from shoal.rest.resources.message import ReactionEmoji, reaction_emoji
 from shoal.rest.route import CompiledRoute, HTTPMethod, Route
 from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
 
@@ -49,6 +50,7 @@ __all__ = [
     "RateLimitHeaders",
     "RateLimitedError",
     "RateLimiter",
+    "ReactionEmoji",
     "Requester",
     "RestClient",
     "Route",
@@ -62,4 +64,6 @@ __all__ = [
     "defaults",
     "endpoints",
     "flatten_errors",
+    "reaction_emoji",
+    "resources",
 ]

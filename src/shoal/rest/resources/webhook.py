@@ -115,8 +115,6 @@ class WebhookEndpoints(Requester):
         webhook_id: int,
         webhook_token: str,
         params: ModifyWebhookWithTokenParams,
-        *,
-        reason: str | None = None,
     ) -> Webhook:
         """Rename a webhook or change its avatar by its token, without a bot token.
 
@@ -126,7 +124,6 @@ class WebhookEndpoints(Requester):
             MODIFY_WEBHOOK_WITH_TOKEN.compile(webhook_id=webhook_id, webhook_token=webhook_token),
             Webhook,
             body=params,
-            reason=reason,
         )
 
     async def delete_webhook(self, webhook_id: int, *, reason: str | None = None) -> None:
@@ -136,16 +133,13 @@ class WebhookEndpoints(Requester):
         """
         await self.request_empty(DELETE_WEBHOOK.compile(webhook_id=webhook_id), reason=reason)
 
-    async def delete_webhook_with_token(
-        self, webhook_id: int, webhook_token: str, *, reason: str | None = None
-    ) -> None:
+    async def delete_webhook_with_token(self, webhook_id: int, webhook_token: str) -> None:
         """Delete a webhook by its token, without a bot token.
 
         Discord: https://docs.discord.com/developers/resources/webhook#delete-webhook-with-token
         """
         await self.request_empty(
             DELETE_WEBHOOK_WITH_TOKEN.compile(webhook_id=webhook_id, webhook_token=webhook_token),
-            reason=reason,
         )
 
     @overload
@@ -285,7 +279,7 @@ class WebhookEndpoints(Requester):
 
         Discord: https://docs.discord.com/developers/resources/webhook#edit-webhook-message
         """
-        body, named = with_attachments(params, files, describe=False)
+        body, named = with_attachments(params, files, edit=True)
         return await self.request(
             EDIT_WEBHOOK_MESSAGE.compile(
                 webhook_id=webhook_id, webhook_token=webhook_token, message_id=message_id

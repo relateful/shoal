@@ -27,6 +27,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   that takes files. Message-like requests describe new files in `attachments` themselves; edits only
   append, so existing attachments are never dropped by accident. `image_data` and `sound_data` build
   the data URIs Discord's image and sound fields take.
+- Payloads that hold a credential hide it in their `repr` (`REDACTED_FIELDS`), and invite and
+  template codes join tokens among the path values kept out of logs.
 - `shoal.gateway`: zlib-stream and zstd-stream decompression, shard routing, `max_concurrency` identify
   scheduling, persistent sessions, heartbeat tracking, the send limiter, event delay tracking, a
   resumable `Shard` that falls back from a failing resume URL to the main gateway, and `ShardManager`

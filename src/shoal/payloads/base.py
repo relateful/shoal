@@ -14,7 +14,7 @@ How Discord's field notation maps to Python
 from "clear it" — the distinction discord.py collapses.
 """
 
-from typing import dataclass_transform
+from typing import ClassVar, dataclass_transform, override
 
 import msgspec
 
@@ -63,4 +63,19 @@ class Payload(msgspec.Struct, metaclass=_PayloadMeta):
 
     Payloads hold data only: no methods that call Discord, no references to a client. Unknown fields
     Discord adds later are ignored on decode, so new API fields never break a running bot.
+
+    A payload that holds a credential names it in `REDACTED_FIELDS`, and its repr shows
+    `<redacted>` in its place, so logging the object or capturing it in an error tracker never
+    leaks the secret.
     """
+
+    REDACTED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    """Fields whose value the repr hides."""
+
+    @override
+    def __repr__(self) -> str:
+        shown = (
+            f"{name}={'<redacted>' if name in self.REDACTED_FIELDS else repr(getattr(self, name))}"
+            for name in self.__struct_fields__
+        )
+        return f"{type(self).__name__}({', '.join(shown)})"

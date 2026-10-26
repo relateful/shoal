@@ -2,12 +2,14 @@
 
 An endpoint that takes files sends its JSON parameters in a `payload_json` part and each file in its own
 part. Message-like endpoints name the parts `files[0]`, `files[1]`…, and the matching `attachments`
-entries refer to them by that index; others (stickers, soundboard sounds) use one named part.
+entries refer to them by that index; stickers and an invite's target user list use one named part.
+(Soundboard sounds and images such as avatars are not files: they go in the JSON as data URIs.)
 
 Discord: https://docs.discord.com/developers/reference#uploading-files
 """
 
 import asyncio
+import mimetypes
 import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -17,6 +19,8 @@ from typing import Self, override
 _SPOILER_PREFIX = "SPOILER_"
 """Discord shows an attachment as a spoiler when its filename starts with this."""
 
+_DEFAULT_CONTENT_TYPE = "application/octet-stream"
+
 
 @dataclass(frozen=True, slots=True)
 class File:
@@ -25,16 +29,26 @@ class File:
     Attributes:
         filename: The name Discord shows; it is also how embeds refer to it (`attachment://name`).
         data: The file contents.
-        description: Alt text for the attachment, where the endpoint supports it.
+        description: Alt text for the attachment. Edits can only send it when they list the
+            attachments to keep (see `with_attachments`).
         spoiler: Hide the attachment behind a spoiler.
         content_type: The part's MIME type.
+
+    Raises:
+        ValueError: `content_type` contains a line break, which would break the request's headers.
     """
 
     filename: str
     data: bytes
     description: str | None = None
     spoiler: bool = False
-    content_type: str = "application/octet-stream"
+    content_type: str = _DEFAULT_CONTENT_TYPE
+
+    def __post_init__(self) -> None:
+        """Reject a content type that could inject a header into the multipart body."""
+        if "\r" in self.content_type or "\n" in self.content_type:
+            msg = "a file's content type cannot contain a line break"
+            raise ValueError(msg)
 
     @classmethod
     async def from_path(
@@ -44,15 +58,26 @@ class File:
         filename: str | None = None,
         description: str | None = None,
         spoiler: bool = False,
+        content_type: str | None = None,
     ) -> Self:
         """Read a file in a worker thread, so the event loop never waits on the disk.
+
+        Without `content_type`, it is guessed from the filename's extension.
 
         Raises:
             OSError: The file could not be read.
         """
         source = Path(path)
         data = await asyncio.to_thread(source.read_bytes)
-        return cls(filename or source.name, data, description=description, spoiler=spoiler)
+        name = filename or source.name
+        guessed, _ = mimetypes.guess_type(name)
+        return cls(
+            name,
+            data,
+            description=description,
+            spoiler=spoiler,
+            content_type=content_type or guessed or _DEFAULT_CONTENT_TYPE,
+        )
 
     @property
     def upload_name(self) -> str:
@@ -71,27 +96,29 @@ def encode_multipart(
 ) -> tuple[bytes, str]:
     """Build a `multipart/form-data` body. Returns the body and its `Content-Type` header.
 
+    Each file's bytes are copied once, into the body.
+
     Args:
         payload_json: The JSON parameters, sent as the `payload_json` part, or `None` for none.
         files: Each part's form field name (`files[0]`, `file`…) and the file in it.
         fields: Plain text form fields, for endpoints that take their parameters that way.
     """
     boundary = secrets.token_hex(16)
-    parts: list[bytes] = []
+    pieces: list[bytes] = []
     for name, value in (fields or {}).items():
-        head = f'--{boundary}\r\nContent-Disposition: form-data; name="{_quote(name)}"\r\n\r\n'
-        parts.append(head.encode() + value.encode() + b"\r\n")
+        pieces += [f'--{boundary}\r\nContent-Disposition: form-data; name="{_quote(name)}"\r\n\r\n'.encode()]
+        pieces += [value.encode(), b"\r\n"]
     if payload_json is not None:
-        parts.append(
-            _part_head(boundary, 'form-data; name="payload_json"', "application/json")
-            + payload_json
-            + b"\r\n"
-        )
+        pieces += [
+            _part_head(boundary, 'form-data; name="payload_json"', "application/json"),
+            payload_json,
+            b"\r\n",
+        ]
     for field, file in files.items():
         disposition = f'form-data; name="{_quote(field)}"; filename="{_quote(file.upload_name)}"'
-        parts.append(_part_head(boundary, disposition, file.content_type) + file.data + b"\r\n")
-    body = b"".join(parts) + f"--{boundary}--\r\n".encode()
-    return body, f"multipart/form-data; boundary={boundary}"
+        pieces += [_part_head(boundary, disposition, file.content_type), file.data, b"\r\n"]
+    pieces.append(f"--{boundary}--\r\n".encode())
+    return b"".join(pieces), f"multipart/form-data; boundary={boundary}"
 
 
 def _part_head(boundary: str, disposition: str, content_type: str) -> bytes:

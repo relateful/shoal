@@ -57,3 +57,8 @@ def test_non_json_error_bodies_are_kept_as_text() -> None:
     assert error.code is None
     assert error.message == "<html>bad gateway</html>"
     assert HTTPError.from_response(compiled, 502, b"").message == "no response body"
+
+
+def test_an_error_tree_nested_too_deeply_is_skipped() -> None:
+    deep = b'{"a":' * 20_000 + b"1" + b"}" * 20_000
+    assert flatten_errors(msgspec.Raw(deep)) == ()

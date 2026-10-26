@@ -19,8 +19,9 @@ async with RestClient(Token.bearer(oauth_access_token)) as rest:
 
 ## Files and images
 
-Endpoints that take files have a `files=` argument; Shoal sends the request as `multipart/form-data`
-and, for messages, describes each file in `attachments`.
+Methods that send a message take `files=`: messages, webhooks, interaction responses, follow-ups
+and forum posts. Shoal sends the request as `multipart/form-data` and describes each file in
+`attachments`. A sticker upload takes its one file as `file=`.
 
 ```python
 from shoal.payloads import CreateMessageParams
@@ -30,11 +31,22 @@ report = await File.from_path("report.png", description="Weekly report")  # read
 await rest.create_message(channel_id, CreateMessageParams(content="This week"), files=[report])
 ```
 
-When editing a message, files passed are added to it. To remove attachments, list the ones to keep
-in `attachments`.
+`File.from_path` guesses the content type from the extension; pass `content_type=` to set it.
+
+When editing a message, the files passed are added and the existing attachments stay. To remove
+some, list the ones to keep in `attachments` by ID; Shoal adds the new files to that list for you.
+Alt text on a new file is only sent when `attachments` is listed this way.
+
+```python
+from shoal.payloads import AttachmentRequest, EditMessageParams
+
+keep = [AttachmentRequest(id=str(attachment.id)) for attachment in message.attachments[:1]]
+await rest.edit_message(channel_id, message.id, EditMessageParams(attachments=keep), files=[report])
+```
 
 Fields that take an image or a sound inline (an avatar, an emoji, a soundboard sound) take a data URI:
-`image_data(png_bytes)` and `sound_data(ogg_bytes)` build one and check the format.
+`image_data(png_bytes)` and `sound_data(ogg_bytes)` from `shoal.payloads` build one and check the
+format.
 
 ## Rate limits that protect your IP
 

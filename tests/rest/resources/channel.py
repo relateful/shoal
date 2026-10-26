@@ -23,30 +23,17 @@ from shoal.payloads import (
     StartThreadWithoutMessageParams,
 )
 from shoal.rest.files import File
-from tests.support.json_payloads import CHANNEL, MEMBER, MESSAGE, USER
+from tests.support.json_payloads import (
+    CHANNEL,
+    INVITE,
+    INVITE_WITH_METADATA,
+    MESSAGE,
+    THREAD,
+    THREAD_MEMBER,
+)
 from tests.support.multipart import FormPart
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
-THREAD: dict[str, object] = {
-    "id": "41771983423143937",
-    "type": 11,
-    "guild_id": "41771983423143937",
-    "name": "don't buy dota-2",
-    "last_message_id": "155117677105512449",
-    "rate_limit_per_user": 2,
-    "owner_id": "41771983423143937",
-    "parent_id": "41771983423143937",
-    "message_count": 1,
-    "member_count": 5,
-    "thread_metadata": {
-        "archived": False,
-        "auto_archive_duration": 1440,
-        "archive_timestamp": "2021-04-12T23:40:39.855793+00:00",
-        "locked": False,
-    },
-    "total_message_sent": 1,
-}
-"""Discord's example thread, in the field table's order."""
 FORUM: dict[str, object] = {
     "id": "15",
     "type": 15,
@@ -64,29 +51,6 @@ FORUM: dict[str, object] = {
     "default_reaction_emoji": {"emoji_id": None, "emoji_name": "\N{THUMBS UP SIGN}"},
     "default_sort_order": None,
     "default_forum_layout": 1,
-}
-THREAD_MEMBER: dict[str, object] = {
-    "id": "41771983423143937",
-    "user_id": "1",
-    "join_timestamp": "2024-01-01T00:00:00+00:00",
-    "flags": 0,
-    "member": MEMBER,
-}
-INVITE: dict[str, object] = {
-    "type": 0,
-    "code": "0vCdhLbwjZZTWZLD",
-    "guild": {"id": "2", "name": "g", "features": ["NEWS"], "verification_level": 2},
-    "channel": {"id": "3", "type": 0, "name": "general"},
-    "inviter": USER,
-    "expires_at": "2026-01-02T00:00:00+00:00",
-}
-INVITE_WITH_METADATA: dict[str, object] = {
-    **INVITE,
-    "uses": 0,
-    "max_uses": 0,
-    "max_age": 86400,
-    "temporary": False,
-    "created_at": "2026-01-01T00:00:00+00:00",
 }
 ARCHIVED: dict[str, object] = {"threads": [THREAD], "members": [THREAD_MEMBER], "has_more": False}
 PNG = b"\x89PNG\r\n\x1a\n"

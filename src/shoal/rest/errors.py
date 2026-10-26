@@ -35,10 +35,13 @@ def flatten_errors(raw: msgspec.Raw) -> tuple[FieldError, ...]:
     """
     try:
         tree = msgspec.json.decode(raw, type=object)
-    except msgspec.DecodeError:
+    except (msgspec.DecodeError, RecursionError):
         return ()
     found: list[FieldError] = []
-    _walk(tree, (), found)
+    try:
+        _walk(tree, (), found)
+    except RecursionError:
+        return ()
     return tuple(found)
 
 

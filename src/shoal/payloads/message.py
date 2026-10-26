@@ -2,8 +2,9 @@
 
 Discord: https://docs.discord.com/developers/resources/message
 
-Not yet modeled: `Message.application` (a partial application) and `Message.resolved` (resolved
-data, which refers back to messages). Decoding ignores those keys until they are added.
+Not yet modeled: `Message.application` (a partial application), `Message.resolved` (resolved
+data, which refers back to messages), `Attachment.application` (the app behind a clip) and
+`Embed.components`. Decoding ignores those keys until they are added.
 """
 
 from datetime import datetime

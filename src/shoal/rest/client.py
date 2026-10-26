@@ -21,7 +21,7 @@ import msgspec
 
 from shoal.core.backoff import backoff_delay
 from shoal.core.clock import Clock, SystemClock
-from shoal.core.codec import decode_json, encode_json
+from shoal.core.codec import PayloadDecodeError, decode_json, encode_json
 from shoal.core.metrics import (
     REST_RATE_LIMITED,
     REST_REQUEST_SECONDS,
@@ -286,7 +286,7 @@ class RestClient(
             OSError: The network failed on every attempt.
         """
         response = await self._send(route, body=body, query=query, reason=reason, files=files, form=form)
-        return decode_json(response.body, response_type)
+        return _decode_success(route, response, response_type)
 
     @override
     async def request_empty(
@@ -313,7 +313,7 @@ class RestClient(
     ) -> T | None:
         """Send a request that may answer with no body; `None` then. Raises like `request`."""
         response = await self._send(route, body=body, query=None, reason=reason)
-        return decode_json(response.body, response_type) if response.body else None
+        return _decode_success(route, response, response_type) if response.body else None
 
     @override
     async def request_bytes(
@@ -342,9 +342,9 @@ class RestClient(
             url = f"{url}?{encode_query(query)}"
         headers = self._headers(reason)
         payload: bytes | None = None
-        if files:
+        if files or form:
             payload, headers["Content-Type"] = encode_multipart(
-                None if body is None else encode_json(body), files, form
+                None if body is None else encode_json(body), files or {}, form
             )
         elif body is not None:
             payload = encode_json(body)
@@ -483,3 +483,22 @@ def _may_have_been_sent(error: OSError) -> bool:
     if isinstance(error, TransportError):
         return error.request_sent
     return not isinstance(error, ConnectionRefusedError)
+
+
+def _decode_success[T](route: CompiledRoute, response: HTTPResponse, response_type: type[T]) -> T:
+    """Decode a successful response, noting on failure that Discord already carried out the request.
+
+    A caller that retries on an error would otherwise repeat a request that worked: send a message
+    twice, ban twice.
+
+    Raises:
+        PayloadDecodeError: The response does not match `response_type`.
+    """
+    try:
+        return decode_json(response.body, response_type)
+    except PayloadDecodeError as error:
+        error.add_note(
+            f"{route.method} {route.display} succeeded with HTTP {response.status}; "
+            "only reading Discord's answer failed, so do not repeat the request"
+        )
+        raise

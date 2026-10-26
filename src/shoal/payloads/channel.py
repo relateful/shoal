@@ -411,6 +411,8 @@ class GroupDMAddRecipientParams(Payload):
     Discord: https://docs.discord.com/developers/resources/channel#group-dm-add-recipient-json-params
     """
 
+    REDACTED_FIELDS = frozenset({"access_token"})
+
     access_token: str
     """An OAuth2 token of the user, with the `gdm.join` scope."""
     nick: str

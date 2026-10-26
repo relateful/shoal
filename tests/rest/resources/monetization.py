@@ -61,6 +61,23 @@ CASES = [
         response=[ENTITLEMENT],
     ),
     EndpointCase(
+        name="entitlements of a user",
+        call=lambda client: client.list_entitlements(
+            1019370614521200640,
+            ListEntitlementsParams(user_id=Snowflake(771129655544643584), exclude_deleted=False),
+        ),
+        method="GET",
+        path=f"{ENTITLEMENTS}?user_id=771129655544643584&exclude_deleted=false",
+        response=[{**ENTITLEMENT, "starts_at": None, "ends_at": None}],
+    ),
+    EndpointCase(
+        name="all entitlements",
+        call=lambda client: client.list_entitlements(1019370614521200640),
+        method="GET",
+        path=ENTITLEMENTS,
+        response=[],
+    ),
+    EndpointCase(
         name="entitlement",
         call=lambda client: client.get_entitlement(1019370614521200640, 1019653849998299136),
         method="GET",

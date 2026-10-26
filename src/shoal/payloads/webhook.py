@@ -63,6 +63,8 @@ class Webhook(Payload):
     Discord: https://docs.discord.com/developers/resources/webhook#webhook-object
     """
 
+    REDACTED_FIELDS = frozenset({"token", "url"})
+
     id: Snowflake
     type: WebhookType
     guild_id: Snowflake | UnsetType | None = UNSET

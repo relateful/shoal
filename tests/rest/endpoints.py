@@ -1,5 +1,8 @@
+import inspect
+
 from shoal.payloads.api import DOCS_BASE_URL
 from shoal.rest import endpoints
+from shoal.rest.client import RestClient
 from tests.rest.resources import (
     application,
     application_commands,
@@ -75,3 +78,13 @@ async def test_every_endpoint_has_a_checked_call() -> None:
         covered.add(await check_endpoint(case))
     missing = sorted(route.key for route in endpoints.ALL_ROUTES if route.key not in covered)
     assert missing == [], "endpoints without a case in tests/rest/resources/"
+
+
+def test_every_reason_reaches_the_request() -> None:
+    # The endpoint cases check the header only where a case passes a reason; this covers the rest.
+    for name, method in inspect.getmembers(RestClient, inspect.iscoroutinefunction):
+        if name.startswith("_") or name in {"request", "request_empty", "request_optional"}:
+            continue
+        if "reason" in inspect.signature(method).parameters:
+            source = inspect.getsource(method)
+            assert "reason=reason" in source, f"RestClient.{name} takes reason but does not send it"

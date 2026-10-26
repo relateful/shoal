@@ -61,9 +61,8 @@ class CreateGuildEmojiParams(Payload):
     name: str
     image: ImageData
     """The 128x128 emoji image."""
-    roles: list[Snowflake] | UnsetType = UNSET
-    """Roles allowed to use the emoji. Discord's table marks it required, but Discord accepts the
-    request without it (discord.py has always left it out unless roles are given)."""
+    roles: list[Snowflake]
+    """Roles allowed to use the emoji; an empty list lets everyone use it."""
 
 
 class ModifyGuildEmojiParams(Payload):

@@ -1,5 +1,6 @@
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import (
+    AttachmentRequest,
     CreateWebhookParams,
     EditWebhookMessageParams,
     ExecuteWebhookParams,
@@ -172,6 +173,21 @@ CASES = [
         method="PATCH",
         path=f"{WITH_TOKEN}/messages/9",
         body={"content": "fixed", "embeds": None},
+        response=MESSAGE,
+    ),
+    EndpointCase(
+        name="edit message keeping one attachment and adding a file",
+        call=lambda client: client.edit_webhook_message(
+            223704706495545344,
+            "secret-token",
+            9,
+            EditWebhookMessageParams(attachments=[AttachmentRequest(id="77")]),
+            files=[File("v2.log", b"2", description="second run")],
+        ),
+        method="PATCH",
+        path=f"{WITH_TOKEN}/messages/9",
+        body={"attachments": [{"id": "77"}, {"id": 0, "filename": "v2.log", "description": "second run"}]},
+        files=(FormPart("files[0]", "v2.log", "application/octet-stream", b"2"),),
         response=MESSAGE,
     ),
     EndpointCase(

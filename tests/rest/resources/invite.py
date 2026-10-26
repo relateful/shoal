@@ -1,6 +1,10 @@
+import pytest
+
+from shoal.core.codec import PayloadDecodeError
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import GetInviteParams
-from tests.rest.resources.channel import INVITE
+from shoal.rest.resources.invite import parse_target_users
+from tests.support.json_payloads import INVITE
 from tests.support.multipart import FormPart
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
@@ -87,3 +91,25 @@ CASES = [
 @endpoint_cases(CASES)
 async def test_invite_endpoints(case: EndpointCase) -> None:
     await check_endpoint(case)
+
+
+@pytest.mark.parametrize(
+    ("body", "ids"),
+    [
+        (b"user_id\r\n1\r\n2\r\n", [1, 2]),
+        (b'\xef\xbb\xbfuser_id\n"3"\n4,\n', [3, 4]),
+        (b"", []),
+        (b"user_id\n", []),
+    ],
+    ids=["documented", "bom quotes and commas", "empty", "header only"],
+)
+def test_target_user_csv_is_read(body: bytes, ids: list[int]) -> None:
+    assert parse_target_users(body) == ids
+
+
+@pytest.mark.parametrize(
+    "body", [b"user_id\nnobody\n", b"\xff", b"\xc2\xb2"], ids=["word", "not utf-8", "superscript"]
+)
+def test_a_target_user_csv_that_cannot_be_read_is_an_error(body: bytes) -> None:
+    with pytest.raises(PayloadDecodeError):
+        parse_target_users(body)

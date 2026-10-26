@@ -201,7 +201,7 @@ class MessageEndpoints(Requester):
 
         Discord: https://docs.discord.com/developers/resources/message#edit-message
         """
-        body, named = with_attachments(params, files, describe=False)
+        body, named = with_attachments(params, files, edit=True)
         return await self.request(
             EDIT_MESSAGE.compile(channel_id=channel_id, message_id=message_id),
             Message,

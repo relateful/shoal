@@ -2,6 +2,14 @@ import msgspec
 import pytest
 
 from shoal.core.codec import decode_json
+from shoal.core.snowflake import Snowflake
+from shoal.payloads import (
+    AddGuildMemberParams,
+    CreateGroupDMParams,
+    CreateOrJoinLobbyParams,
+    Webhook,
+    WebhookType,
+)
 from shoal.payloads.base import Payload
 from tests.support.calls import call_unchecked
 
@@ -33,3 +41,28 @@ def test_options_can_still_be_overridden() -> None:
     field = "value"
     with pytest.raises(AttributeError):
         setattr(Frozen(value=1), field, 2)
+
+
+def test_credentials_never_appear_in_a_repr() -> None:
+    member = AddGuildMemberParams(access_token="OAUTH-SECRET", nick="Ada")
+    assert "OAUTH-SECRET" not in repr(member)
+    assert "access_token=<redacted>" in repr(member)
+    assert "nick='Ada'" in repr(member)
+    hook = Webhook(
+        id=Snowflake(1),
+        type=WebhookType.INCOMING,
+        channel_id=None,
+        name=None,
+        avatar=None,
+        token="HOOK-SECRET",
+        application_id=None,
+        url="https://discord.com/api/webhooks/1/HOOK-SECRET",
+    )
+    assert "HOOK-SECRET" not in repr(hook)
+    lobby = CreateOrJoinLobbyParams(secret="LOBBY-SECRET")
+    assert "LOBBY-SECRET" not in repr(lobby)
+    assert "TOKENS" not in repr(CreateGroupDMParams(access_tokens=["TOKENS"], nicks={}))
+
+
+def test_payloads_without_credentials_show_every_field() -> None:
+    assert repr(Sample(required="x")) == "Sample(optional=None, required='x')"

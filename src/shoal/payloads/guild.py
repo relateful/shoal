@@ -1,9 +1,6 @@
 """Guilds and guild members.
 
 Discord: https://docs.discord.com/developers/resources/guild
-
-Not yet modeled: `Integration.scopes` as OAuth2 scope values (kept as strings until the OAuth2
-scopes are modeled).
 """
 
 from datetime import datetime
@@ -627,6 +624,8 @@ class AddGuildMemberParams(Payload):
     Discord: https://docs.discord.com/developers/resources/guild#add-guild-member-json-params
     """
 
+    REDACTED_FIELDS = frozenset({"access_token"})
+
     access_token: str
     """An OAuth2 token of the user, with the `guilds.join` scope, granted to this bot's app."""
     nick: str | UnsetType = UNSET
@@ -839,7 +838,7 @@ class PromptOptionParams(Payload):
     Discord: https://docs.discord.com/developers/resources/guild#guild-onboarding-object-prompt-option-structure
     """
 
-    id: Snowflake | UnsetType = UNSET
+    id: Snowflake
     channel_ids: list[Snowflake]
     role_ids: list[Snowflake]
     emoji_id: Snowflake | UnsetType = UNSET

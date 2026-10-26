@@ -44,6 +44,6 @@ Because the top-row layers share only `core` and `payloads`, any of them can mov
 | A Discord JSON object | `shoal/payloads/<domain>.py`, linked to its docs section |
 | A Discord-documented constant | next to its types in `shoal/payloads/<domain>.py` |
 | A Shoal default (timeout, threshold) | `shoal/<layer>/defaults.py` |
-| An HTTP endpoint | a `Route` in `shoal/rest/endpoints.py` and a method on `RestClient` |
+| An HTTP endpoint | a `Route` in `shoal/rest/endpoints.py`, a method in `shoal/rest/resources/<resource>.py`, and an `EndpointCase` in `tests/rest/resources/<resource>.py` |
 | A metric | `shoal/core/metrics.py`, then record it where it happens |
 | Tests for `src/shoal/<layer>/<module>.py` | `tests/<layer>/<module>.py` |

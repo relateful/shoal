@@ -1,6 +1,7 @@
 import pytest
 
-from shoal.rest.route import HTTPMethod, Route
+from shoal.rest import endpoints
+from shoal.rest.route import SECRET_PARAMETERS, HTTPMethod, Route
 
 DOCS = "https://docs.discord.com/developers/resources/message#create-message"
 
@@ -78,3 +79,22 @@ def test_routes_without_secrets_display_their_path() -> None:
         docs="https://docs.discord.com/developers/resources/user#get-user",
     ).compile(user_id=1)
     assert compiled.display == compiled.path == "/users/1"
+
+
+@pytest.mark.parametrize("value", ["", ".", ".."], ids=["empty", "dot", "dot dot"])
+def test_values_that_url_normalisation_would_collapse_are_refused(value: str) -> None:
+    # `/reactions/..` would otherwise reach DELETE /channels/{id}/messages/{id}: the whole message.
+    route = Route(HTTPMethod.DELETE, "/channels/{channel_id}/reactions/{emoji_id}", docs=DOCS)
+    with pytest.raises(ValueError, match="cannot be"):
+        route.compile(channel_id=1, emoji_id=value)
+    assert route.compile(channel_id=1, emoji_id="a..b").path == "/channels/1/reactions/a..b"
+
+
+NOT_SECRET: frozenset[str] = frozenset({"provider_type"})
+"""Path parameters that are neither IDs nor credentials."""
+
+
+def test_every_path_value_that_grants_access_is_hidden_from_logs() -> None:
+    for route in endpoints.ALL_ROUTES:
+        for name in route.parameters - SECRET_PARAMETERS - NOT_SECRET:
+            assert name.endswith("_id"), f"{route.key}: is {name} a credential? add it to SECRET_PARAMETERS"

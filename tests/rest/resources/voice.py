@@ -2,15 +2,9 @@ from datetime import UTC, datetime
 
 from shoal.core.snowflake import Snowflake
 from shoal.payloads import ModifyCurrentUserVoiceStateParams, ModifyUserVoiceStateParams
+from tests.support.json_payloads import REGION
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases
 
-REGION: dict[str, object] = {
-    "id": "rotterdam",
-    "name": "Rotterdam",
-    "optimal": True,
-    "deprecated": False,
-    "custom": False,
-}
 VOICE_STATE: dict[str, object] = {
     "guild_id": "2",
     "channel_id": "6",

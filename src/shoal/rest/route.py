@@ -16,9 +16,13 @@ from urllib.parse import quote
 from shoal.payloads.api import DOCS_BASE_URL
 from shoal.payloads.rate_limits import MAJOR_PARAMETERS
 
-SECRET_PARAMETERS: Final = frozenset({"interaction_token", "webhook_token"})
-"""Path parameters that are credentials: anyone holding one can post as the app. They never appear
-in logs, error messages or metric labels; `CompiledRoute.display` keeps them as placeholders."""
+SECRET_PARAMETERS: Final = frozenset({"interaction_token", "invite_code", "template_code", "webhook_token"})
+"""Path parameters that grant access to whoever holds them: tokens post as the app, an invite code
+joins its guild, a template code copies one. They never appear in logs, error messages or metric
+labels; `CompiledRoute.display` keeps them as placeholders."""
+
+_DOT_SEGMENTS: Final = frozenset({"", ".", ".."})
+"""Values that URL normalisation would remove or collapse, sending the request to another route."""
 
 _PARAMETER_NAME: Final = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -87,7 +91,8 @@ class Route:
         """Fill in the path parameters.
 
         Raises:
-            ValueError: A parameter is missing or unexpected.
+            ValueError: A parameter is missing or unexpected, or is empty, `.` or `..`, which would
+                turn the path into another endpoint's (`/reactions/..` is the message itself).
         """
         given = frozenset(values)
         if given != self.parameters:
@@ -95,6 +100,10 @@ class Route:
             extra = sorted(given - self.parameters)
             msg = f"route {self.key} parameters mismatch: missing {missing}, unexpected {extra}"
             raise ValueError(msg)
+        for name, value in values.items():
+            if str(value) in _DOT_SEGMENTS:
+                msg = f"route {self.key} parameter {name} cannot be {str(value)!r}"
+                raise ValueError(msg)
         encoded = {name: quote(str(value), safe="") for name, value in values.items()}
         shown = {
             name: f"{{{name}}}" if name in SECRET_PARAMETERS else value for name, value in encoded.items()

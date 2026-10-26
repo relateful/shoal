@@ -91,7 +91,7 @@ from shoal.rest.endpoints import (
     REMOVE_GUILD_MEMBER_ROLE,
     SEARCH_GUILD_MEMBERS,
 )
-from shoal.rest.requester import QueryValue, Requester, query_of
+from shoal.rest.requester import Requester, comma_joined, query_of
 
 
 class GuildEndpoints(Requester):
@@ -428,13 +428,7 @@ class GuildEndpoints(Requester):
 
         Discord: https://docs.discord.com/developers/resources/guild#get-guild-prune-count
         """
-        query: dict[str, QueryValue] = {}
-        if params is not None:
-            query = query_of(params)
-            roles = query.pop("include_roles", None)
-            if isinstance(roles, Sequence) and not isinstance(roles, str):
-                # This parameter alone is one comma-separated value, not a repeated one.
-                query["include_roles"] = ",".join(str(role) for role in roles)
+        query = comma_joined(query_of(params), "include_roles") if params is not None else {}
         return await self.request(
             GET_GUILD_PRUNE_COUNT.compile(guild_id=guild_id), PruneCount, query=query or None
         )
