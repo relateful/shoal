@@ -71,6 +71,7 @@ from shoal.rest.resources import (
     StickerEndpoints,
     UserEndpoints,
     VoiceEndpoints,
+    WebhookEndpoints,
 )
 from shoal.rest.route import CompiledRoute
 from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
@@ -132,6 +133,7 @@ class RestClient(
     StickerEndpoints,
     UserEndpoints,
     VoiceEndpoints,
+    WebhookEndpoints,
 ):
     """An async client for Discord's HTTP API.
 

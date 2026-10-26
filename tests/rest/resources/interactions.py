@@ -3,18 +3,82 @@ import pytest
 from shoal.payloads import (
     CreateFollowupMessageParams,
     DeferredMessageResponse,
+    DeferredUpdateResponse,
     EditWebhookMessageParams,
     InteractionMessage,
     MessageResponse,
+    UpdateMessageResponse,
 )
 from shoal.rest.errors import NotFoundError
+from shoal.rest.files import File
 from tests.support.fakes import FakeTransport
 from tests.support.json_payloads import MESSAGE
+from tests.support.multipart import FormPart
 from tests.support.rest import EndpointCase, check_endpoint, endpoint_cases, make_client
 
 INTERACTION_WEBHOOK = "/webhooks/7/aW50ZXJhY3Rpb24"
+PNG = b"\x89PNG\r\n\x1a\n"
 
 CASES = [
+    EndpointCase(
+        name="respond with a file",
+        call=lambda client: client.create_interaction_response(
+            9,
+            "aW50ZXJhY3Rpb24",
+            MessageResponse(data=InteractionMessage(content="here")),
+            files=[File("chart.png", PNG, content_type="image/png")],
+        ),
+        method="POST",
+        path="/interactions/9/aW50ZXJhY3Rpb24/callback",
+        body={"type": 4, "data": {"content": "here", "attachments": [{"id": 0, "filename": "chart.png"}]}},
+        files=(FormPart("files[0]", "chart.png", "image/png", PNG),),
+    ),
+    EndpointCase(
+        name="update a message adding a file",
+        call=lambda client: client.create_interaction_response(
+            9,
+            "aW50ZXJhY3Rpb24",
+            UpdateMessageResponse(data=InteractionMessage(content="v2")),
+            files=[File("v2.txt", b"2")],
+        ),
+        method="POST",
+        path="/interactions/9/aW50ZXJhY3Rpb24/callback",
+        body={"type": 7, "data": {"content": "v2"}},
+        files=(FormPart("files[0]", "v2.txt", "application/octet-stream", b"2"),),
+    ),
+    EndpointCase(
+        name="follow up with a file",
+        call=lambda client: client.create_followup_message(
+            7, "aW50ZXJhY3Rpb24", CreateFollowupMessageParams(content="later"), files=[File("a.txt", b"a")]
+        ),
+        method="POST",
+        path=INTERACTION_WEBHOOK,
+        body={"content": "later", "attachments": [{"id": 0, "filename": "a.txt"}]},
+        files=(FormPart("files[0]", "a.txt", "application/octet-stream", b"a"),),
+        response=MESSAGE,
+    ),
+    EndpointCase(
+        name="edit original adding a file",
+        call=lambda client: client.edit_original_interaction_response(
+            7, "aW50ZXJhY3Rpb24", EditWebhookMessageParams(content="done"), files=[File("a.txt", b"a")]
+        ),
+        method="PATCH",
+        path=f"{INTERACTION_WEBHOOK}/messages/@original",
+        body={"content": "done"},
+        files=(FormPart("files[0]", "a.txt", "application/octet-stream", b"a"),),
+        response=MESSAGE,
+    ),
+    EndpointCase(
+        name="edit follow-up adding a file",
+        call=lambda client: client.edit_followup_message(
+            7, "aW50ZXJhY3Rpb24", 9, EditWebhookMessageParams(), files=[File("a.txt", b"a")]
+        ),
+        method="PATCH",
+        path=f"{INTERACTION_WEBHOOK}/messages/9",
+        body={},
+        files=(FormPart("files[0]", "a.txt", "application/octet-stream", b"a"),),
+        response=MESSAGE,
+    ),
     EndpointCase(
         name="respond",
         call=lambda client: client.create_interaction_response(
@@ -106,3 +170,11 @@ async def test_interaction_tokens_stay_out_of_errors() -> None:
         await client.get_original_interaction_response(7, "aW50ZXJhY3Rpb24")
     assert "aW50ZXJhY3Rpb24" not in str(caught.value)
     assert "{interaction_token}" in str(caught.value)
+
+
+async def test_files_need_a_response_that_carries_a_message() -> None:
+    client = make_client(FakeTransport())
+    with pytest.raises(TypeError, match="DeferredUpdateResponse carries no message"):
+        await client.create_interaction_response(
+            9, "aW50ZXJhY3Rpb24", DeferredUpdateResponse(), files=[File("a", b"")]
+        )

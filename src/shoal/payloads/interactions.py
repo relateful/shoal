@@ -10,9 +10,8 @@ data and a message response cannot forget it.
 
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding
 
-Not yet modeled: `Interaction.guild` (partial guild) and `entitlements`; `InteractionMessage.attachments`
-and `poll`, `CreateFollowupMessageParams` files, attachments, polls, `thread_name` and
-`applied_tags`. Decoding ignores those keys until they are added.
+Not yet modeled: `Interaction.guild` (partial guild) and `entitlements`. Decoding ignores those keys
+until they are added.
 """
 
 from typing import Final
@@ -34,8 +33,16 @@ from shoal.payloads.base import Payload
 from shoal.payloads.channel import Channel
 from shoal.payloads.components import ComponentType, MessageComponent, ModalComponent, RawComponent
 from shoal.payloads.guild import GuildMember, PartialMember
-from shoal.payloads.message import AllowedMentions, Attachment, Embed, Message, MessageFlags
+from shoal.payloads.message import (
+    AllowedMentions,
+    Attachment,
+    AttachmentRequest,
+    Embed,
+    Message,
+    MessageFlags,
+)
 from shoal.payloads.permissions import Permissions, Role
+from shoal.payloads.poll import PollCreateRequest
 from shoal.payloads.user import User
 
 
@@ -324,6 +331,9 @@ class InteractionMessage(Payload):
     """Only `suppress_embeds`, `ephemeral`, `is_components_v2`, `suppress_notifications` and
     `is_voice_message` can be set."""
     components: list[MessageComponent] | UnsetType = UNSET
+    attachments: list[AttachmentRequest] | UnsetType = UNSET
+    """Filled in from the files passed when left unset."""
+    poll: PollCreateRequest | UnsetType = UNSET
 
 
 class AutocompleteChoices(Payload):
@@ -491,5 +501,10 @@ class CreateFollowupMessageParams(Payload):
     embeds: list[Embed] | UnsetType = UNSET
     allowed_mentions: AllowedMentions | UnsetType = UNSET
     components: list[MessageComponent] | UnsetType = UNSET
+    attachments: list[AttachmentRequest] | UnsetType = UNSET
+    """Filled in from the files passed when left unset."""
     flags: MessageFlags | UnsetType = UNSET
     """`ephemeral` makes the follow-up visible only to the invoking user."""
+    thread_name: str | UnsetType = UNSET
+    applied_tags: list[Snowflake] | UnsetType = UNSET
+    poll: PollCreateRequest | UnsetType = UNSET

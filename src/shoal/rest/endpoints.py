@@ -134,6 +134,12 @@ CREATE_REACTION: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#create-reaction",
 )
 
+CREATE_WEBHOOK: Final = Route(
+    HTTPMethod.POST,
+    "/channels/{channel_id}/webhooks",
+    docs="https://docs.discord.com/developers/resources/webhook#create-webhook",
+)
+
 CROSSPOST_MESSAGE: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/messages/{message_id}/crosspost",
@@ -246,6 +252,24 @@ DELETE_USER_REACTION: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#delete-user-reaction",
 )
 
+DELETE_WEBHOOK: Final = Route(
+    HTTPMethod.DELETE,
+    "/webhooks/{webhook_id}",
+    docs="https://docs.discord.com/developers/resources/webhook#delete-webhook",
+)
+
+DELETE_WEBHOOK_MESSAGE: Final = Route(
+    HTTPMethod.DELETE,
+    "/webhooks/{webhook_id}/{webhook_token}/messages/{message_id}",
+    docs="https://docs.discord.com/developers/resources/webhook#delete-webhook-message",
+)
+
+DELETE_WEBHOOK_WITH_TOKEN: Final = Route(
+    HTTPMethod.DELETE,
+    "/webhooks/{webhook_id}/{webhook_token}",
+    docs="https://docs.discord.com/developers/resources/webhook#delete-webhook-with-token",
+)
+
 EDIT_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     HTTPMethod.PUT,
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions",
@@ -292,10 +316,34 @@ EDIT_ORIGINAL_INTERACTION_RESPONSE: Final = Route(
 )
 """Not counted towards the global rate limit, like every interaction endpoint."""
 
+EDIT_WEBHOOK_MESSAGE: Final = Route(
+    HTTPMethod.PATCH,
+    "/webhooks/{webhook_id}/{webhook_token}/messages/{message_id}",
+    docs="https://docs.discord.com/developers/resources/webhook#edit-webhook-message",
+)
+
 END_POLL: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/polls/{message_id}/expire",
     docs="https://docs.discord.com/developers/resources/poll#end-poll",
+)
+
+EXECUTE_GITHUB_COMPATIBLE_WEBHOOK: Final = Route(
+    HTTPMethod.POST,
+    "/webhooks/{webhook_id}/{webhook_token}/github",
+    docs="https://docs.discord.com/developers/resources/webhook#execute-github-compatible-webhook",
+)
+
+EXECUTE_SLACK_COMPATIBLE_WEBHOOK: Final = Route(
+    HTTPMethod.POST,
+    "/webhooks/{webhook_id}/{webhook_token}/slack",
+    docs="https://docs.discord.com/developers/resources/webhook#execute-slack-compatible-webhook",
+)
+
+EXECUTE_WEBHOOK: Final = Route(
+    HTTPMethod.POST,
+    "/webhooks/{webhook_id}/{webhook_token}",
+    docs="https://docs.discord.com/developers/resources/webhook#execute-webhook",
 )
 
 FOLLOW_ANNOUNCEMENT_CHANNEL: Final = Route(
@@ -350,6 +398,12 @@ GET_CHANNEL_PINS: Final = Route(
     HTTPMethod.GET,
     "/channels/{channel_id}/messages/pins",
     docs="https://docs.discord.com/developers/resources/message#get-channel-pins",
+)
+
+GET_CHANNEL_WEBHOOKS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/webhooks",
+    docs="https://docs.discord.com/developers/resources/webhook#get-channel-webhooks",
 )
 
 GET_CURRENT_USER: Final = Route(
@@ -468,6 +522,12 @@ GET_GUILD_STICKER: Final = Route(
     docs="https://docs.discord.com/developers/resources/sticker#get-guild-sticker",
 )
 
+GET_GUILD_WEBHOOKS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/webhooks",
+    docs="https://docs.discord.com/developers/resources/webhook#get-guild-webhooks",
+)
+
 GET_INVITE: Final = Route(
     HTTPMethod.GET,
     "/invites/{invite_code}",
@@ -528,6 +588,24 @@ GET_USER_VOICE_STATE: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/voice-states/{user_id}",
     docs="https://docs.discord.com/developers/resources/voice#get-user-voice-state",
+)
+
+GET_WEBHOOK: Final = Route(
+    HTTPMethod.GET,
+    "/webhooks/{webhook_id}",
+    docs="https://docs.discord.com/developers/resources/webhook#get-webhook",
+)
+
+GET_WEBHOOK_MESSAGE: Final = Route(
+    HTTPMethod.GET,
+    "/webhooks/{webhook_id}/{webhook_token}/messages/{message_id}",
+    docs="https://docs.discord.com/developers/resources/webhook#get-webhook-message",
+)
+
+GET_WEBHOOK_WITH_TOKEN: Final = Route(
+    HTTPMethod.GET,
+    "/webhooks/{webhook_id}/{webhook_token}",
+    docs="https://docs.discord.com/developers/resources/webhook#get-webhook-with-token",
 )
 
 GROUP_DM_ADD_RECIPIENT: Final = Route(
@@ -674,6 +752,18 @@ MODIFY_USER_VOICE_STATE: Final = Route(
     docs="https://docs.discord.com/developers/resources/voice#modify-user-voice-state",
 )
 
+MODIFY_WEBHOOK: Final = Route(
+    HTTPMethod.PATCH,
+    "/webhooks/{webhook_id}",
+    docs="https://docs.discord.com/developers/resources/webhook#modify-webhook",
+)
+
+MODIFY_WEBHOOK_WITH_TOKEN: Final = Route(
+    HTTPMethod.PATCH,
+    "/webhooks/{webhook_id}/{webhook_token}",
+    docs="https://docs.discord.com/developers/resources/webhook#modify-webhook-with-token",
+)
+
 PIN_MESSAGE: Final = Route(
     HTTPMethod.PUT,
     "/channels/{channel_id}/messages/pins/{message_id}",
@@ -773,6 +863,7 @@ ALL_ROUTES: Final = (
     CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
     CREATE_REACTION,
+    CREATE_WEBHOOK,
     CROSSPOST_MESSAGE,
     DELETE_ALL_REACTIONS,
     DELETE_ALL_REACTIONS_FOR_EMOJI,
@@ -791,6 +882,9 @@ ALL_ROUTES: Final = (
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
     DELETE_OWN_REACTION,
     DELETE_USER_REACTION,
+    DELETE_WEBHOOK,
+    DELETE_WEBHOOK_MESSAGE,
+    DELETE_WEBHOOK_WITH_TOKEN,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
     EDIT_CHANNEL_PERMISSIONS,
     EDIT_FOLLOWUP_MESSAGE,
@@ -798,7 +892,11 @@ ALL_ROUTES: Final = (
     EDIT_GUILD_APPLICATION_COMMAND,
     EDIT_MESSAGE,
     EDIT_ORIGINAL_INTERACTION_RESPONSE,
+    EDIT_WEBHOOK_MESSAGE,
     END_POLL,
+    EXECUTE_GITHUB_COMPATIBLE_WEBHOOK,
+    EXECUTE_SLACK_COMPATIBLE_WEBHOOK,
+    EXECUTE_WEBHOOK,
     FOLLOW_ANNOUNCEMENT_CHANNEL,
     GET_ANSWER_VOTERS,
     GET_APPLICATION_COMMAND_PERMISSIONS,
@@ -808,6 +906,7 @@ ALL_ROUTES: Final = (
     GET_CHANNEL_MESSAGE,
     GET_CHANNEL_MESSAGES,
     GET_CHANNEL_PINS,
+    GET_CHANNEL_WEBHOOKS,
     GET_CURRENT_USER,
     GET_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     GET_CURRENT_USER_CONNECTIONS,
@@ -827,6 +926,7 @@ ALL_ROUTES: Final = (
     GET_GUILD_MEMBER,
     GET_GUILD_SOUNDBOARD_SOUND,
     GET_GUILD_STICKER,
+    GET_GUILD_WEBHOOKS,
     GET_INVITE,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_REACTIONS,
@@ -837,6 +937,9 @@ ALL_ROUTES: Final = (
     GET_THREAD_MEMBER,
     GET_USER,
     GET_USER_VOICE_STATE,
+    GET_WEBHOOK,
+    GET_WEBHOOK_MESSAGE,
+    GET_WEBHOOK_WITH_TOKEN,
     GROUP_DM_ADD_RECIPIENT,
     GROUP_DM_REMOVE_RECIPIENT,
     JOIN_THREAD,
@@ -861,6 +964,8 @@ ALL_ROUTES: Final = (
     MODIFY_GUILD_SOUNDBOARD_SOUND,
     MODIFY_GUILD_STICKER,
     MODIFY_USER_VOICE_STATE,
+    MODIFY_WEBHOOK,
+    MODIFY_WEBHOOK_WITH_TOKEN,
     PIN_MESSAGE,
     REMOVE_TARGET_USER,
     REMOVE_THREAD_MEMBER,

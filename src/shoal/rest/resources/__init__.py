@@ -17,6 +17,7 @@ from shoal.rest.resources.soundboard import SoundboardEndpoints
 from shoal.rest.resources.sticker import StickerEndpoints
 from shoal.rest.resources.user import UserEndpoints
 from shoal.rest.resources.voice import VoiceEndpoints
+from shoal.rest.resources.webhook import WebhookEndpoints
 
 __all__ = [
     "ApplicationCommandEndpoints",
@@ -31,4 +32,5 @@ __all__ = [
     "StickerEndpoints",
     "UserEndpoints",
     "VoiceEndpoints",
+    "WebhookEndpoints",
 ]

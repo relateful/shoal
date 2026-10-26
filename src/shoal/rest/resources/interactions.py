@@ -3,12 +3,17 @@
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding
 """
 
+from collections.abc import Sequence
 from typing import Literal, overload
+
+import msgspec
 
 from shoal.payloads.interactions import (
     CreateFollowupMessageParams,
     InteractionCallbackResponse,
+    InteractionMessage,
     InteractionResponse,
+    UpdateMessageResponse,
 )
 from shoal.payloads.message import (
     Message,
@@ -24,7 +29,8 @@ from shoal.rest.endpoints import (
     GET_FOLLOWUP_MESSAGE,
     GET_ORIGINAL_INTERACTION_RESPONSE,
 )
-from shoal.rest.requester import Requester
+from shoal.rest.files import File
+from shoal.rest.requester import Requester, with_attachments
 
 
 class InteractionEndpoints(Requester):
@@ -40,6 +46,7 @@ class InteractionEndpoints(Requester):
         response: InteractionResponse,
         *,
         with_response: Literal[False] = False,
+        files: Sequence[File] = (),
     ) -> None: ...
 
     @overload
@@ -50,6 +57,7 @@ class InteractionEndpoints(Requester):
         response: InteractionResponse,
         *,
         with_response: Literal[True],
+        files: Sequence[File] = (),
     ) -> InteractionCallbackResponse: ...
 
     @overload
@@ -60,6 +68,7 @@ class InteractionEndpoints(Requester):
         response: InteractionResponse,
         *,
         with_response: bool,
+        files: Sequence[File] = (),
     ) -> InteractionCallbackResponse | None: ...
 
     async def create_interaction_response(
@@ -69,22 +78,27 @@ class InteractionEndpoints(Requester):
         response: InteractionResponse,
         *,
         with_response: bool = False,
+        files: Sequence[File] = (),
     ) -> InteractionCallbackResponse | None:
         """Answer an interaction. Must happen within 3 seconds of receiving it, and only once.
 
         With `with_response`, Discord returns what the response created (the message, or the
-        launched Activity).
+        launched Activity). `files` can go with a message response or an update of the message.
+
+        Raises:
+            TypeError: `files` were given with a response that carries no message.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#create-interaction-response
         """
         route = CREATE_INTERACTION_RESPONSE.compile(
             interaction_id=interaction_id, interaction_token=interaction_token
         )
+        body, named = _response_with_files(response, files)
         if with_response:
             return await self.request(
-                route, InteractionCallbackResponse, body=response, query={"with_response": True}
+                route, InteractionCallbackResponse, body=body, query={"with_response": True}, files=named
             )
-        await self.request_empty(route, body=response)
+        await self.request_empty(route, body=body, files=named)
         return None
 
     async def get_original_interaction_response(self, application_id: int, interaction_token: str) -> Message:
@@ -100,18 +114,27 @@ class InteractionEndpoints(Requester):
         )
 
     async def edit_original_interaction_response(
-        self, application_id: int, interaction_token: str, params: EditWebhookMessageParams
+        self,
+        application_id: int,
+        interaction_token: str,
+        params: EditWebhookMessageParams,
+        *,
+        files: Sequence[File] = (),
     ) -> Message:
         """Edit the message an interaction response created, or fill in a deferred one.
 
+        Files passed are added to the message.
+
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-original-interaction-response
         """
+        body, named = with_attachments(params, files, describe=False)
         return await self.request(
             EDIT_ORIGINAL_INTERACTION_RESPONSE.compile(
                 application_id=application_id, interaction_token=interaction_token
             ),
             Message,
-            body=params,
+            body=body,
+            files=named,
         )
 
     async def delete_original_interaction_response(self, application_id: int, interaction_token: str) -> None:
@@ -126,18 +149,25 @@ class InteractionEndpoints(Requester):
         )
 
     async def create_followup_message(
-        self, application_id: int, interaction_token: str, params: CreateFollowupMessageParams
+        self,
+        application_id: int,
+        interaction_token: str,
+        params: CreateFollowupMessageParams,
+        *,
+        files: Sequence[File] = (),
     ) -> Message:
         """Send another message for an interaction, for up to 15 minutes after it.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#create-followup-message
         """
+        body, named = with_attachments(params, files)
         return await self.request(
             CREATE_FOLLOWUP_MESSAGE.compile(
                 application_id=application_id, interaction_token=interaction_token
             ),
             Message,
-            body=params,
+            body=body,
+            files=named,
         )
 
     async def get_followup_message(
@@ -155,18 +185,26 @@ class InteractionEndpoints(Requester):
         )
 
     async def edit_followup_message(
-        self, application_id: int, interaction_token: str, message_id: int, params: EditWebhookMessageParams
+        self,
+        application_id: int,
+        interaction_token: str,
+        message_id: int,
+        params: EditWebhookMessageParams,
+        *,
+        files: Sequence[File] = (),
     ) -> Message:
-        """Edit a follow-up message.
+        """Edit a follow-up message; files passed are added to it.
 
         Discord: https://docs.discord.com/developers/interactions/receiving-and-responding#edit-followup-message
         """
+        body, named = with_attachments(params, files, describe=False)
         return await self.request(
             EDIT_FOLLOWUP_MESSAGE.compile(
                 application_id=application_id, interaction_token=interaction_token, message_id=message_id
             ),
             Message,
-            body=params,
+            body=body,
+            files=named,
         )
 
     async def delete_followup_message(
@@ -181,3 +219,23 @@ class InteractionEndpoints(Requester):
                 application_id=application_id, interaction_token=interaction_token, message_id=message_id
             )
         )
+
+
+def _response_with_files(
+    response: InteractionResponse, files: Sequence[File]
+) -> tuple[InteractionResponse, dict[str, File]]:
+    """Attach `files` to the message a response carries.
+
+    An update keeps the message's existing attachments, so its files are only appended.
+
+    Raises:
+        TypeError: `files` were given with a response that carries no message.
+    """
+    if not files:
+        return response, {}
+    data: object = getattr(response, "data", msgspec.UNSET)
+    if not isinstance(data, InteractionMessage):
+        msg = f"{type(response).__name__} carries no message to attach files to"
+        raise TypeError(msg)
+    message, named = with_attachments(data, files, describe=not isinstance(response, UpdateMessageResponse))
+    return msgspec.structs.replace(response, data=message), named

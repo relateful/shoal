@@ -409,7 +409,15 @@ from shoal.payloads.voice import (
     VoiceState,
 )
 from shoal.payloads.webhook import (
+    CreateWebhookParams,
     EditWebhookMessageParams,
+    ExecuteWebhookParams,
+    ModifyWebhookParams,
+    ModifyWebhookWithTokenParams,
+    Webhook,
+    WebhookSourceChannel,
+    WebhookSourceGuild,
+    WebhookType,
 )
 
 __all__ = [
@@ -508,6 +516,7 @@ __all__ = [
     "CreateGuildSoundboardSoundParams",
     "CreateGuildStickerParams",
     "CreateMessageParams",
+    "CreateWebhookParams",
     "DefaultMessageNotificationLevel",
     "DefaultReaction",
     "DeferredMessageResponse",
@@ -531,6 +540,7 @@ __all__ = [
     "Emoji",
     "EntryPointCommandHandlerType",
     "ErrorResponse",
+    "ExecuteWebhookParams",
     "ExplicitContentFilterLevel",
     "FileComponent",
     "FileUpload",
@@ -644,6 +654,8 @@ __all__ = [
     "ModifyGuildStickerParams",
     "ModifyThreadParams",
     "ModifyUserVoiceStateParams",
+    "ModifyWebhookParams",
+    "ModifyWebhookWithTokenParams",
     "Nameplate",
     "Overwrite",
     "OverwriteType",
@@ -765,6 +777,10 @@ __all__ = [
     "VideoQualityMode",
     "VoiceRegion",
     "VoiceState",
+    "Webhook",
+    "WebhookSourceChannel",
+    "WebhookSourceGuild",
+    "WebhookType",
     "all_channels_permission_id",
     "everyone_permission_id",
     "excluding",

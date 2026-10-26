@@ -13,6 +13,7 @@ from tests.rest.resources import (
     sticker,
     user,
     voice,
+    webhook,
 )
 from tests.support.rest import EndpointCase, check_endpoint
 
@@ -29,6 +30,7 @@ ALL_CASES: list[EndpointCase] = [
     *sticker.CASES,
     *user.CASES,
     *voice.CASES,
+    *webhook.CASES,
 ]
 
 
