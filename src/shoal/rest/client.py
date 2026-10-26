@@ -61,11 +61,13 @@ from shoal.rest.requester import QueryValue, encode_query, query_of
 from shoal.rest.resources import (
     ApplicationCommandEndpoints,
     ChannelEndpoints,
+    EmojiEndpoints,
     GatewayEndpoints,
     GuildEndpoints,
     InteractionEndpoints,
     MessageEndpoints,
     UserEndpoints,
+    VoiceEndpoints,
 )
 from shoal.rest.route import CompiledRoute
 from shoal.rest.transport import AiohttpTransport, HTTPResponse, HTTPTransport, TransportError
@@ -117,11 +119,13 @@ class Token:
 class RestClient(
     ApplicationCommandEndpoints,
     ChannelEndpoints,
+    EmojiEndpoints,
     GatewayEndpoints,
     GuildEndpoints,
     InteractionEndpoints,
     MessageEndpoints,
     UserEndpoints,
+    VoiceEndpoints,
 ):
     """An async client for Discord's HTTP API.
 

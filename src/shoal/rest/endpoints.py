@@ -22,6 +22,12 @@ BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands",
 )
 
+CREATE_APPLICATION_EMOJI: Final = Route(
+    HTTPMethod.POST,
+    "/applications/{application_id}/emojis",
+    docs="https://docs.discord.com/developers/resources/emoji#create-application-emoji",
+)
+
 CREATE_DM: Final = Route(
     HTTPMethod.POST,
     "/users/@me/channels",
@@ -54,6 +60,12 @@ CREATE_GUILD_APPLICATION_COMMAND: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#create-guild-application-command",
 )
 
+CREATE_GUILD_EMOJI: Final = Route(
+    HTTPMethod.POST,
+    "/guilds/{guild_id}/emojis",
+    docs="https://docs.discord.com/developers/resources/emoji#create-guild-emoji",
+)
+
 CREATE_INTERACTION_RESPONSE: Final = Route(
     HTTPMethod.POST,
     "/interactions/{interaction_id}/{interaction_token}/callback",
@@ -66,6 +78,12 @@ CREATE_MESSAGE: Final = Route(
     HTTPMethod.POST,
     "/channels/{channel_id}/messages",
     docs="https://docs.discord.com/developers/resources/message#create-message",
+)
+
+DELETE_APPLICATION_EMOJI: Final = Route(
+    HTTPMethod.DELETE,
+    "/applications/{application_id}/emojis/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/emoji#delete-application-emoji",
 )
 
 DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
@@ -92,6 +110,12 @@ DELETE_GUILD_APPLICATION_COMMAND: Final = Route(
     HTTPMethod.DELETE,
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}",
     docs="https://docs.discord.com/developers/interactions/application-commands#delete-guild-application-command",
+)
+
+DELETE_GUILD_EMOJI: Final = Route(
+    HTTPMethod.DELETE,
+    "/guilds/{guild_id}/emojis/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/emoji#delete-guild-emoji",
 )
 
 DELETE_MESSAGE: Final = Route(
@@ -148,6 +172,12 @@ GET_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#get-application-command-permissions",
 )
 
+GET_APPLICATION_EMOJI: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/emojis/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/emoji#get-application-emoji",
+)
+
 GET_CHANNEL: Final = Route(
     HTTPMethod.GET,
     "/channels/{channel_id}",
@@ -188,6 +218,12 @@ GET_CURRENT_USER_GUILD_MEMBER: Final = Route(
     HTTPMethod.GET,
     "/users/@me/guilds/{guild_id}/member",
     docs="https://docs.discord.com/developers/resources/user#get-current-user-guild-member",
+)
+
+GET_CURRENT_USER_VOICE_STATE: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/voice-states/@me",
+    docs="https://docs.discord.com/developers/resources/voice#get-current-user-voice-state",
 )
 
 GET_FOLLOWUP_MESSAGE: Final = Route(
@@ -246,6 +282,12 @@ GET_GUILD_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#get-guild-application-command-permissions",
 )
 
+GET_GUILD_EMOJI: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/emojis/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/emoji#get-guild-emoji",
+)
+
 GET_GUILD_MEMBER: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/members/{user_id}",
@@ -266,16 +308,64 @@ GET_USER: Final = Route(
     docs="https://docs.discord.com/developers/resources/user#get-user",
 )
 
+GET_USER_VOICE_STATE: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/voice-states/{user_id}",
+    docs="https://docs.discord.com/developers/resources/voice#get-user-voice-state",
+)
+
 LEAVE_GUILD: Final = Route(
     HTTPMethod.DELETE,
     "/users/@me/guilds/{guild_id}",
     docs="https://docs.discord.com/developers/resources/user#leave-guild",
 )
 
+LIST_APPLICATION_EMOJIS: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/emojis",
+    docs="https://docs.discord.com/developers/resources/emoji#list-application-emojis",
+)
+
+LIST_GUILD_EMOJIS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/emojis",
+    docs="https://docs.discord.com/developers/resources/emoji#list-guild-emojis",
+)
+
+LIST_VOICE_REGIONS: Final = Route(
+    HTTPMethod.GET,
+    "/voice/regions",
+    docs="https://docs.discord.com/developers/resources/voice#list-voice-regions",
+)
+
+MODIFY_APPLICATION_EMOJI: Final = Route(
+    HTTPMethod.PATCH,
+    "/applications/{application_id}/emojis/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/emoji#modify-application-emoji",
+)
+
 MODIFY_CURRENT_USER: Final = Route(
     HTTPMethod.PATCH,
     "/users/@me",
     docs="https://docs.discord.com/developers/resources/user#modify-current-user",
+)
+
+MODIFY_CURRENT_USER_VOICE_STATE: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/voice-states/@me",
+    docs="https://docs.discord.com/developers/resources/voice#modify-current-user-voice-state",
+)
+
+MODIFY_GUILD_EMOJI: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/emojis/{emoji_id}",
+    docs="https://docs.discord.com/developers/resources/emoji#modify-guild-emoji",
+)
+
+MODIFY_USER_VOICE_STATE: Final = Route(
+    HTTPMethod.PATCH,
+    "/guilds/{guild_id}/voice-states/{user_id}",
+    docs="https://docs.discord.com/developers/resources/voice#modify-user-voice-state",
 )
 
 SEARCH_GUILD_MESSAGES: Final = Route(
@@ -293,17 +383,21 @@ UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
 ALL_ROUTES: Final = (
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
+    CREATE_APPLICATION_EMOJI,
     CREATE_DM,
     CREATE_FOLLOWUP_MESSAGE,
     CREATE_GLOBAL_APPLICATION_COMMAND,
     CREATE_GROUP_DM,
     CREATE_GUILD_APPLICATION_COMMAND,
+    CREATE_GUILD_EMOJI,
     CREATE_INTERACTION_RESPONSE,
     CREATE_MESSAGE,
+    DELETE_APPLICATION_EMOJI,
     DELETE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     DELETE_FOLLOWUP_MESSAGE,
     DELETE_GLOBAL_APPLICATION_COMMAND,
     DELETE_GUILD_APPLICATION_COMMAND,
+    DELETE_GUILD_EMOJI,
     DELETE_MESSAGE,
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
@@ -312,6 +406,7 @@ ALL_ROUTES: Final = (
     EDIT_GUILD_APPLICATION_COMMAND,
     EDIT_ORIGINAL_INTERACTION_RESPONSE,
     GET_APPLICATION_COMMAND_PERMISSIONS,
+    GET_APPLICATION_EMOJI,
     GET_CHANNEL,
     GET_CHANNEL_MESSAGE,
     GET_CURRENT_USER,
@@ -319,6 +414,7 @@ ALL_ROUTES: Final = (
     GET_CURRENT_USER_CONNECTIONS,
     GET_CURRENT_USER_GUILDS,
     GET_CURRENT_USER_GUILD_MEMBER,
+    GET_CURRENT_USER_VOICE_STATE,
     GET_FOLLOWUP_MESSAGE,
     GET_GATEWAY,
     GET_GATEWAY_BOT,
@@ -328,11 +424,20 @@ ALL_ROUTES: Final = (
     GET_GUILD_APPLICATION_COMMAND,
     GET_GUILD_APPLICATION_COMMANDS,
     GET_GUILD_APPLICATION_COMMAND_PERMISSIONS,
+    GET_GUILD_EMOJI,
     GET_GUILD_MEMBER,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_USER,
+    GET_USER_VOICE_STATE,
     LEAVE_GUILD,
+    LIST_APPLICATION_EMOJIS,
+    LIST_GUILD_EMOJIS,
+    LIST_VOICE_REGIONS,
+    MODIFY_APPLICATION_EMOJI,
     MODIFY_CURRENT_USER,
+    MODIFY_CURRENT_USER_VOICE_STATE,
+    MODIFY_GUILD_EMOJI,
+    MODIFY_USER_VOICE_STATE,
     SEARCH_GUILD_MESSAGES,
     UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
 )

@@ -7,18 +7,22 @@ Discord: https://docs.discord.com/developers/reference#http-api
 
 from shoal.rest.resources.application_commands import ApplicationCommandEndpoints
 from shoal.rest.resources.channel import ChannelEndpoints
+from shoal.rest.resources.emoji import EmojiEndpoints
 from shoal.rest.resources.gateway import GatewayEndpoints
 from shoal.rest.resources.guild import GuildEndpoints
 from shoal.rest.resources.interactions import InteractionEndpoints
 from shoal.rest.resources.message import MessageEndpoints
 from shoal.rest.resources.user import UserEndpoints
+from shoal.rest.resources.voice import VoiceEndpoints
 
 __all__ = [
     "ApplicationCommandEndpoints",
     "ChannelEndpoints",
+    "EmojiEndpoints",
     "GatewayEndpoints",
     "GuildEndpoints",
     "InteractionEndpoints",
     "MessageEndpoints",
     "UserEndpoints",
+    "VoiceEndpoints",
 ]

@@ -1,16 +1,28 @@
 from shoal.payloads.api import DOCS_BASE_URL
 from shoal.rest import endpoints
-from tests.rest.resources import application_commands, channel, gateway, guild, interactions, message, user
+from tests.rest.resources import (
+    application_commands,
+    channel,
+    emoji,
+    gateway,
+    guild,
+    interactions,
+    message,
+    user,
+    voice,
+)
 from tests.support.rest import EndpointCase, check_endpoint
 
 ALL_CASES: list[EndpointCase] = [
     *application_commands.CASES,
     *channel.CASES,
+    *emoji.CASES,
     *gateway.CASES,
     *guild.CASES,
     *interactions.CASES,
     *message.CASES,
     *user.CASES,
+    *voice.CASES,
 ]
 
 

@@ -114,7 +114,12 @@ from shoal.payloads.components import (
     parse_submitted_components,
 )
 from shoal.payloads.emoji import (
+    ApplicationEmojis,
+    CreateApplicationEmojiParams,
+    CreateGuildEmojiParams,
     Emoji,
+    ModifyApplicationEmojiParams,
+    ModifyGuildEmojiParams,
     PartialEmoji,
 )
 from shoal.payloads.errors import (
@@ -311,6 +316,9 @@ from shoal.payloads.user import (
     UserPrimaryGuild,
 )
 from shoal.payloads.voice import (
+    ModifyCurrentUserVoiceStateParams,
+    ModifyUserVoiceStateParams,
+    VoiceRegion,
     VoiceState,
 )
 from shoal.payloads.webhook import (
@@ -364,6 +372,7 @@ __all__ = [
     "ApplicationCommandPermission",
     "ApplicationCommandPermissionType",
     "ApplicationCommandType",
+    "ApplicationEmojis",
     "ApplicationIntegrationType",
     "ApplicationRoleConnection",
     "Attachment",
@@ -395,11 +404,13 @@ __all__ = [
     "ConnectionVisibility",
     "Container",
     "ContainerChild",
+    "CreateApplicationEmojiParams",
     "CreateDMParams",
     "CreateFollowupMessageParams",
     "CreateGlobalApplicationCommandParams",
     "CreateGroupDMParams",
     "CreateGuildApplicationCommandParams",
+    "CreateGuildEmojiParams",
     "CreateMessageParams",
     "DefaultMessageNotificationLevel",
     "DeferredMessageResponse",
@@ -492,7 +503,11 @@ __all__ = [
     "ModalResponse",
     "ModalSubmitData",
     "ModalSubmitInteraction",
+    "ModifyApplicationEmojiParams",
     "ModifyCurrentUserParams",
+    "ModifyCurrentUserVoiceStateParams",
+    "ModifyGuildEmojiParams",
+    "ModifyUserVoiceStateParams",
     "Nameplate",
     "Overwrite",
     "OverwriteType",
@@ -585,6 +600,7 @@ __all__ = [
     "UserSelect",
     "VerificationLevel",
     "VideoQualityMode",
+    "VoiceRegion",
     "VoiceState",
     "all_channels_permission_id",
     "everyone_permission_id",

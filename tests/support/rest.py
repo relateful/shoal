@@ -8,6 +8,7 @@ client returned, which must give back the response: nothing dropped, renamed or 
 import random
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from typing import Final
 
 import msgspec
 import pytest
@@ -22,6 +23,9 @@ from tests.support.multipart import FormPart, parse_form
 API = "https://discord.com/api/v10"
 
 type Call = Callable[[RestClient], Awaitable[object]]
+
+SAME_AS_RESPONSE: Final = object()
+"""The default `EndpointCase.result`: the method returns the response as Discord sent it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +46,8 @@ class EndpointCase:
     """The `X-Audit-Log-Reason` header the call must send."""
     files: tuple[FormPart, ...] = ()
     """The file parts of a `multipart/form-data` request; `body` is then its `payload_json` part."""
+    result: object = SAME_AS_RESPONSE
+    """What the returned value encodes to, when the method unwraps the response (`{"items": [...]}`)."""
 
 
 def make_client(
@@ -83,7 +89,7 @@ async def check_endpoint(case: EndpointCase) -> str:
     assert sent == case.body
     assert files == case.files
     assert request.headers.get("X-Audit-Log-Reason") == case.reason
-    response: object = case.response
+    response: object = case.response if case.result is SAME_AS_RESPONSE else case.result
     if response is None:
         assert result is None
     else:

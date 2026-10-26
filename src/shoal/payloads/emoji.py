@@ -6,6 +6,7 @@ Discord: https://docs.discord.com/developers/resources/emoji
 from msgspec import UNSET, UnsetType
 
 from shoal.core.snowflake import Snowflake
+from shoal.payloads.api import ImageData
 from shoal.payloads.base import Payload
 from shoal.payloads.user import User
 
@@ -40,3 +41,57 @@ class PartialEmoji(Payload):
     name: str | UnsetType | None = UNSET
     """The emoji itself for unicode emoji; the name for custom emoji."""
     animated: bool | UnsetType = UNSET
+
+
+class ApplicationEmojis(Payload):
+    """The response of List Application Emojis.
+
+    Discord: https://docs.discord.com/developers/resources/emoji#list-application-emojis
+    """
+
+    items: list[Emoji]
+
+
+class CreateGuildEmojiParams(Payload):
+    """JSON body of Create Guild Emoji. The image may be at most 256 KiB.
+
+    Discord: https://docs.discord.com/developers/resources/emoji#create-guild-emoji-json-params
+    """
+
+    name: str
+    image: ImageData
+    """The 128x128 emoji image."""
+    roles: list[Snowflake] | UnsetType = UNSET
+    """Roles allowed to use the emoji. Discord's table marks it required, but Discord accepts the
+    request without it (discord.py has always left it out unless roles are given)."""
+
+
+class ModifyGuildEmojiParams(Payload):
+    """JSON body of Modify Guild Emoji.
+
+    Discord: https://docs.discord.com/developers/resources/emoji#modify-guild-emoji-json-params
+    """
+
+    name: str | UnsetType = UNSET
+    roles: list[Snowflake] | UnsetType | None = UNSET
+    """Roles allowed to use the emoji."""
+
+
+class CreateApplicationEmojiParams(Payload):
+    """JSON body of Create Application Emoji. The image may be at most 256 KiB.
+
+    Discord: https://docs.discord.com/developers/resources/emoji#create-application-emoji-json-params
+    """
+
+    name: str
+    image: ImageData
+    """The 128x128 emoji image."""
+
+
+class ModifyApplicationEmojiParams(Payload):
+    """JSON body of Modify Application Emoji.
+
+    Discord: https://docs.discord.com/developers/resources/emoji#modify-application-emoji-json-params
+    """
+
+    name: str
