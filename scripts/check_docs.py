@@ -28,6 +28,10 @@ HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 LINK = re.compile(r"https://docs\.discord\.com/developers/([a-z0-9/-]*)(?:#([a-z0-9/_.-]+))?")
 MANUAL_ANCHOR = re.compile(r'<ManualAnchor id="([^"]+)"\s*/>')
 MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+DISABLED_ROUTES = frozenset(
+    {("PUT", "/applications/{application_id}/guilds/{guild_id}/commands/permissions")}
+)
+"""Routes Discord documents but has switched off (Batch Edit Application Command Permissions)."""
 NOT_REFERENCE_PAGES = frozenset({"change-log"})
 """Pages that mention routes without documenting them (the changelog refers to endpoints elsewhere)."""
 PLACEHOLDER = re.compile(r"\\?\{([a-z_]+)\.([a-z_]+)\\?\}")
@@ -166,6 +170,11 @@ def _is_deprecated(title: str) -> bool:
     return "(deprecated)" in title.lower()
 
 
+def _is_retired(title: str, method: str, path: str) -> bool:
+    """Whether an endpoint is deprecated or disabled, and so left out of the count."""
+    return _is_deprecated(title) or (method, path) in DISABLED_ROUTES
+
+
 def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) -> str:
     """Markdown listing every documented endpoint and whether Shoal implements it."""
     implemented = {(method, path) for method, path, _ in routes}
@@ -177,7 +186,7 @@ def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) 
             for route in page.routes
         }
     )
-    current_routes = [entry for entry in documented if not _is_deprecated(entry[1])]
+    current_routes = [entry for entry in documented if not _is_retired(entry[1], entry[2], entry[3])]
     done = sum((method, path) in implemented for _, _, method, path, _ in current_routes)
     skipped = len(documented) - len(current_routes)
     lines = [
@@ -187,7 +196,7 @@ def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) 
         "",
         (
             f"Shoal implements **{done} of {len(current_routes)}** documented HTTP endpoints. The {skipped} "
-            "endpoints Discord marks deprecated are left out, in favour of their replacements."
+            "endpoints Discord has deprecated or disabled are left out, in favour of their replacements."
         ),
         "",
     ]
@@ -199,6 +208,8 @@ def coverage_report(pages: dict[str, DocsPage], routes: list[ImplementedRoute]) 
             lines += ["", heading, "", "| | Endpoint | Route |", "| --- | --- | --- |"]
         if (method, path) in implemented:
             mark = "yes"
+        elif (method, path) in DISABLED_ROUTES:
+            mark = "disabled"
         elif _is_deprecated(title):
             mark = "deprecated"
         else:

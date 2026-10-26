@@ -10,8 +10,7 @@ data and a message response cannot forget it.
 
 Discord: https://docs.discord.com/developers/interactions/receiving-and-responding
 
-Not yet modeled: `Interaction.guild` (partial guild) and `entitlements`. Decoding ignores those keys
-until they are added.
+Not yet modeled: `Interaction.guild` (partial guild). Decoding ignores it until it is added.
 """
 
 from typing import Final
@@ -41,6 +40,7 @@ from shoal.payloads.message import (
     Message,
     MessageFlags,
 )
+from shoal.payloads.monetization import Entitlement
 from shoal.payloads.permissions import Permissions, Role
 from shoal.payloads.poll import PollCreateRequest
 from shoal.payloads.user import User
@@ -167,6 +167,8 @@ class _InteractionCommon(Payload):
     locale: Locale | UnsetType = UNSET
     """The invoking user's language."""
     guild_locale: Locale | UnsetType = UNSET
+    entitlements: list[Entitlement]
+    """For monetized apps: the invoking user's entitlements."""
     authorizing_integration_owners: dict[ApplicationIntegrationType, Snowflake]
     """For each installation that authorized the interaction: the guild ID (`GUILD_INSTALL`, or `0`
     in the bot's DMs) or the authorizing user's ID (`USER_INSTALL`)."""

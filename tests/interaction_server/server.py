@@ -30,6 +30,7 @@ COMMAND: JSONObject = {
     "token": "aW50ZXJhY3Rpb24",
     "version": 1,
     "app_permissions": "0",
+    "entitlements": [],
     "authorizing_integration_owners": {"1": "3"},
     "attachment_size_limit": 26214400,
     "user": USER,

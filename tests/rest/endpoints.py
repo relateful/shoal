@@ -1,6 +1,7 @@
 from shoal.payloads.api import DOCS_BASE_URL
 from shoal.rest import endpoints
 from tests.rest.resources import (
+    application,
     application_commands,
     audit_log,
     auto_moderation,
@@ -12,6 +13,7 @@ from tests.rest.resources import (
     interactions,
     invite,
     message,
+    monetization,
     scheduled_event,
     soundboard,
     stage_instance,
@@ -23,6 +25,7 @@ from tests.rest.resources import (
 from tests.support.rest import EndpointCase, check_endpoint
 
 ALL_CASES: list[EndpointCase] = [
+    *application.CASES,
     *application_commands.CASES,
     *audit_log.CASES,
     *auto_moderation.CASES,
@@ -34,6 +37,7 @@ ALL_CASES: list[EndpointCase] = [
     *interactions.CASES,
     *invite.CASES,
     *message.CASES,
+    *monetization.CASES,
     *scheduled_event.CASES,
     *soundboard.CASES,
     *stage_instance.CASES,

@@ -76,6 +76,12 @@ BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS: Final = Route(
     docs="https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-guild-application-commands",
 )
 
+CONSUME_AN_ENTITLEMENT: Final = Route(
+    HTTPMethod.POST,
+    "/applications/{application_id}/entitlements/{entitlement_id}/consume",
+    docs="https://docs.discord.com/developers/resources/entitlement#consume-an-entitlement",
+)
+
 CREATE_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.POST,
     "/applications/{application_id}/emojis",
@@ -198,6 +204,12 @@ CREATE_STAGE_INSTANCE: Final = Route(
     HTTPMethod.POST,
     "/stage-instances",
     docs="https://docs.discord.com/developers/resources/stage-instance#create-stage-instance",
+)
+
+CREATE_TEST_ENTITLEMENT: Final = Route(
+    HTTPMethod.POST,
+    "/applications/{application_id}/entitlements",
+    docs="https://docs.discord.com/developers/resources/entitlement#create-test-entitlement",
 )
 
 CREATE_WEBHOOK: Final = Route(
@@ -348,6 +360,12 @@ DELETE_STAGE_INSTANCE: Final = Route(
     docs="https://docs.discord.com/developers/resources/stage-instance#delete-stage-instance",
 )
 
+DELETE_TEST_ENTITLEMENT: Final = Route(
+    HTTPMethod.DELETE,
+    "/applications/{application_id}/entitlements/{entitlement_id}",
+    docs="https://docs.discord.com/developers/resources/entitlement#delete-test-entitlement",
+)
+
 DELETE_USER_REACTION: Final = Route(
     HTTPMethod.DELETE,
     "/channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}/{user_id}",
@@ -382,6 +400,12 @@ EDIT_CHANNEL_PERMISSIONS: Final = Route(
     HTTPMethod.PUT,
     "/channels/{channel_id}/permissions/{overwrite_id}",
     docs="https://docs.discord.com/developers/resources/channel#edit-channel-permissions",
+)
+
+EDIT_CURRENT_APPLICATION: Final = Route(
+    HTTPMethod.PATCH,
+    "/applications/@me",
+    docs="https://docs.discord.com/developers/resources/application#edit-current-application",
 )
 
 EDIT_FOLLOWUP_MESSAGE: Final = Route(
@@ -460,6 +484,12 @@ GET_ANSWER_VOTERS: Final = Route(
     docs="https://docs.discord.com/developers/resources/poll#get-answer-voters",
 )
 
+GET_APPLICATION_ACTIVITY_INSTANCE: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/activity-instances/{instance_id}",
+    docs="https://docs.discord.com/developers/resources/application#get-application-activity-instance",
+)
+
 GET_APPLICATION_COMMAND_PERMISSIONS: Final = Route(
     HTTPMethod.GET,
     "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions",
@@ -470,6 +500,12 @@ GET_APPLICATION_EMOJI: Final = Route(
     HTTPMethod.GET,
     "/applications/{application_id}/emojis/{emoji_id}",
     docs="https://docs.discord.com/developers/resources/emoji#get-application-emoji",
+)
+
+GET_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/role-connections/metadata",
+    docs="https://docs.discord.com/developers/resources/application-role-connection-metadata#get-application-role-connection-metadata-records",
 )
 
 GET_AUTO_MODERATION_RULE: Final = Route(
@@ -514,6 +550,24 @@ GET_CHANNEL_WEBHOOKS: Final = Route(
     docs="https://docs.discord.com/developers/resources/webhook#get-channel-webhooks",
 )
 
+GET_CURRENT_APPLICATION: Final = Route(
+    HTTPMethod.GET,
+    "/applications/@me",
+    docs="https://docs.discord.com/developers/resources/application#get-current-application",
+)
+
+GET_CURRENT_AUTHORIZATION_INFORMATION: Final = Route(
+    HTTPMethod.GET,
+    "/oauth2/@me",
+    docs="https://docs.discord.com/developers/topics/oauth2#get-current-authorization-information",
+)
+
+GET_CURRENT_BOT_APPLICATION_INFORMATION: Final = Route(
+    HTTPMethod.GET,
+    "/oauth2/applications/@me",
+    docs="https://docs.discord.com/developers/topics/oauth2#get-current-bot-application-information",
+)
+
 GET_CURRENT_USER: Final = Route(
     HTTPMethod.GET,
     "/users/@me",
@@ -548,6 +602,12 @@ GET_CURRENT_USER_VOICE_STATE: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/voice-states/@me",
     docs="https://docs.discord.com/developers/resources/voice#get-current-user-voice-state",
+)
+
+GET_ENTITLEMENT: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/entitlements/{entitlement_id}",
+    docs="https://docs.discord.com/developers/resources/entitlement#get-entitlement",
 )
 
 GET_FOLLOWUP_MESSAGE: Final = Route(
@@ -788,6 +848,12 @@ GET_REACTIONS: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#get-reactions",
 )
 
+GET_SKU_SUBSCRIPTION: Final = Route(
+    HTTPMethod.GET,
+    "/skus/{sku_id}/subscriptions/{subscription_id}",
+    docs="https://docs.discord.com/developers/resources/subscription#get-sku-subscription",
+)
+
 GET_STAGE_INSTANCE: Final = Route(
     HTTPMethod.GET,
     "/stage-instances/{channel_id}",
@@ -908,6 +974,12 @@ LIST_DEFAULT_SOUNDBOARD_SOUNDS: Final = Route(
     docs="https://docs.discord.com/developers/resources/soundboard#list-default-soundboard-sounds",
 )
 
+LIST_ENTITLEMENTS: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/entitlements",
+    docs="https://docs.discord.com/developers/resources/entitlement#list-entitlements",
+)
+
 LIST_GUILD_EMOJIS: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/emojis",
@@ -954,6 +1026,18 @@ LIST_SCHEDULED_EVENTS_FOR_GUILD: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/scheduled-events",
     docs="https://docs.discord.com/developers/resources/guild-scheduled-event#list-scheduled-events-for-guild",
+)
+
+LIST_SKUS: Final = Route(
+    HTTPMethod.GET,
+    "/applications/{application_id}/skus",
+    docs="https://docs.discord.com/developers/resources/sku#list-skus",
+)
+
+LIST_SKU_SUBSCRIPTIONS: Final = Route(
+    HTTPMethod.GET,
+    "/skus/{sku_id}/subscriptions",
+    docs="https://docs.discord.com/developers/resources/subscription#list-sku-subscriptions",
 )
 
 LIST_STICKER_PACKS: Final = Route(
@@ -1220,6 +1304,12 @@ UNPIN_MESSAGE: Final = Route(
     docs="https://docs.discord.com/developers/resources/message#unpin-message",
 )
 
+UPDATE_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS: Final = Route(
+    HTTPMethod.PUT,
+    "/applications/{application_id}/role-connections/metadata",
+    docs="https://docs.discord.com/developers/resources/application-role-connection-metadata#update-application-role-connection-metadata-records",
+)
+
 UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION: Final = Route(
     HTTPMethod.PUT,
     "/users/@me/applications/{application_id}/role-connection",
@@ -1244,6 +1334,7 @@ ALL_ROUTES: Final = (
     BULK_GUILD_BAN,
     BULK_OVERWRITE_GLOBAL_APPLICATION_COMMANDS,
     BULK_OVERWRITE_GUILD_APPLICATION_COMMANDS,
+    CONSUME_AN_ENTITLEMENT,
     CREATE_APPLICATION_EMOJI,
     CREATE_AUTO_MODERATION_RULE,
     CREATE_CHANNEL_INVITE,
@@ -1264,6 +1355,7 @@ ALL_ROUTES: Final = (
     CREATE_MESSAGE,
     CREATE_REACTION,
     CREATE_STAGE_INSTANCE,
+    CREATE_TEST_ENTITLEMENT,
     CREATE_WEBHOOK,
     CROSSPOST_MESSAGE,
     DELETE_ALL_REACTIONS,
@@ -1288,12 +1380,14 @@ ALL_ROUTES: Final = (
     DELETE_ORIGINAL_INTERACTION_RESPONSE,
     DELETE_OWN_REACTION,
     DELETE_STAGE_INSTANCE,
+    DELETE_TEST_ENTITLEMENT,
     DELETE_USER_REACTION,
     DELETE_WEBHOOK,
     DELETE_WEBHOOK_MESSAGE,
     DELETE_WEBHOOK_WITH_TOKEN,
     EDIT_APPLICATION_COMMAND_PERMISSIONS,
     EDIT_CHANNEL_PERMISSIONS,
+    EDIT_CURRENT_APPLICATION,
     EDIT_FOLLOWUP_MESSAGE,
     EDIT_GLOBAL_APPLICATION_COMMAND,
     EDIT_GUILD_APPLICATION_COMMAND,
@@ -1306,8 +1400,10 @@ ALL_ROUTES: Final = (
     EXECUTE_WEBHOOK,
     FOLLOW_ANNOUNCEMENT_CHANNEL,
     GET_ANSWER_VOTERS,
+    GET_APPLICATION_ACTIVITY_INSTANCE,
     GET_APPLICATION_COMMAND_PERMISSIONS,
     GET_APPLICATION_EMOJI,
+    GET_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS,
     GET_AUTO_MODERATION_RULE,
     GET_CHANNEL,
     GET_CHANNEL_INVITES,
@@ -1315,12 +1411,16 @@ ALL_ROUTES: Final = (
     GET_CHANNEL_MESSAGES,
     GET_CHANNEL_PINS,
     GET_CHANNEL_WEBHOOKS,
+    GET_CURRENT_APPLICATION,
+    GET_CURRENT_AUTHORIZATION_INFORMATION,
+    GET_CURRENT_BOT_APPLICATION_INFORMATION,
     GET_CURRENT_USER,
     GET_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     GET_CURRENT_USER_CONNECTIONS,
     GET_CURRENT_USER_GUILDS,
     GET_CURRENT_USER_GUILD_MEMBER,
     GET_CURRENT_USER_VOICE_STATE,
+    GET_ENTITLEMENT,
     GET_FOLLOWUP_MESSAGE,
     GET_GATEWAY,
     GET_GATEWAY_BOT,
@@ -1360,6 +1460,7 @@ ALL_ROUTES: Final = (
     GET_INVITE,
     GET_ORIGINAL_INTERACTION_RESPONSE,
     GET_REACTIONS,
+    GET_SKU_SUBSCRIPTION,
     GET_STAGE_INSTANCE,
     GET_STICKER,
     GET_STICKER_PACK,
@@ -1380,6 +1481,7 @@ ALL_ROUTES: Final = (
     LIST_APPLICATION_EMOJIS,
     LIST_AUTO_MODERATION_RULES_FOR_GUILD,
     LIST_DEFAULT_SOUNDBOARD_SOUNDS,
+    LIST_ENTITLEMENTS,
     LIST_GUILD_EMOJIS,
     LIST_GUILD_MEMBERS,
     LIST_GUILD_SOUNDBOARD_SOUNDS,
@@ -1388,6 +1490,8 @@ ALL_ROUTES: Final = (
     LIST_PRIVATE_ARCHIVED_THREADS,
     LIST_PUBLIC_ARCHIVED_THREADS,
     LIST_SCHEDULED_EVENTS_FOR_GUILD,
+    LIST_SKUS,
+    LIST_SKU_SUBSCRIPTIONS,
     LIST_STICKER_PACKS,
     LIST_THREAD_MEMBERS,
     LIST_VOICE_REGIONS,
@@ -1432,6 +1536,7 @@ ALL_ROUTES: Final = (
     SYNC_GUILD_TEMPLATE,
     TRIGGER_TYPING_INDICATOR,
     UNPIN_MESSAGE,
+    UPDATE_APPLICATION_ROLE_CONNECTION_METADATA_RECORDS,
     UPDATE_CURRENT_USER_APPLICATION_ROLE_CONNECTION,
     UPDATE_TARGET_USERS,
 )

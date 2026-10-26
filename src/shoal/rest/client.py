@@ -60,6 +60,7 @@ from shoal.rest.ratelimit import LocalRateLimiter, RateLimiter, RateLimitHeaders
 from shoal.rest.requester import QueryValue, encode_query, query_of
 from shoal.rest.resources import (
     ApplicationCommandEndpoints,
+    ApplicationEndpoints,
     AuditLogEndpoints,
     AutoModerationEndpoints,
     ChannelEndpoints,
@@ -70,6 +71,7 @@ from shoal.rest.resources import (
     InteractionEndpoints,
     InviteEndpoints,
     MessageEndpoints,
+    MonetizationEndpoints,
     ScheduledEventEndpoints,
     SoundboardEndpoints,
     StageInstanceEndpoints,
@@ -127,6 +129,7 @@ class Token:
 
 class RestClient(
     ApplicationCommandEndpoints,
+    ApplicationEndpoints,
     AuditLogEndpoints,
     AutoModerationEndpoints,
     ChannelEndpoints,
@@ -137,6 +140,7 @@ class RestClient(
     InteractionEndpoints,
     InviteEndpoints,
     MessageEndpoints,
+    MonetizationEndpoints,
     ScheduledEventEndpoints,
     SoundboardEndpoints,
     StageInstanceEndpoints,
