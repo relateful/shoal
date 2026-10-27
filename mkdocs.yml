@@ -25,6 +25,7 @@ nav:
       - Caching and restarts: guide/caching.md
       - Scaling, sharding and IPC: guide/scaling.md
       - Voice: guide/voice.md
+      - Loops and scheduled jobs: guide/tasks.md
       - Dashboards and REST: guide/dashboards.md
       - Metrics and Grafana: guide/metrics.md
       - Diagnosing a slow bot: guide/diagnostics.md

@@ -242,7 +242,7 @@ root_package = "shoal"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | endpoint) < (redis | voice) < models < emojis < client < (ui | app_commands) < commands < compat"
+name = "Layers: core < payloads < (rest | gateway | cache | ipc | metrics | diagnostics | endpoint | tasks) < (redis | voice) < models < emojis < client < (ui | app_commands) < commands < compat"
 type = "layers"
 layers = [
     "shoal.compat",
@@ -252,7 +252,7 @@ layers = [
     "shoal.emojis",
     "shoal.models",
     "shoal.redis | shoal.voice",
-    "shoal.rest | shoal.gateway | shoal.cache | shoal.ipc | shoal.metrics | shoal.diagnostics | shoal.endpoint",
+    "shoal.rest | shoal.gateway | shoal.cache | shoal.ipc | shoal.metrics | shoal.diagnostics | shoal.endpoint | shoal.tasks",
     "shoal.payloads",
     "shoal.core",
 ]

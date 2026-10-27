@@ -100,6 +100,8 @@ from shoal.payloads.voice import VoiceState
 from shoal.payloads.webhook_events import WEBHOOK_EVENT_PAYLOADS, WebhookEventPayload
 from shoal.rest.client import RestClient, Token
 from shoal.rest.files import File
+from shoal.tasks.jobs import JobStore
+from shoal.tasks.scheduler import Scheduler
 
 if TYPE_CHECKING:
     from shoal.endpoint import Endpoint
@@ -287,6 +289,7 @@ class ClientOptions(ShardOptions, total=False):
     shard_directory: ShardDirectory | None
     command_router: CommandRouter | None
     cluster_name: str
+    job_store: JobStore | None
     clock: Clock | None
 
 
@@ -324,6 +327,8 @@ class Client:
         command_router: Carries gateway commands for guilds on other clusters' shards (`ShardManager`'s
             `router`), such as joining a voice channel in a guild another cluster runs.
         cluster_name: How this cluster appears in the shard directory.
+        job_store: Where `scheduler` keeps jobs; by default in memory. Pass a
+            `shoal.redis.RedisJobStore` for jobs that survive restarts, shared by every cluster.
         clock: Time source for the client's timers, the shards, the default REST client and cache, and
             the models (`delete_after`, typing). Tests pass a fake one.
         options: How every shard connects (`ShardOptions`): `gateway_url`, `compression`,
@@ -360,6 +365,7 @@ class Client:
         "_ready",
         "_ready_shards",
         "_ready_timers",
+        "_scheduler",
         "_session_store",
         "_shard_count",
         "_shard_directory",
@@ -395,6 +401,7 @@ class Client:
         shard_directory: ShardDirectory | None = None,
         command_router: CommandRouter | None = None,
         cluster_name: str = "main",
+        job_store: JobStore | None = None,
         clock: Clock | None = None,
         **options: Unpack[ShardOptions],
     ) -> None:
@@ -456,6 +463,7 @@ class Client:
         self._pending_guilds: dict[int, set[Snowflake]] = {}
         self._ready_timers: dict[int, asyncio.Task[None]] = {}
         self._closed: bool = False
+        self._scheduler: Scheduler = Scheduler(job_store, clock=self._clock, metrics=self._metrics)
 
     @property
     def state(self) -> State:
@@ -487,6 +495,15 @@ class Client:
     def app_emojis(self) -> AppEmojis:
         """The application's own emojis, loaded at login: `client.app_emojis.approve`."""
         return self._app_emojis
+
+    @property
+    def scheduler(self) -> Scheduler:
+        """Runs jobs at a time, after a delay or on a cron schedule (`shoal.tasks`).
+
+        Register handlers with `scheduler.on(name)`; it starts running due jobs after `setup_hook`
+        and stops on `close`.
+        """
+        return self._scheduler
 
     @property
     def view_store(self) -> ViewStore:
@@ -527,6 +544,7 @@ class Client:
         self._user = ClientUser(state, me)
         self._translator = EventTranslator(state, self._updater, self.dispatch)
         await self.setup_hook()
+        self._scheduler.start()  # after setup_hook, where handlers are registered
 
     async def setup_hook(self) -> None:
         """Runs once after `login` and before connecting; override it to sync commands or add views."""
@@ -601,6 +619,7 @@ class Client:
             timer.cancel()
         if self._chunker is not None:
             self._chunker.cancel()
+        await self._scheduler.close()  # before the REST client: running jobs may still use it
         # Together: each waits on its voice server, and a few unreachable ones must not add up.
         await asyncio.gather(*(voice.disconnect() for voice in list(self._voice_clients.values())))
         if self._manager is not None:

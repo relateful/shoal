@@ -7,6 +7,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `shoal.tasks`: `tasks.loop` (intervals, times of day, hooks), cron expressions with time zones, and
+  `client.scheduler` for jobs at a time, after a delay or on a cron schedule, kept in memory or in
+  Redis (`RedisJobStore`: survives restarts, each due job claimed by one process, leased).
+- Voice receive decoding: `VoiceClient.audio()` yields PCM per user, reordered, with losses
+  concealed, through a small libopus binding (`shoal.voice.receive`); packets from a sender Discord
+  has not named yet are held until it does instead of dropped.
+- Per-field cache trimming: `CachePolicy(fields=...)` stores only the named fields of a kind.
 - `shoal.core`: `Snowflake`, immutable `BaseFlags` bitfields, open enums that accept values Discord adds
   later, the msgspec JSON and msgpack codec, the `Clock` protocol with an interruptible sleep, a shared
   backoff function, owner-only atomic file writes, and the metrics catalog with the `Metrics` protocol.

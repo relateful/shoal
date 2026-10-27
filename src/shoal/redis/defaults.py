@@ -21,6 +21,10 @@ EVENT_RECONNECT_BACKOFF_CAP: Final = 30.0
 EVENT_STREAM_MAX_LENGTH: Final = 100_000
 """About how many events the stream keeps for consumers that are behind or away."""
 
+JOB_LEASE: Final = 300.0
+"""Seconds a claimed scheduled job is held before another process may run it again (its process
+is taken to have died); longer than handlers take."""
+
 KEY_BATCH: Final = 1000
 """Keys read or deleted in one command."""
 

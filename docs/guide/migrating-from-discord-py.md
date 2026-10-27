@@ -73,7 +73,8 @@ converter class (`MemberConverter`, `ColourConverter`, `Timestamp`, ...), `Attac
 | One process | gateway and workers can be split with `shoal.ipc` | scaling and zero-downtime deploys |
 | `FFmpegPCMAudio`, `FFmpegOpusAudio` | `FFmpegSource` (encodes to Opus), `OggOpusSource` | Shoal sends Opus as encoded and needs no audio library |
 | `discord.ClientException` when already playing | `AudioPlayingError` (a `ShoalError`, not a `ClientError`) | voice sits below the client, so its errors cannot derive from the client's |
-| No built-in voice receive | `voice.listen()` yields decrypted Opus packets | built in, with end-to-end encryption ([voice](voice.md)) |
+| `discord.ext.tasks.loop` | `shoal.tasks.loop` (also `shoal.compat.tasks`): intervals, times of day, `count`, the hooks and `change_interval`; no `reconnect`, so an iteration that raises ends the loop (catch network errors yourself). `client.scheduler` for jobs that survive restarts | built in ([loops and scheduled jobs](tasks.md)) |
+| No built-in voice receive | `voice.listen()` yields decrypted Opus packets, `voice.audio()` decoded PCM | built in, with end-to-end encryption ([voice](voice.md)) |
 
 ## Without a client
 

@@ -88,11 +88,14 @@ discord.py leaves IPC to you. Shoal includes it:
 - Slash, prefix and hybrid commands, cogs and extensions, views, modals and Components V2 layouts.
 - Interactions over the gateway, or over HTTP with no gateway at all (signed, verified endpoint).
   discord.py only has the gateway.
-- Voice: play and **listen**, end-to-end encrypted (DAVE). discord.py can play, but receiving audio
-  takes a third-party extension.
+- Voice: play and **listen**, end-to-end encrypted (DAVE), as Opus packets or decoded PCM per user
+  (decoding needs libopus). discord.py can play, but receiving audio takes a third-party extension.
 - Voice messages, polls, the application's own emojis synced from a folder, and member chunking as
   guilds arrive (`chunk_guilds_at_startup`).
-- A cache with a policy per entity (size, TTL, whether to snapshot), instead of one fixed cache.
+- A cache with a policy per entity (size, TTL, whether to snapshot, which fields to keep), instead
+  of one fixed cache.
+- Loops (`tasks.loop`) and a scheduler for reminders and cron jobs that survive restarts with
+  Redis, without a sleeping task per job.
 
 > [!TIP]
 > Coming from discord.py? `import shoal.compat as discord` gives you the old names, so a bot can move
@@ -148,7 +151,8 @@ the [smallest bot](docs/examples/hello/) to [role menus](docs/examples/roles/but
 
 - Guides: [writing a bot](docs/guide/bot.md), [commands and interactions](docs/guide/interactions.md),
   [caching and restarts](docs/guide/caching.md), [scaling, sharding and IPC](docs/guide/scaling.md),
-  [voice](docs/guide/voice.md), [dashboards and REST](docs/guide/dashboards.md),
+  [voice](docs/guide/voice.md), [loops and scheduled jobs](docs/guide/tasks.md),
+  [dashboards and REST](docs/guide/dashboards.md),
   [metrics and Grafana](docs/guide/metrics.md), [diagnosing a slow bot](docs/guide/diagnostics.md),
   [architecture](docs/guide/architecture.md),
   [migrating from discord.py](docs/guide/migrating-from-discord-py.md).

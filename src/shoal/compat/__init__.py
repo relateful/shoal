@@ -9,11 +9,11 @@
 
 The models, payloads and helpers bots name most, under the names they are used to: the same
 objects as in Shoal (`discord.Member` is `shoal.Member`, `discord.Forbidden` is `ForbiddenError`,
-`discord.Status` is `StatusType`). `commands`, `app_commands`, `ui` and `utils` are here too. New
+`discord.Status` is `StatusType`). `commands`, `app_commands`, `tasks`, `ui` and `utils` are here too. New
 code reads better with Shoal's own names.
 """
 
-from shoal import ui
+from shoal import tasks, ui
 from shoal.app_commands.errors import (
     MissingApplicationIDError as MissingApplicationID,
 )
@@ -433,6 +433,7 @@ __all__ = [
     "oauth_url",
     "remove_markdown",
     "snowflake_time",
+    "tasks",
     "time_snowflake",
     "ui",
     "utcnow",

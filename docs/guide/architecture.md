@@ -18,8 +18,8 @@ middle row) never import each other. `import-linter` enforces this in CI.
                                |
                          redis   voice
                                |
-rest   gateway   cache   ipc   metrics   diagnostics   endpoint
-   \       |        |      |       |           |           /
+rest   gateway   cache   ipc   metrics   diagnostics   endpoint   tasks
+   \       |        |      |       |           |           |       /
                               payloads
                                  |
                                core
@@ -36,7 +36,8 @@ rest   gateway   cache   ipc   metrics   diagnostics   endpoint
 | `metrics` | core, prometheus-client | exporters |
 | `diagnostics` | core | event loop health |
 | `endpoint` | core, payloads, aiohttp, cryptography | receives interactions over HTTP, for bots without a gateway |
-| `redis` | the transport layers, redis-py | what a bot's processes share: rate limits, identify, sessions, cache, events, the shard directory and command routing |
+| `tasks` | core | background loops, cron expressions, and the job scheduler with its in-memory store |
+| `redis` | the transport layers, redis-py | what a bot's processes share: rate limits, identify, sessions, cache, events, the shard directory, command routing and scheduled jobs |
 | `voice` | the transport layers, cryptography, davey | voice connections: the voice gateway, UDP, transport encryption, DAVE and audio |
 | `models` | the layers below | `Guild`, `Member`, `Message` and the rest: objects with methods, reading the cache and calling REST |
 | `emojis` | models | the application's emojis: a registry used across the bot, and a sync from a folder |

@@ -42,8 +42,9 @@ src/shoal/
   metrics/       exporters (Prometheus)
   diagnostics/   event loop health
   endpoint/      interactions over HTTP, for bots without a gateway
+  tasks/         background loops, cron, and scheduled jobs that survive restarts
   redis/         state shared by a bot's processes in Redis: rate limits, identify, sessions, cache,
-                 events, the shard directory and command routing
+                 events, the shard directory, command routing and scheduled jobs
   voice/         voice connections: the voice gateway, UDP, transport encryption, DAVE and audio
   models/        objects with methods (Guild, Member, Message, ...) over a cache and a REST client
   emojis/        the application's emojis: a registry used across the bot, and a sync from a folder
@@ -59,10 +60,10 @@ theme/           the docs site's own theme: templates, styles and scripts, no th
 ```
 
 `core` depends on nothing but the standard library and msgspec. `payloads` depends on `core`. The
-transport layers (`rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`) depend on
+transport layers (`rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`, `tasks`) depend on
 `core` and `payloads` and **never on each other**, so each can run in its own process. `redis`
 implements their extension points (limiters, session store, cache collections, event transport,
-shard directory, command router), and `voice` builds voice connections on the gateway's websocket;
+shard directory, command router, job store), and `voice` builds voice connections on the gateway's websocket;
 both sit above them, beside each other. Above them the bot layers stack in this order, each using
 only those below it: `models`, `emojis`, `client`, then `ui` and `app_commands` (beside each other),
 then `commands`, then `compat` (aliases over the rest, for migrating bots; nothing imports it).
@@ -292,6 +293,6 @@ So that anything can be found without searching:
 
 Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes are the packages
 (`core`, `payloads`, `rest`, `gateway`, `cache`, `ipc`, `metrics`, `diagnostics`, `endpoint`,
-`redis`, `voice`, `models`, `emojis`, `client`, `ui`, `app_commands`, `commands`, `compat`) plus `docs`, `ci`
+`tasks`, `redis`, `voice`, `models`, `emojis`, `client`, `ui`, `app_commands`, `commands`, `compat`) plus `docs`, `ci`
 and `build`. Update
 `CHANGELOG.md` under "Unreleased".

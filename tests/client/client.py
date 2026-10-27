@@ -124,6 +124,15 @@ async def test_setup_hook_runs_after_login() -> None:
     assert bot.hooked
 
 
+async def test_the_scheduler_runs_from_login_until_close() -> None:
+    client = Client(intents=INTENTS)
+    assert not client.scheduler.is_running()
+    client, _ = await logged_in()
+    assert client.scheduler.is_running()
+    await client.close()
+    assert not client.scheduler.is_running()
+
+
 async def test_nothing_works_before_login() -> None:
     client = Client(intents=INTENTS)
     with pytest.raises(ClientError, match="not logged in"):

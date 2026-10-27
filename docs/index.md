@@ -18,7 +18,7 @@ secondary_link: reference/shoal/index.md
 
 <p class="status-tag">Pre-alpha</p>
 
-<p markdown="span">Built and tested: typed payloads, a REST client that covers every endpoint Discord documents, the gateway, the cache, IPC, state shared through Redis, a REST proxy, resharding without downtime, metrics and diagnostics, and the bot API on top: a `Client` with models, slash, prefix and hybrid commands, cogs, views, modals and layouts, voice messages, end-to-end encrypted voice, and the application's emojis. Start with [writing a bot](guide/bot.md); the [roadmap](roadmap.md) has what comes next.</p>
+<p markdown="span">Built and tested: typed payloads, a REST client that covers every endpoint Discord documents, the gateway, the cache, IPC, state shared through Redis, a REST proxy, resharding without downtime, metrics and diagnostics, and the bot API on top: a `Client` with models, slash, prefix and hybrid commands, cogs, views, modals and layouts, voice messages, end-to-end encrypted voice with decoded receive, loops and a scheduler for jobs that survive restarts, and the application's emojis. Start with [writing a bot](guide/bot.md); the [roadmap](roadmap.md) has what comes next.</p>
 
 </div>
 
@@ -203,7 +203,7 @@ The [architecture guide](guide/architecture.md) explains what each layer owns.
 
 <div class="layer-row layer-top" markdown>
 
-[rest](reference/shoal/rest/index.md){ .layer } [gateway](reference/shoal/gateway/index.md){ .layer } [cache](reference/shoal/cache/index.md){ .layer } [ipc](reference/shoal/ipc/index.md){ .layer } [metrics](reference/shoal/metrics/index.md){ .layer } [diagnostics](reference/shoal/diagnostics/index.md){ .layer } [endpoint](reference/shoal/endpoint/index.md){ .layer }
+[rest](reference/shoal/rest/index.md){ .layer } [gateway](reference/shoal/gateway/index.md){ .layer } [cache](reference/shoal/cache/index.md){ .layer } [ipc](reference/shoal/ipc/index.md){ .layer } [metrics](reference/shoal/metrics/index.md){ .layer } [diagnostics](reference/shoal/diagnostics/index.md){ .layer } [endpoint](reference/shoal/endpoint/index.md){ .layer } [tasks](reference/shoal/tasks/index.md){ .layer }
 
 </div>
 

@@ -9,7 +9,9 @@ What is built is described in the guides. Everything the previous roadmap planne
   directory and command routing between clusters; resharding without downtime
   ([scaling](guide/scaling.md), [caching](guide/caching.md)).
 - **Voice messages** ([writing a bot](guide/bot.md#voice-messages)).
-- **Voice** with DAVE end-to-end encryption: joining, playing and listening ([voice](guide/voice.md)).
+- **Voice** with DAVE end-to-end encryption: joining, playing, and listening as packets or decoded audio ([voice](guide/voice.md)).
+- **Loops and scheduled jobs**: `tasks.loop`, cron, and a scheduler backed by memory or Redis ([loops and scheduled jobs](guide/tasks.md)).
+- **Per-field cache trimming** (`CachePolicy(fields=...)`, [caching](guide/caching.md#caching-only-some-fields)).
 
 Nothing new is planned yet. Shoal keeps up with Discord's API as it changes: CI compares every
 endpoint and event with Discord's documentation each week, and mirrors each change Discord makes to

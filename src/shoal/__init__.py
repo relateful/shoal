@@ -18,6 +18,7 @@ The package is split into layers that can be used on their own:
 - `shoal.metrics`: exporters for the metrics every layer records (Prometheus).
 - `shoal.diagnostics`: event loop health (`LoopMonitor`).
 - `shoal.endpoint`: receives interactions over HTTP, for bots without a gateway.
+- `shoal.tasks`: background loops, and jobs scheduled for a time or on a cron schedule.
 - `shoal.redis`: what a bot's processes share: limits, sessions, cache, events, shard directory.
 - `shoal.voice`: voice connections, end-to-end encrypted, and the audio they play.
 - `shoal.models`: `Guild`, `Member`, `Message` and the rest, with methods.
