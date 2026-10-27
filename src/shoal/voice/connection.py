@@ -19,6 +19,7 @@ import asyncio
 import contextlib
 import logging
 import random
+from collections import deque
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Final, final
@@ -64,8 +65,10 @@ from shoal.voice.defaults import (
     RESUME_BACKOFF_CAP,
     STABLE_SESSION,
     UNANSWERED_HEARTBEATS,
+    UNNAMED_PACKETS,
+    UNNAMED_STREAMS,
 )
-from shoal.voice.rtp import opus_samples, rtp_header
+from shoal.voice.rtp import RtpHeader, opus_samples, rtp_header
 from shoal.voice.udp import UdpTransportFactory, VoiceTransport, VoiceTransportFactory, discover
 
 _log = logging.getLogger("shoal.voice")
@@ -191,6 +194,7 @@ class VoiceConnection:
         "_transport",
         "_transports",
         "_unanswered",
+        "_unnamed",
         "_user_id",
         "_websocket",
     )
@@ -227,6 +231,8 @@ class VoiceConnection:
         self._seq_ack: int = -1
         """The last numbered message received, acknowledged in heartbeats and resumes."""
         self._ssrc_users: dict[int, int] = {}
+        self._unnamed: dict[int, deque[tuple[RtpHeader, bytes]]] = {}
+        """Unsealed packets per SSRC that no Speaking message has named yet, oldest stream first."""
         self._latency: float | None = None
         self._unanswered: int = 0
         loop = asyncio.get_running_loop()
@@ -428,6 +434,7 @@ class VoiceConnection:
             speaking = decode_json(payload.d, Speaking)
             if isinstance(speaking.user_id, int):
                 self._ssrc_users[speaking.ssrc] = int(speaking.user_id)
+                self._release_unnamed(speaking.ssrc)
         elif op is VoiceOpcode.CLIENTS_CONNECT:
             self._dave.users_joined(int(user) for user in decode_json(payload.d, ClientsConnect).user_ids)
         elif op is VoiceOpcode.CLIENT_DISCONNECT:
@@ -534,16 +541,49 @@ class VoiceConnection:
             if not self._listeners:
                 continue
             received = self._open_packet(packet)
-            if received is None:
-                continue
-            for queue in self._listeners:
-                if queue.full():
-                    _ = queue.get_nowait()
-                    self._metrics.increment(VOICE_PACKETS_DROPPED, {"reason": "behind"})
-                queue.put_nowait(received)
+            if received is not None:
+                self._deliver(received)
+
+    def _deliver(self, received: VoicePacket) -> None:
+        for queue in self._listeners:
+            if queue.full():
+                _ = queue.get_nowait()
+                self._metrics.increment(VOICE_PACKETS_DROPPED, {"reason": "behind"})
+            queue.put_nowait(received)
+
+    def _hold_unnamed(self, header: RtpHeader, payload: bytes) -> None:
+        """Keep a packet from a stream no Speaking message has named yet, within the bounds."""
+        held = self._unnamed.get(header.ssrc)
+        if held is None:
+            if len(self._unnamed) >= UNNAMED_STREAMS:
+                oldest = next(iter(self._unnamed))
+                self._drop_unnamed(len(self._unnamed.pop(oldest)))
+            held = self._unnamed[header.ssrc] = deque()
+        if len(held) >= UNNAMED_PACKETS:
+            _ = held.popleft()
+            self._drop_unnamed(1)
+        held.append((header, payload))
+
+    def _drop_unnamed(self, count: int) -> None:
+        for _ in range(count):
+            self._metrics.increment(VOICE_PACKETS_DROPPED, {"reason": "unnamed"})
+
+    def _release_unnamed(self, ssrc: int) -> None:
+        """Deliver what a newly named stream sent before it was named, in the order it arrived."""
+        held = self._unnamed.pop(ssrc, None)
+        if held is None:
+            return
+        user_id = self._ssrc_users[ssrc]
+        for header, payload in held:
+            received = self._decrypted(user_id, header, payload)
+            if received is not None and self._listeners:
+                self._deliver(received)
 
     def _open_packet(self, packet: bytes) -> VoicePacket | None:
-        """A received packet's audio, or `None` for anything else (RTCP, a bad seal, no key yet)."""
+        """A received packet's audio, or `None` for anything else (RTCP, a bad seal, no key yet).
+
+        A packet from a stream Discord has not named yet is held until a Speaking message names it.
+        """
         cipher = self._cipher
         if cipher is None or len(packet) < 2 or packet[1] & _RTP_PAYLOAD_TYPE_MASK != RTP_PAYLOAD_TYPE:  # noqa: PLR2004 - the RTP header's first two bytes
             return None
@@ -553,8 +593,14 @@ class VoiceConnection:
             self._metrics.increment(VOICE_PACKETS_DROPPED, {"reason": "unsealed"})
             return None
         user_id = self._ssrc_users.get(header.ssrc)
-        opus = self._dave.decrypt(user_id, payload) if user_id is not None else None
-        if user_id is None or opus is None:
+        if user_id is None:
+            self._hold_unnamed(header, payload)
+            return None
+        return self._decrypted(user_id, header, payload)
+
+    def _decrypted(self, user_id: int, header: RtpHeader, payload: bytes) -> VoicePacket | None:
+        opus = self._dave.decrypt(user_id, payload)
+        if opus is None:
             self._metrics.increment(VOICE_PACKETS_DROPPED, {"reason": "undecrypted"})
             return None
         return VoicePacket(user_id, header.ssrc, header.sequence, header.timestamp, opus)

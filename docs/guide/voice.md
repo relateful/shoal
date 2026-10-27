@@ -7,8 +7,9 @@ requires. Install the extra:
 pip install "shoal[voice]"
 ```
 
-It brings `davey`, a binding of Discord's DAVE protocol library, and `cryptography`. Shoal needs no
-audio library: it sends Opus as encoded, from an Ogg file or from `ffmpeg`.
+It brings `davey`, a binding of Discord's DAVE protocol library, and `cryptography`. Sending needs no
+audio library: Shoal sends Opus as encoded, from an Ogg file or from `ffmpeg`. Only decoding received
+audio to PCM needs libopus ([decoded audio](#decoded-audio)).
 
 ## Joining and playing
 
@@ -73,10 +74,35 @@ async for packet in voice.listen():
 ```
 
 `listen()` yields the Opus packets others send, decrypted, each with who sent it, until the bot
-leaves; it follows rejoins and moves. Packets from someone whose audio stream Discord has not named
-yet are dropped. Several listeners each get every packet; packets are only kept while something
-iterates, and a listener that falls far behind loses the oldest. `OggOpusWriter` saves them as an
-`.ogg` file; decoding to PCM needs an Opus decoder of your choice.
+leaves; it follows rejoins and moves. Packets that arrive before Discord names their sender are held
+(up to about a second per stream) and come through once it does. Several listeners each get every
+packet; packets are only kept while something iterates, and a listener that falls far behind loses
+the oldest. `OggOpusWriter` saves them as an `.ogg` file without decoding.
+
+### Decoded audio
+
+```python
+import wave
+
+with wave.open("speaker.wav", "wb") as recording:
+    recording.setnchannels(2)
+    recording.setsampwidth(2)
+    recording.setframerate(48000)
+    async for frame in voice.audio(user=speaker_id):
+        recording.writeframes(frame.pcm)
+```
+
+`audio()` decodes what others say to PCM: 48 kHz, stereo, signed 16-bit. Each sender's packets are
+put back in order (a late one waits up to three packets behind it), and a lost one is concealed:
+rebuilt from the next packet's error correction data when the sender included it, otherwise filled
+in by the decoder (`frame.concealed`). A gap of more than five packets is a pause and stays silent;
+pauses are not written out as silence, so use `frame.timestamp` to place speech in time.
+
+Decoding needs libopus, a system library: `apt install libopus0` or `brew install opus`. On
+Windows, put `opus.dll` in a folder on `PATH`, or name it with
+`shoal.voice.receive.load_opus(r"C:\path\to\opus.dll")`: Windows does not look in the bot's own
+folder. Shoal finds it on first use. Without it, `audio()` raises `OpusError`;
+`listen()` never needs it.
 
 ## End-to-end encryption
 
@@ -105,7 +131,8 @@ AES-256-GCM where the server offers it, XChaCha20-Poly1305 otherwise.
   or the call moved.
 
 `voice.latency` is the voice heartbeat's round trip. `shoal_voice_reconnects_total` counts resumes
-and rejoins, and `shoal_voice_packets_dropped_total` the received packets dropped
+and rejoins, `shoal_voice_packets_dropped_total` the received packets dropped, and
+`shoal_voice_frames_concealed_total` the lost ones concealed
 ([metrics](metrics.md)).
 
 ## In clusters

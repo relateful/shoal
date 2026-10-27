@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from shoal.models.state import State
     from shoal.voice.audio import AudioPlayer, AudioSource
     from shoal.voice.connection import VoiceConnection, VoicePacket
+    from shoal.voice.receive import AudioFrame
     from shoal.voice.udp import VoiceTransportFactory
 
 _log = logging.getLogger("shoal.voice")
@@ -419,6 +420,24 @@ class VoiceClient:
             if self._connection is connection:
                 # It ended without being replaced: wait for the next connection, or the leave.
                 self._connected.clear()
+
+    async def audio(self, user: int | None = None) -> "AsyncIterator[AudioFrame]":
+        """Yield what others say in the call as PCM (48 kHz stereo, 16-bit), until the bot leaves.
+
+        Each sender's audio comes in order, with packets lost in transit concealed; a pause in
+        speech yields nothing. Needs libopus (see `shoal.voice.receive.opus`).
+
+        Args:
+            user: Only this user's audio.
+
+        Raises:
+            OpusError: libopus is missing.
+        """
+        from shoal.voice.receive import decode_audio
+
+        async for frame in decode_audio(self.listen(), metrics=self._metrics):
+            if user is None or frame.user_id == user:
+                yield frame
 
     async def disconnect(self) -> None:
         """Stop playing, close the connection and leave the channel."""

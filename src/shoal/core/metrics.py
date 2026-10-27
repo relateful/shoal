@@ -188,11 +188,30 @@ REST_RETRIES: Final = MetricSpec(
     ("route", "reason"),
 )
 
+SCHEDULER_JOBS: Final = MetricSpec(
+    "shoal_scheduler_jobs_total",
+    MetricKind.COUNTER,
+    "Scheduled jobs handled, by result (ran, failed: the handler raised, skipped: missed with "
+    "misfire=skip, dropped: no handler or an unusable schedule, store_error: the job store failed "
+    "and the scheduler retried).",
+    ("result",),
+)
+
+VOICE_FRAMES_CONCEALED: Final = MetricSpec(
+    "shoal_voice_frames_concealed_total",
+    MetricKind.COUNTER,
+    "Received audio frames lost in transit and concealed (rebuilt from error correction data, or "
+    "filled in by the decoder).",
+    (),
+)
+
 VOICE_PACKETS_DROPPED: Final = MetricSpec(
     "shoal_voice_packets_dropped_total",
     MetricKind.COUNTER,
     "Received voice packets dropped, by reason (behind: a listener fell behind; unsealed: transport "
-    "decryption failed; undecrypted: end-to-end decryption failed or the sender is not known yet).",
+    "decryption failed; undecrypted: end-to-end decryption failed; unnamed: held for a sender Discord "
+    "never named, past the bound; late: arrived after its place was played, or a duplicate; "
+    "undecodable: a corrupt Opus packet).",
     ("reason",),
 )
 
@@ -226,6 +245,8 @@ ALL_METRICS: Final = (
     REST_REQUESTS,
     REST_REQUEST_SECONDS,
     REST_RETRIES,
+    SCHEDULER_JOBS,
+    VOICE_FRAMES_CONCEALED,
     VOICE_PACKETS_DROPPED,
     VOICE_RECONNECTS,
 )

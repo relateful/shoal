@@ -1,6 +1,7 @@
 """A scripted voice server: a voice gateway websocket and a UDP socket that answer like Discord's."""
 
 import asyncio
+import ctypes
 import struct
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -11,6 +12,7 @@ import msgspec
 from shoal.core.codec import encode_json
 from shoal.gateway.connection import GatewayConnection, GatewayConnector, MessageKind, WebSocketMessage
 from shoal.voice.connection import VoiceServer
+from shoal.voice.receive.opus import OpusLibrary
 from shoal.voice.udp import VoiceTransport, VoiceTransportFactory
 
 KEY = bytes(range(32))
@@ -176,3 +178,53 @@ class FakeVoiceTransports(VoiceTransportFactory):
         transport = FakeVoiceTransport(discovers=self.discovers)
         self.transports.append(transport)
         return transport
+
+
+@final
+class FakeOpus(OpusLibrary):
+    """libopus's decoder calls: each sample of a decoded packet is its first payload byte.
+
+    A concealed packet decodes to zeros; one rebuilt from the next packet's error correction data
+    decodes to that packet's first payload byte plus 100. Freed states are recorded.
+    """
+
+    def __init__(self, *, create_error: int = 0, decode_error: int = 0) -> None:
+        self.create_error = create_error
+        self.decode_error = decode_error
+        self.created = 0
+        self.destroyed: list[int] = []
+
+    @override
+    def opus_decoder_create(self, sample_rate: int, channels: int, error: ctypes.c_int, /) -> int | None:
+        assert (sample_rate, channels) == (48000, 2)
+        error.value = self.create_error
+        if self.create_error:
+            return None
+        self.created += 1
+        return self.created
+
+    @override
+    def opus_decode(
+        self,
+        state: int,
+        data: bytes | None,
+        length: int,
+        pcm: "ctypes.Array[ctypes.c_int16]",
+        frame_size: int,
+        decode_fec: int,
+        /,
+    ) -> int:
+        if self.decode_error:
+            return self.decode_error
+        value = 0 if data is None else data[1] + (100 if decode_fec else 0)
+        for index in range(frame_size * 2):
+            pcm[index] = value
+        return frame_size
+
+    @override
+    def opus_decoder_destroy(self, state: int, /) -> None:
+        self.destroyed.append(state)
+
+    @override
+    def opus_strerror(self, code: int, /) -> bytes:
+        return b"invalid argument"

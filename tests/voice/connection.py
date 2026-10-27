@@ -9,7 +9,7 @@ from shoal.gateway.connection import MessageKind, WebSocketMessage
 from shoal.payloads.voice_gateway import EncryptionMode
 from shoal.voice.connection import VoiceConnection, VoiceConnectionClosedError
 from shoal.voice.crypto import TransportCipher
-from shoal.voice.defaults import RECEIVED_PACKETS_QUEUE_SIZE
+from shoal.voice.defaults import RECEIVED_PACKETS_QUEUE_SIZE, UNNAMED_PACKETS, UNNAMED_STREAMS
 from shoal.voice.rtp import rtp_header
 from tests.support.fakes import ManualClock, settle
 from tests.support.voice import (
@@ -327,12 +327,64 @@ async def test_every_listener_gets_every_packet_and_drops_are_counted() -> None:
     assert [packet.sequence for packet in received] == [5, 5]
     dropped = VOICE_PACKETS_DROPPED
     assert metrics.counters[InMemoryMetrics.key(dropped, {"reason": "unsealed"})] == 1
-    assert metrics.counters[InMemoryMetrics.key(dropped, {"reason": "undecrypted"})] == 1
+    # The unnamed sender's packet is held, not dropped, until Discord names it.
+    assert InMemoryMetrics.key(dropped, {"reason": "undecrypted"}) not in metrics.counters
     assert metrics.counters[InMemoryMetrics.key(dropped, {"reason": "behind"})] == 4
     await connection.close()
     # Each listener reads what is left, then its iteration ends with the connection.
     for listener in (first, second):
         assert len([packet async for packet in listener]) == RECEIVED_PACKETS_QUEUE_SIZE - 1
+
+
+async def test_audio_from_an_unnamed_sender_is_held_until_discord_names_it() -> None:
+    metrics = InMemoryMetrics()
+    connector, transports = FakeVoiceConnector(), FakeVoiceTransports()
+    connection = VoiceConnection(
+        SERVER, user_id=1, connector=connector, transports=transports, metrics=metrics, clock=ManualClock()
+    )
+    await connection.connect()
+    received = connection.packets()
+    first = asyncio.ensure_future(anext(received))
+    await settle()
+    sender = TransportCipher(EncryptionMode.AEAD_AES256_GCM_RTPSIZE, KEY)
+    socket = transports.transports[0]
+    for sequence in range(UNNAMED_PACKETS + 2):
+        socket.incoming.put_nowait(sender.seal(rtp_header(sequence, 0, 55), FRAME))
+    await settle()
+    assert not first.done()
+    connector.opened[0].push(5, {"speaking": 1, "ssrc": 55, "user_id": "99"}, seq=1)
+    packet = await asyncio.wait_for(first, timeout=2)
+    # The bound kept the newest packets, in the order they arrived.
+    assert (packet.user_id, packet.sequence) == (99, 2)
+    dropped = VOICE_PACKETS_DROPPED
+    assert metrics.counters[InMemoryMetrics.key(dropped, {"reason": "unnamed"})] == 2
+    await connection.close()
+    assert [packet.sequence async for packet in received] == list(range(3, UNNAMED_PACKETS + 2))
+
+
+async def test_only_so_many_unnamed_streams_are_held() -> None:
+    metrics = InMemoryMetrics()
+    connector, transports = FakeVoiceConnector(), FakeVoiceTransports()
+    connection = VoiceConnection(
+        SERVER, user_id=1, connector=connector, transports=transports, metrics=metrics, clock=ManualClock()
+    )
+    await connection.connect()
+    received = connection.packets()
+    first = asyncio.ensure_future(anext(received))
+    await settle()
+    sender = TransportCipher(EncryptionMode.AEAD_AES256_GCM_RTPSIZE, KEY)
+    socket = transports.transports[0]
+    for ssrc in range(100, 100 + UNNAMED_STREAMS + 1):
+        socket.incoming.put_nowait(sender.seal(rtp_header(1, 0, ssrc), FRAME))
+    await settle()
+    dropped = VOICE_PACKETS_DROPPED
+    assert metrics.counters[InMemoryMetrics.key(dropped, {"reason": "unnamed"})] == 1
+    # The first stream's packets went to make room; naming it now releases nothing.
+    connector.opened[0].push(5, {"speaking": 1, "ssrc": 100, "user_id": "99"}, seq=1)
+    connector.opened[0].push(5, {"speaking": 1, "ssrc": 101, "user_id": "98"}, seq=2)
+    packet = await asyncio.wait_for(first, timeout=2)
+    assert (packet.user_id, packet.ssrc) == (98, 101)
+    await connection.close()
 
 
 async def test_an_invalid_frame_sends_nothing() -> None:

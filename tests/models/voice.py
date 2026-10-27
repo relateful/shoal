@@ -17,10 +17,11 @@ from shoal.payloads.voice import VoiceState
 from shoal.payloads.voice_gateway import EncryptionMode
 from shoal.voice.audio import AudioSource, OggOpusSource
 from shoal.voice.crypto import TransportCipher
+from shoal.voice.receive import opus
 from shoal.voice.rtp import rtp_header
 from tests.support.fakes import FakeTransport, ManualClock, settle
 from tests.support.rest import make_client
-from tests.support.voice import KEY, FakeVoiceConnector, FakeVoiceGateway, FakeVoiceTransports
+from tests.support.voice import KEY, FakeOpus, FakeVoiceConnector, FakeVoiceGateway, FakeVoiceTransports
 
 GUILD, CHANNEL, OTHER_CHANNEL, BOT = 10, 20, 21, 1
 FRAME = bytes([0xFC, 0x01, 0x02])
@@ -245,6 +246,27 @@ async def test_listening_yields_what_others_send() -> None:
     packet = await asyncio.wait_for(first, timeout=2)
     assert (packet.user_id, packet.opus) == (99, FRAME)
     await voice.disconnect()
+
+
+async def test_audio_is_what_one_user_says_decoded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(opus, "_library", FakeOpus())
+    harness = await Harness().joined()
+    voice = harness.voice
+    gateway, socket = harness.connector.opened[-1], harness.transports.transports[-1]
+    gateway.push(5, {"speaking": 1, "ssrc": 55, "user_id": "99"}, seq=1)
+    gateway.push(5, {"speaking": 1, "ssrc": 66, "user_id": "98"}, seq=2)
+    await settle()
+    heard = voice.audio(user=99)
+    first = asyncio.ensure_future(anext(heard))
+    await settle()
+    sender = TransportCipher(EncryptionMode.AEAD_AES256_GCM_RTPSIZE, KEY)
+    socket.incoming.put_nowait(sender.seal(rtp_header(1, 960, 66), bytes([0xFC, 8])))
+    socket.incoming.put_nowait(sender.seal(rtp_header(1, 960, 55), bytes([0xFC, 9])))
+    frame = await asyncio.wait_for(first, timeout=2)
+    assert (frame.user_id, frame.pcm[0], len(frame.pcm)) == (99, 9, 960 * 4)
+    await voice.disconnect()
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(anext(heard), timeout=2)
 
 
 async def test_listening_waits_for_a_connection_and_ends_with_the_leave() -> None:
