@@ -37,11 +37,14 @@ localhost unless told otherwise.
 | `shoal_loop_block_seconds` | histogram | |
 | `shoal_loop_blocks_total` | counter | |
 | `shoal_loop_lag_seconds` | gauge | |
+| `shoal_member_chunks_total` | counter | `result` (`fetched`, `retried`, `rate_limited`, `timeout`, `disconnected`, `error`) |
 | `shoal_rest_invalid_requests` | gauge | |
 | `shoal_rest_rate_limited_total` | counter | `route`, `scope` |
 | `shoal_rest_request_seconds` | histogram | `method`, `route` |
 | `shoal_rest_requests_total` | counter | `method`, `route`, `status` |
 | `shoal_rest_retries_total` | counter | `route`, `reason` |
+| `shoal_voice_packets_dropped_total` | counter | `reason` (`behind`, `unsealed`, `undecrypted`) |
+| `shoal_voice_reconnects_total` | counter | `mode` (`resume`, `rejoin`) |
 
 Routes are labelled by template (`GET /channels/{channel_id}`), never by filled-in path, so the number
 of series stays bounded however busy the bot is.

@@ -401,7 +401,7 @@ async def test_a_failing_session_store_does_not_end_the_shard(caplog: pytest.Log
             raise OSError(msg)
 
         @override
-        async def delete(self, shard_id: int) -> None:
+        async def delete(self, shard_id: int, shard_count: int) -> None:
             pass
 
     connection = FakeConnection()
@@ -651,8 +651,8 @@ async def test_ending_a_session_wins_over_a_save_still_in_flight() -> None:
             await self.inner.save(session)
 
         @override
-        async def delete(self, shard_id: int) -> None:
-            await self.inner.delete(shard_id)
+        async def delete(self, shard_id: int, shard_count: int) -> None:
+            await self.inner.delete(shard_id, shard_count)
 
     store = SlowStore()
     connection = FakeConnection()
@@ -758,7 +758,7 @@ async def test_a_slow_store_gets_one_save_at_a_time_however_many_beats_arrive() 
                 await self.release.wait()
 
         @override
-        async def delete(self, shard_id: int) -> None:
+        async def delete(self, shard_id: int, shard_count: int) -> None:
             pass
 
     store = SlowStore()

@@ -21,7 +21,7 @@ import logging
 from collections.abc import Awaitable, Callable, Iterator, Sequence
 from typing import Final, override
 
-from msgspec import UnsetType
+from msgspec import UNSET, UnsetType
 
 from shoal.app_commands.commands import (
     AppCommand,
@@ -35,12 +35,17 @@ from shoal.app_commands.commands import (
 from shoal.app_commands.errors import (
     AppCommandError,
     CheckFailureError,
+    CommandAlreadyRegisteredError,
     CommandInvokeError,
+    CommandLimitReachedError,
     CommandNotFoundError,
+    CommandSyncFailureError,
+    MissingApplicationIDError,
     TransformerError,
 )
 from shoal.app_commands.models import AnyChoice, Namespace
-from shoal.client.client import Client, ClientError
+from shoal.app_commands.translator import TranslationContext, TranslationContextLocation, Translator
+from shoal.client.client import Client
 from shoal.client.interaction import Interaction
 from shoal.core.tasks import spawn
 from shoal.models.member import Member
@@ -50,8 +55,10 @@ from shoal.payloads.application_commands import (
     APPLICATION_MAX_COMMANDS,
     OPTION_MAX_CHOICES,
     ApplicationCommand,
+    ApplicationCommandOption,
     ApplicationCommandOptionType,
     ApplicationCommandType,
+    OverwriteCommandParams,
 )
 from shoal.payloads.interactions import (
     ApplicationCommandData,
@@ -60,6 +67,7 @@ from shoal.payloads.interactions import (
     AutocompleteInteraction,
     ResolvedData,
 )
+from shoal.rest.errors import BadRequestError
 
 type _Key = tuple[str, ApplicationCommandType]
 
@@ -86,7 +94,7 @@ class CommandTree:
     Discord: https://docs.discord.com/developers/interactions/application-commands
     """
 
-    __slots__ = ("_client", "_error_handler", "_global", "_guilds")
+    __slots__ = ("_client", "_error_handler", "_global", "_guilds", "_translator")
 
     def __init__(self, client: Client) -> None:
         """A tree for `client`, which then gives it every command interaction."""
@@ -94,6 +102,7 @@ class CommandTree:
         self._global: dict[_Key, AppCommand] = {}
         self._guilds: dict[int, dict[_Key, AppCommand]] = {}
         self._error_handler: ErrorHandler | None = None
+        self._translator: Translator | None = None
         client.add_interaction_handler(self._handle)
 
     @property
@@ -118,8 +127,10 @@ class CommandTree:
         """Add a command globally, or to `guild` / `guilds` (or those `@guilds` named).
 
         Raises:
-            ValueError: A command of that name and type is already there (pass `override=True` to
-                replace it), there are as many as Discord allows, or `command` is a subcommand.
+            CommandAlreadyRegisteredError: A command of that name and type is already there (pass
+                `override=True` to replace it).
+            CommandLimitReachedError: There are as many as Discord allows.
+            ValueError: `command` is a subcommand.
         """
         if not isinstance(command, ContextMenu) and command.parent is not None:
             msg = f"{command.qualified_name!r} belongs to a group; add the group instead"
@@ -131,14 +142,12 @@ class CommandTree:
         for target in targets:
             scope = self._scope(target)
             if key in scope and not override:
-                msg = f"a {key[1].name} command named {key[0]!r} is already registered"
-                raise ValueError(msg)
+                raise CommandAlreadyRegisteredError(key[0], target)
             if (
                 key not in scope
                 and sum(1 for _, kind in scope if kind is key[1]) >= APPLICATION_MAX_COMMANDS[key[1]]
             ):
-                msg = f"{APPLICATION_MAX_COMMANDS[key[1]]} {key[1].name} commands is the most Discord allows"
-                raise ValueError(msg)
+                raise CommandLimitReachedError(key[1].name, APPLICATION_MAX_COMMANDS[key[1]], target)
         for target in targets:
             self._scope(target)[key] = command
 
@@ -202,14 +211,13 @@ class CommandTree:
         """Register the global commands in `guild` too: they update there instantly while developing.
 
         Raises:
-            ValueError: The guild would hold more commands than Discord allows.
+            CommandLimitReachedError: The guild would hold more commands than Discord allows.
         """
         scope = self._scope(guild)
         merged = {**scope, **self._global}
         for kind, limit in APPLICATION_MAX_COMMANDS.items():
             if sum(1 for _, found in merged if found is kind) > limit:
-                msg = f"{limit} {kind.name} commands is the most Discord allows in a guild"
-                raise ValueError(msg)
+                raise CommandLimitReachedError(kind.name, limit, guild)
         scope.update(self._global)
 
     def command(
@@ -245,22 +253,48 @@ class CommandTree:
     async def sync(self, *, guild: int | None = None) -> list[ApplicationCommand]:
         """Replace the app's commands in Discord with the tree's: global ones, or `guild`'s.
 
-        Global changes can take a while to reach every client; guild ones apply at once.
+        Global changes can take a while to reach every client; guild ones apply at once. With a
+        translator set, each name and description is sent with its translations.
 
         Raises:
-            ClientError: The client has not logged in.
+            MissingApplicationIDError: The client has not logged in.
+            CommandSyncFailureError: Discord refused a command; its `commands` say which.
+            TranslationError: The translator raised.
 
         Discord: https://docs.discord.com/developers/interactions/application-commands#bulk-overwrite-global-application-commands
         """
         application_id = self._client.application_id
         if application_id is None:
-            msg = "log in before syncing commands: the application ID is not known yet"
-            raise ClientError(msg)
-        payloads = [command.to_payload() for command in self.get_commands(guild=guild)]
+            raise MissingApplicationIDError
+        payloads: list[OverwriteCommandParams] = []
+        for command in self.get_commands(guild=guild):
+            payload = command.to_payload()
+            if self._translator is not None:
+                await _localize(self._translator, command, payload)
+            payloads.append(payload)
         commands = self._client.rest.commands
-        if guild is None:
-            return await commands.overwrite_global(application_id, payloads)
-        return await commands.overwrite_guild(application_id, guild, payloads)
+        try:
+            if guild is None:
+                return await commands.overwrite_global(application_id, payloads)
+            return await commands.overwrite_guild(application_id, guild, payloads)
+        except BadRequestError as error:
+            raise CommandSyncFailureError(error, [payload.name for payload in payloads]) from error
+
+    @property
+    def translator(self) -> Translator | None:
+        """The translator `sync` uses, if one is set."""
+        return self._translator
+
+    async def set_translator(self, translator: Translator | None) -> None:
+        """Translate the commands with `translator` from the next `sync` on (`None`: stop).
+
+        The old translator is unloaded and the new one loaded.
+        """
+        if self._translator is not None:
+            await self._translator.unload()
+        self._translator = translator
+        if translator is not None:
+            await translator.load()
 
     async def interaction_check(self, interaction: Interaction) -> bool:
         """Decide whether any of the tree's commands may run; the default allows them."""
@@ -347,6 +381,7 @@ class CommandTree:
                 }
             )
             await self._check(interaction, command)
+            await command.transform(interaction, arguments, leaf_options)
             await _invoke(command.qualified_name, command.invoke(interaction, arguments))
         except Exception as error:  # noqa: BLE001 - every error a command raises goes to its handlers
             await self._report(interaction, command, error)
@@ -503,3 +538,48 @@ async def _invoke(name: str, running: Awaitable[None]) -> None:
         raise
     except Exception as error:
         raise CommandInvokeError(name, error) from error
+
+
+type _Localizable = OverwriteCommandParams | ApplicationCommandOption
+
+
+async def _localize(translator: Translator, command: AppCommand, payload: _Localizable) -> None:
+    """Fill `payload`'s localizations (and its options', recursively) from `translator`."""
+    location = TranslationContextLocation
+    if isinstance(command, Group):
+        names, descriptions = location.GROUP_NAME, location.GROUP_DESCRIPTION
+    else:
+        names, descriptions = location.COMMAND_NAME, location.COMMAND_DESCRIPTION
+    payload.name_localizations = (
+        await translator.localizations(command.name, TranslationContext(names, command)) or UNSET
+    )
+    if isinstance(command, ContextMenu):
+        return
+    payload.description_localizations = (
+        await translator.localizations(command.description, TranslationContext(descriptions, command))
+        or UNSET
+    )
+    options = payload.options if isinstance(payload.options, list) else []
+    if isinstance(command, Group):
+        for child, option in zip(command.commands, options, strict=True):
+            await _localize(translator, child, option)
+        return
+    for parameter, option in zip(command.parameters, options, strict=True):
+        option.name_localizations = (
+            await translator.localizations(
+                parameter.display_name, TranslationContext(location.PARAMETER_NAME, parameter)
+            )
+            or UNSET
+        )
+        option.description_localizations = (
+            await translator.localizations(
+                parameter.description, TranslationContext(location.PARAMETER_DESCRIPTION, parameter)
+            )
+            or UNSET
+        )
+        choices = option.choices if isinstance(option.choices, list) else []
+        for choice, sent in zip(parameter.choices, choices, strict=True):
+            sent.name_localizations = (
+                await translator.localizations(choice.name, TranslationContext(location.CHOICE_NAME, choice))
+                or UNSET
+            )

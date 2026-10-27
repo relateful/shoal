@@ -20,16 +20,19 @@ from shoal.core.dispatch import DispatchEvent, DispatchHandler
 from shoal.core.metrics import InMemoryMetrics
 from shoal.core.replies import REPLY_WRITTEN
 from shoal.core.snowflake import Snowflake
+from shoal.gateway.cluster import MemoryCommandRouter, MemoryShardDirectory
 from shoal.gateway.session import MemorySessionStore
-from shoal.gateway.shard import ShardOptions
+from shoal.gateway.shard import ShardNotConnectedError, ShardOptions
 from shoal.gateway.sharding import LocalIdentifyLimiter
 from shoal.models.activity import Game
 from shoal.models.channel import PartialMessageable, TextChannel
 from shoal.models.state import GatewayRequiredError, MemberRequestRateLimitedError
+from shoal.models.voice import SendVoiceState
 from shoal.payloads import (
     ActivityType,
     ApplicationDeauthorized,
     DeferredMessageResponse,
+    GatewayOpcode,
     Intents,
     MessageResponse,
     RequestGuildMembers,
@@ -47,7 +50,7 @@ from shoal.rest.files import File
 from tests.support.calls import call_unchecked
 from tests.support.client import INTENTS, Recorder, feed, logged_in, queue_login, receive_test_guild, started
 from tests.support.endpoint import post, url_of
-from tests.support.fakes import FakeTransport, settle
+from tests.support.fakes import FakeTransport, ManualClock, settle
 from tests.support.interactions import PersistentView, command, component, payload
 from tests.support.models import (
     ALICE,
@@ -277,7 +280,20 @@ async def test_resumed_is_reported() -> None:
     client, _ = await logged_in()
     events = Recorder(client, "resumed", "shard_resumed")
     await feed(client, "RESUMED", None, shard=3)
-    assert events.seen == [("shard_resumed", (3,)), ("resumed", ())]
+    assert events.seen[:2] == [("shard_resumed", (3,)), ("resumed", ())]
+
+
+async def test_a_session_resumed_after_a_restart_makes_the_client_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # After a restart the shards resume their saved sessions: no READY ever arrives.
+    client, shard, recorder, _ = await connecting(monkeypatch)
+    await feed(client, "RESUMED", None)
+    assert recorder.names() == ["shard_ready", "shard_ready", "ready"]
+    assert client.is_ready()
+    await feed(client, "RESUMED", None)  # a later resume of a ready shard changes nothing
+    assert recorder.names() == ["shard_ready", "shard_ready", "ready"]
+    assert shard.member_requests == []
 
 
 async def test_cache_lookups() -> None:
@@ -386,6 +402,8 @@ class FakeManager:
         self.presence = presence
         self.shards = {shard_id: FakeShard() for shard_id in shard_ids}
         self.closed = False
+        self.resharded: tuple[int, Sequence[int] | None] | None = None
+        self.voice_states: list[tuple[int, object]] = []
         FakeManager.made.append(self)
 
     async def run(self) -> None:
@@ -397,6 +415,19 @@ class FakeManager:
     def shard_for_guild(self, guild_id: int) -> FakeShard | None:
         del guild_id
         return self.shards[0]
+
+    async def send_to_guild(self, guild_id: int, opcode: GatewayOpcode, data: msgspec.Struct) -> None:
+        assert opcode is GatewayOpcode.VOICE_STATE_UPDATE
+        self.voice_states.append((guild_id, msgspec.json.decode(encode_json(data))))
+
+    async def update_presence(self, presence: UpdatePresence) -> None:
+        for shard in self.shards.values():
+            await shard.update_presence(presence)
+
+    async def reshard(self, shard_count: int, shard_ids: Sequence[int] | None) -> None:
+        self.resharded = (shard_count, shard_ids)
+        self.shard_count = shard_count
+        self.shards = {shard_id: FakeShard() for shard_id in shard_ids or range(shard_count)}
 
 
 GATEWAY_BOT = {
@@ -507,6 +538,47 @@ async def test_a_cluster_runs_only_its_shards(monkeypatch: pytest.MonkeyPatch) -
     await clustered.connect("token")
     assert list(FakeManager.made[-1].shard_ids) == [2, 3]
     assert FakeManager.made[-1].shard_count == 4
+
+
+def shard_manager_of(client: Client) -> object:
+    """Read through a function: checkers narrow a property across the awaits in between."""
+    return client.shard_manager
+
+
+async def test_a_reshard_goes_to_the_manager_once_session_starts_allow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    directory, router = MemoryShardDirectory(), MemoryCommandRouter()
+
+    class Cluster(Client):
+        def __init__(self, *, intents: Intents, rest: Callable[[Token], RestClient]) -> None:
+            super().__init__(
+                intents=intents,
+                rest=rest,
+                shard_directory=directory,
+                command_router=router,
+                cluster_name="cluster-1",
+            )
+
+    clustered, transport = await logged_in(Cluster)
+    with pytest.raises(GatewayRequiredError):
+        await clustered.reshard(4)
+    assert shard_manager_of(clustered) is None
+    transport.queue(200, GATEWAY_BOT)
+    await clustered.connect("token")
+    manager = FakeManager.made[-1]
+    assert shard_manager_of(clustered) is manager
+    assert (manager.options["directory"], manager.options["router"], manager.options["name"]) == (
+        directory,
+        router,
+        "cluster-1",
+    )
+    transport.queue(200, GATEWAY_BOT)
+    await clustered.reshard(4, [2, 3])
+    assert manager.resharded == (4, [2, 3])
+    assert clustered.cache.revision > 0  # the cache was told
+    await clustered.close()
 
 
 def test_run_closes_the_client() -> None:
@@ -814,3 +886,274 @@ async def test_member_requests_need_their_intents_a_gateway_and_an_answer(
     monkeypatch.setattr(client_module, "MEMBER_QUERY_TIMEOUT", 0.01)
     with pytest.raises(TimeoutError):
         await online.query_members("nobody")
+
+
+class StubVoice:
+    """Stands in for a guild's voice client: records what the client hands it."""
+
+    made: ClassVar[list["StubVoice"]] = []
+    failing: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        state: object,
+        guild_id: int,
+        *,
+        send_state: SendVoiceState,
+        forget: Callable[[object], None],
+        metrics: object,
+    ) -> None:
+        del state
+        self.guild_id = Snowflake(guild_id)
+        self.send_state = send_state
+        self.forget = forget
+        self.metrics = metrics
+        self.states: list[object] = []
+        self.servers: list[object] = []
+        self.joined: list[int] = []
+        self.left = False
+        StubVoice.made.append(self)
+
+    async def connect(self, channel_id: int, *, self_mute: bool, self_deaf: bool) -> None:
+        del self_mute, self_deaf
+        if self.failing:
+            msg = "no answer"
+            raise TimeoutError(msg)
+        self.joined.append(channel_id)
+
+    def is_connected(self) -> bool:
+        return bool(self.joined)
+
+    def on_voice_state(self, state: object) -> None:
+        self.states.append(state)
+
+    def on_voice_server(self, server: object) -> None:
+        self.servers.append(server)
+
+    async def disconnect(self) -> None:
+        self.left = True
+        self.forget(self)
+
+
+def voice_state_of(user: int, guild: int | None = GUILD, channel: int | None = 20) -> dict[str, object]:
+    state: dict[str, object] = {
+        "channel_id": None if channel is None else str(channel),
+        "user_id": str(user),
+        "session_id": "voice-session",
+        "deaf": False,
+        "mute": False,
+        "self_deaf": False,
+        "self_mute": False,
+        "self_video": False,
+        "suppress": False,
+        "request_to_speak_timestamp": None,
+    }
+    if guild is not None:
+        state["guild_id"] = str(guild)
+    return state
+
+
+async def test_voice_joins_through_the_guilds_shard_and_gets_its_answers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "VoiceClient", StubVoice)
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=True)
+    voice = StubVoice.made[-1]
+    with pytest.raises(GatewayRequiredError, match="joining a voice channel"):
+        await voice.send_state(GUILD, 20, self_mute=False, self_deaf=False)  # before connecting
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    manager = FakeManager.made[-1]
+    assert client.voice_client(GUILD) is not None
+    assert len(client.voice_clients) == 1
+    await client.connect_voice(GUILD, 21, self_mute=False, self_deaf=False)
+    assert StubVoice.made[-1] is voice  # one per guild
+    assert voice.joined == [20, 21]
+    # The voice state update goes out through the manager, to the guild's shard.
+    await voice.send_state(GUILD, 20, self_mute=True, self_deaf=False)
+    sent = {"guild_id": str(GUILD), "channel_id": "20", "self_mute": True, "self_deaf": False}
+    assert manager.voice_states[-1] == (GUILD, sent)
+    # Only the bot's own voice states reach the voice client, and only of its guild.
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(BOT))
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(ALICE))
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(BOT, guild=None))
+    await feed(
+        client, "VOICE_SERVER_UPDATE", {"token": "t", "guild_id": str(GUILD), "endpoint": "voice.test"}
+    )
+    await feed(client, "VOICE_SERVER_UPDATE", {"token": "t", "guild_id": "999", "endpoint": "voice.test"})
+    assert (len(voice.states), len(voice.servers)) == (1, 1)
+    await client.close()
+    assert voice.left
+    assert client.voice_clients == []
+
+
+async def test_voice_clients_get_the_clients_metrics_and_all_leave_on_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "VoiceClient", StubVoice)
+    metrics, transport = InMemoryMetrics(), FakeTransport()
+    client = Client(intents=INTENTS, rest=lambda token: make_client(transport, token=token), metrics=metrics)
+    queue_login(transport)
+    await client.login("token")
+    await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=False)
+    await client.connect_voice(GUILD + 1, 30, self_mute=False, self_deaf=False)
+    first, second = StubVoice.made[-2:]
+    assert first.metrics is metrics
+    await client.close()
+    assert first.left
+    assert second.left
+    assert client.voice_clients == []
+
+
+async def test_a_failed_join_leaves_nothing_behind(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(client_module, "VoiceClient", StubVoice)
+    monkeypatch.setattr(StubVoice, "failing", True)
+    client, _ = await started()
+    with pytest.raises(TimeoutError):
+        await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=False)
+    assert client.voice_client(GUILD) is None
+    await client.close()
+
+
+def ready_with(*guild_ids: int) -> dict[str, object]:
+    return {
+        "v": 10,
+        "user": user(BOT, "shoalbot") | {"bot": True},
+        "guilds": [{"id": str(guild_id), "unavailable": True} for guild_id in guild_ids],
+        "session_id": "s",
+        "resume_gateway_url": "wss://resume.example",
+        "application": {"id": str(APPLICATION), "flags": 0},
+    }
+
+
+async def connecting(monkeypatch: pytest.MonkeyPatch) -> tuple[Client, FakeShard, Recorder, ManualClock]:
+    """A client connected through a fake manager (two shards), before any shard is ready."""
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    transport, clock = FakeTransport(), ManualClock()
+    client = Client(intents=INTENTS, rest=lambda token: make_client(transport, token=token), clock=clock)
+    queue_login(transport)
+    await client.login("token")
+    recorder = Recorder(client, "shard_ready", "ready")
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    await feed(client, "READY", ready_with(), shard=1)
+    return client, FakeManager.made[-1].shards[0], recorder, clock
+
+
+async def test_guilds_arriving_without_their_members_are_chunked_before_the_shard_is_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, shard, recorder, _ = await connecting(monkeypatch)
+    await feed(client, "READY", ready_with(GUILD))
+    await feed(client, "GUILD_CREATE", guild_create() | {"member_count": 10})
+    [request] = shard.member_requests
+    assert (request.guild_id, request.query, request.limit) == (GUILD, "", 0)
+    assert recorder.names() == ["shard_ready"]  # shard 1 only: shard 0 waits for its members
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(request, 0, 1, ALICE, BOB))
+    assert recorder.names() == ["shard_ready", "shard_ready", "ready"]
+    guild = client.get_guild(GUILD)
+    assert guild is not None
+    assert {found.id for found in guild.members} == {ALICE, BOB}
+
+
+async def test_complete_guilds_are_not_chunked_and_joined_ones_are(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, shard, recorder, _ = await connecting(monkeypatch)
+    await feed(client, "READY", ready_with(GUILD))
+    await feed(client, "GUILD_CREATE", guild_create())  # every member came with it
+    assert shard.member_requests == []
+    assert recorder.names()[-1] == "ready"
+    joined = guild_create() | {"id": "999", "member_count": 50}
+    await feed(client, "GUILD_CREATE", joined)
+    [request] = shard.member_requests
+    assert request.guild_id == 999
+    assert recorder.names().count("ready") == 1
+
+
+async def test_a_rate_limited_startup_chunk_is_asked_for_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, shard, recorder, clock = await connecting(monkeypatch)
+    await feed(client, "READY", ready_with(GUILD))
+    await feed(client, "GUILD_CREATE", guild_create() | {"member_count": 10})
+    [first] = shard.member_requests
+    limited = {"opcode": 8, "retry_after": 30.0, "meta": {"guild_id": str(GUILD), "nonce": first.nonce}}
+    await feed(client, "RATE_LIMITED", limited)
+    assert len(shard.member_requests) == 1  # waiting out the 30 seconds Discord asked for
+    await clock.advance(30)
+    asked_first, second = shard.member_requests
+    assert asked_first is first
+    assert second.nonce != first.nonce
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(second, 0, 1, ALICE))
+    assert recorder.names()[-1] == "ready"
+
+
+async def test_startup_chunking_can_be_turned_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    transport = FakeTransport()
+    client = Client(
+        intents=INTENTS, rest=lambda token: make_client(transport, token=token), chunk_guilds_at_startup=False
+    )
+    queue_login(transport)
+    await client.login("token")
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    await feed(client, "READY", ready_with(GUILD))
+    await feed(client, "GUILD_CREATE", guild_create() | {"member_count": 10})
+    assert FakeManager.made[-1].shards[0].member_requests == []
+    with pytest.raises(ValueError, match="Server Members"):
+        Client(intents=Intents.default(), chunk_guilds_at_startup=True)
+
+
+async def test_a_chunk_that_fails_does_not_stop_the_shards_chunking(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, shard, recorder, _ = await connecting(monkeypatch)
+    requests = shard.request_guild_members
+
+    async def disconnected(request: RequestGuildMembers) -> None:
+        del request
+        msg = "reconnecting"
+        raise ShardNotConnectedError(msg)
+
+    monkeypatch.setattr(shard, "request_guild_members", disconnected)
+    await feed(client, "READY", ready_with(GUILD, 999))
+    await feed(client, "GUILD_CREATE", guild_create() | {"member_count": 10})
+    monkeypatch.setattr(shard, "request_guild_members", requests)
+    await feed(client, "GUILD_CREATE", guild_create() | {"id": "999", "member_count": 10})
+    [request] = shard.member_requests  # the next guild is still asked for
+    assert request.guild_id == 999
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(request, 0, 1, ALICE) | {"guild_id": "999"})
+    assert recorder.names()[-1] == "ready"
+
+
+async def test_a_resume_while_startup_guilds_arrive_waits_for_them(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _, recorder, _ = await connecting(monkeypatch)
+    await feed(client, "READY", ready_with(GUILD))
+    await feed(client, "RESUMED", None)  # the connection dropped right after READY
+    assert recorder.names() == ["shard_ready"]  # shard 1 only
+    await feed(client, "GUILD_CREATE", guild_create())
+    assert recorder.names() == ["shard_ready", "shard_ready", "ready"]
+
+
+async def test_chunking_outcomes_are_counted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    transport, clock, metrics = FakeTransport(), ManualClock(), InMemoryMetrics()
+    client = Client(
+        intents=INTENTS, rest=lambda token: make_client(transport, token=token), clock=clock, metrics=metrics
+    )
+    queue_login(transport)
+    await client.login("token")
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    shard = FakeManager.made[-1].shards[0]
+    await feed(client, "READY", ready_with(GUILD))
+    await feed(client, "GUILD_CREATE", guild_create() | {"member_count": 10})
+    [first] = shard.member_requests
+    limited = {"opcode": 8, "retry_after": 30.0, "meta": {"guild_id": str(GUILD), "nonce": first.nonce}}
+    await feed(client, "RATE_LIMITED", limited)
+    await clock.advance(30)
+    await feed(client, "GUILD_MEMBERS_CHUNK", chunk_of(shard.member_requests[-1], 0, 1, ALICE))
+    counted = {
+        key[1][0][1]: value
+        for key, value in metrics.counters.items()
+        if key[0] == "shoal_member_chunks_total"
+    }
+    assert counted == {"retried": 1.0, "fetched": 1.0}

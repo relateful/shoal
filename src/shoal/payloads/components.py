@@ -46,10 +46,40 @@ BUTTON_URL_MAX_LENGTH: Final = 512
 Discord: https://docs.discord.com/developers/components/reference#button-button-structure
 """
 
+CHECKBOX_GROUP_MAX_OPTIONS: Final = 10
+"""Options in a checkbox group (at least one), and the most its `min_values` and `max_values` can be.
+
+Discord: https://docs.discord.com/developers/components/reference#checkbox-group-structure
+"""
+
 COMPONENT_CUSTOM_ID_MAX_LENGTH: Final = 100
 """Characters in a component's `custom_id` (at least one).
 
 Discord: https://docs.discord.com/developers/components/reference#anatomy-of-a-component-custom-id
+"""
+
+CONTAINER_ACCENT_COLOR_MAX: Final = 0xFFFFFF
+"""The largest accent colour a container takes, as RGB.
+
+Discord: https://docs.discord.com/developers/components/reference#container-container-structure
+"""
+
+FILE_UPLOAD_MAX_FILES: Final = 10
+"""Files a file upload accepts at most, and the most its `min_values` and `max_values` can be.
+
+Discord: https://docs.discord.com/developers/components/reference#file-upload-file-upload-structure
+"""
+
+FILE_UPLOAD_MAX_FILE_TYPES: Final = 10
+"""File types a file upload can filter for.
+
+Discord: https://docs.discord.com/developers/components/reference#file-upload-file-upload-structure
+"""
+
+GROUP_OPTION_TEXT_MAX_LENGTH: Final = 100
+"""Characters in a radio group or checkbox group option's label, value and description.
+
+Discord: https://docs.discord.com/developers/components/reference#radio-group-option-structure
 """
 
 LABEL_DESCRIPTION_MAX_LENGTH: Final = 100
@@ -68,6 +98,42 @@ LEGACY_MESSAGE_MAX_ACTION_ROWS: Final = 5
 """Action rows a message without `is_components_v2` can have.
 
 Discord: https://docs.discord.com/developers/components/reference#legacy-message-component-behavior
+"""
+
+MEDIA_DESCRIPTION_MAX_LENGTH: Final = 1024
+"""Characters in a thumbnail's or a media gallery item's alt text.
+
+Discord: https://docs.discord.com/developers/components/reference#thumbnail-thumbnail-structure
+"""
+
+MEDIA_GALLERY_MAX_ITEMS: Final = 10
+"""Images or videos in a media gallery (at least one).
+
+Discord: https://docs.discord.com/developers/components/reference#media-gallery-media-gallery-structure
+"""
+
+MESSAGE_MAX_COMPONENTS: Final = 40
+"""Components a Components V2 message holds, counting those inside others.
+
+Discord: https://docs.discord.com/developers/components/reference
+"""
+
+RADIO_GROUP_MAX_OPTIONS: Final = 10
+"""Options in a radio group.
+
+Discord: https://docs.discord.com/developers/components/reference#radio-group-structure
+"""
+
+RADIO_GROUP_MIN_OPTIONS: Final = 2
+"""Options a radio group needs.
+
+Discord: https://docs.discord.com/developers/components/reference#radio-group-structure
+"""
+
+SECTION_MAX_COMPONENTS: Final = 3
+"""Text displays in a section (at least one).
+
+Discord: https://docs.discord.com/developers/components/reference#section-section-structure
 """
 
 SELECT_MAX_OPTIONS: Final = 25

@@ -1,0 +1,12 @@
+# What the examples write while they run, and your own settings.
+reaction_roles.json
+giveaways.json
+starboard.json
+reminders.json
+levels.db
+emojis.lock.json
+sessions/
+cache.snapshot
+recordings/
+.env
+data/

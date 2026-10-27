@@ -33,6 +33,25 @@ MAX_RATE_LIMIT_WAIT: Final = 60.0
 MAX_RETRIES: Final = 3
 """Retries for rate limits, idempotent requests that hit a 5xx, and network errors."""
 
+PROXY_HOST: Final = "127.0.0.1"
+"""The address `RestProxy` listens on: this machine only, until it is told otherwise."""
+
+PROXY_MAX_BODY_SIZE: Final = 512 * 1024 * 1024
+"""The largest request body `RestProxy` accepts, in bytes. Shoal's own bound: Discord's limit applies
+per file, rises with a guild's boost tier, and a message carries several files.
+
+Discord: https://docs.discord.com/developers/reference#uploading-files
+"""
+
+PROXY_PATH: Final = "/api"
+"""The path `RestProxy` serves under; clients use `http://host:port/api` as their `base_url`."""
+
+PROXY_PORT: Final = 8080
+"""The port `RestProxy` listens on."""
+
+PROXY_SECRET_HEADER: Final = "X-Shoal-Proxy-Secret"  # noqa: S105 - a header name, not a secret
+"""The header that carries the proxy's secret from `RestClient(proxy_secret=...)` to `RestProxy`."""
+
 REQUEST_TIMEOUT: Final = 30.0
 """Seconds allowed per HTTP request, including reading the body."""
 

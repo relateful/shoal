@@ -3,7 +3,15 @@ from pathlib import Path
 import msgspec
 import pytest
 
-from shoal.rest.files import File, encode_multipart
+from shoal.payloads.message import VOICE_MESSAGE_WAVEFORM_MAX_POINTS
+from shoal.rest.files import (
+    File,
+    VoiceMessage,
+    encode_multipart,
+    flat_waveform,
+    ogg_opus_duration,
+    waveform_of,
+)
 from tests.support.multipart import FormPart, parse_form
 
 
@@ -78,3 +86,88 @@ async def test_the_content_type_is_guessed_from_the_extension(tmp_path: Path) ->
     assert (await File.from_path(tmp_path / "data.unknownext")).content_type == "application/octet-stream"
     given = await File.from_path(tmp_path / "chart.png", content_type="image/apng")
     assert given.content_type == "image/apng"
+
+
+def ogg_opus(seconds: float, pre_skip: int = 312, *, audio: bytes = b"audio", pages: int = 1) -> bytes:
+    """A minimal Ogg Opus stream: the OpusHead page, then audio pages whose last granule ends it."""
+
+    def page(granule: int, packet: bytes) -> bytes:
+        header = b"OggS" + bytes([0, 0]) + granule.to_bytes(8, "little") + bytes(12) + bytes([1, len(packet)])
+        return header + packet
+
+    head = (
+        b"OpusHead"
+        + bytes([1, 1])
+        + pre_skip.to_bytes(2, "little")
+        + (48_000).to_bytes(4, "little")
+        + bytes(3)
+    )
+    end = pre_skip + round(seconds * 48_000)
+    middle = b"".join(page(end * index // pages, audio) for index in range(1, pages))
+    return page(0, head) + middle + page(end, audio)
+
+
+def test_a_voice_message_reads_its_duration_from_the_ogg_stream() -> None:
+    voice = VoiceMessage.from_ogg(ogg_opus(3.0))
+    assert voice.duration == 3.0
+    assert voice.waveform == bytes([128]) * 30  # one point per 100 ms, flat without the audio
+    assert repr(voice) == f"VoiceMessage(duration=3.00, size={len(voice.data)})"
+    attached = voice.file
+    assert (attached.filename, attached.content_type, attached.duration, attached.waveform) == (
+        "voice-message.ogg",
+        "audio/ogg",
+        3.0,
+        voice.waveform,
+    )
+    assert len(VoiceMessage.from_ogg(ogg_opus(60.0)).waveform) == VOICE_MESSAGE_WAVEFORM_MAX_POINTS
+    given = VoiceMessage.from_ogg(ogg_opus(1.0), waveform=b"\x01\x02")
+    assert given.waveform == b"\x01\x02"
+
+
+def test_the_duration_comes_from_the_last_page_whatever_the_audio_holds() -> None:
+    # Audio bytes that spell the page marker must not be read as a page.
+    assert ogg_opus_duration(ogg_opus(2.0, audio=b"xxOggS" + bytes(20))) == 2.0
+    assert ogg_opus_duration(ogg_opus(4.0, pages=5)) == 4.0
+    with pytest.raises(ValueError, match="cut short"):
+        ogg_opus_duration(ogg_opus(1.0)[:-2])
+    with pytest.raises(ValueError, match="not an Ogg Opus stream"):
+        ogg_opus_duration(b"")
+
+
+def test_only_ogg_opus_audio_is_read() -> None:
+    with pytest.raises(ValueError, match="not an Ogg stream"):
+        ogg_opus_duration(b"RIFF....WAVE")
+    with pytest.raises(ValueError, match="not an Ogg"):
+        ogg_opus_duration(b"OggS" + bytes(30))
+    with pytest.raises(ValueError, match="holds no audio"):
+        ogg_opus_duration(ogg_opus(0.0))
+
+
+def test_a_voice_message_has_what_discord_requires() -> None:
+    with pytest.raises(ValueError, match="positive duration"):
+        VoiceMessage(b"x", 0.0, b"\x01")
+    with pytest.raises(ValueError, match="1 to 256 points"):
+        VoiceMessage(b"x", 1.0, b"")
+    with pytest.raises(ValueError, match="1 to 256 points"):
+        VoiceMessage(b"x", 1.0, bytes(257))
+    with pytest.raises(ValueError, match="audio/"):
+        VoiceMessage(b"x", 1.0, b"\x01", content_type="video/mp4")
+
+
+async def test_a_voice_message_is_read_from_disk_off_the_loop(tmp_path: Path) -> None:
+    path = tmp_path / "hello.ogg"
+    path.write_bytes(ogg_opus(2.5))
+    voice = await VoiceMessage.from_path(path)
+    assert (voice.filename, voice.duration) == ("hello.ogg", 2.5)
+
+
+def test_a_waveform_keeps_the_loudest_level_of_each_point() -> None:
+    assert waveform_of([0.0, 0.5, 1.0, 2.0, -1.0]) == bytes([0, 128, 255, 255, 0])
+    long = waveform_of([0.1] * 511 + [1.0])
+    assert len(long) == VOICE_MESSAGE_WAVEFORM_MAX_POINTS
+    assert long[-1] == 255
+    assert set(long[:-1]) == {26}
+    assert waveform_of([float("nan"), 0.5]) == bytes([0, 128])  # an unknown level reads as silence
+    with pytest.raises(ValueError, match="at least one level"):
+        waveform_of([])
+    assert flat_waveform(0.01) == bytes([128])

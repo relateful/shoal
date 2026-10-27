@@ -6,6 +6,9 @@ Discord-documented gateway constants (send limits, identify window, close codes)
 
 from typing import Final
 
+COMMAND_QUEUE_SIZE: Final = 1000
+"""Gateway commands held for a shard run by another manager before the oldest is dropped."""
+
 CONNECT_TIMEOUT: Final = 30.0
 """Seconds allowed to open a gateway websocket before the attempt counts as failed."""
 
@@ -35,6 +38,9 @@ so shards invalidated together do not identify in lockstep."""
 RECONNECT_BACKOFF_CAP: Final = 60.0
 """The longest backoff, in seconds, between failed connection attempts."""
 
+RESHARD_POLL_INTERVAL: Final = 1.0
+"""Seconds between checks, during a reshard, of whether every new shard is ready."""
+
 RESUMABLE_CLOSE_CODE: Final = 4900
 """The code Shoal closes with when the session must stay resumable.
 
@@ -50,6 +56,12 @@ RESUME_WINDOW: Final = 180.0
 Not a documented limit: Discord staff describe resumability as lasting "a few minutes" or until the
 session's event buffer overflows. A resume past the real limit costs one Invalid Session round trip.
 """
+
+SHARD_STATUS_INTERVAL: Final = 5.0
+"""Seconds between a `ShardManager`'s reports of its shards to the shard directory."""
+
+SHARD_STATUS_TTL: Final = 15.0
+"""Seconds a shard's reported status counts; a cluster that stops reporting drops out of the directory."""
 
 STABLE_CONNECTION: Final = 60.0
 """Seconds a connection must stay ready before its loss reconnects without backoff. Shorter-lived

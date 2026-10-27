@@ -6,7 +6,7 @@ assert sent(transport) == ["Pong"]
 """
 
 import itertools
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from typing import overload
 
 import msgspec
@@ -17,9 +17,9 @@ from shoal.commands.view import StringView
 from shoal.models.message import Message
 from shoal.payloads import Intents, MessageCreate
 from shoal.rest.client import RestClient, Token
-from tests.support.client import feed, started
+from tests.support.client import Recorder, feed, started
 from tests.support.fakes import FakeTransport, settle
-from tests.support.models import ALICE, BOT, GENERAL, GUILD, decoded, message, user
+from tests.support.models import ALICE, BOT, GENERAL, GUILD, Json, decoded, message, user
 
 _IDS: Iterator[int] = itertools.count(5000)
 
@@ -52,18 +52,27 @@ async def say(
     in_guild: bool = True,
     from_bot: bool = False,
     replies: int = 0,
+    attachments: Sequence[Json] = (),
 ) -> int:
-    """Send `content` as a message, queueing `replies` answers to what the bot sends; the message's ID."""
+    """Send `content` (with `attachments`) as a message, queueing `replies` answers to what the bot
+    sends; the message's ID."""
     for _ in range(replies):
         transport.queue(200, message(next(_IDS), channel_id=channel, author=user(BOT, "shoalbot")))
     message_id = next(_IDS)
     who = user(author, "alice" if author == ALICE else f"user{author}") | ({"bot": True} if from_bot else {})
-    data = message(message_id, channel_id=channel, author=who, content=content)
+    data = message(message_id, channel_id=channel, author=who, content=content, attachments=list(attachments))
     if in_guild:
         data["guild_id"] = str(GUILD)
     await feed(bot, "MESSAGE_CREATE", data)
     await settle(60)
     return message_id
+
+
+def errors_of(events: Recorder) -> list[Exception]:
+    """The errors `on_command_error` received, in order, from a recorder of `command_error`."""
+    return [
+        args[1] for name, args in events.seen if name == "command_error" and isinstance(args[1], Exception)
+    ]
 
 
 def sent(transport: FakeTransport) -> list[str]:

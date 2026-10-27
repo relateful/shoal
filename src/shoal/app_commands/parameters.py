@@ -20,6 +20,7 @@ from msgspec import UNSET, UnsetType
 
 from shoal.app_commands.errors import TransformerError
 from shoal.app_commands.models import AnyChoice, Choice, RangeSpec
+from shoal.app_commands.transformers import Transformer, transformer_of
 from shoal.client.interaction import Interaction
 from shoal.core.snowflake import Snowflake
 from shoal.models.base import unset_if_none
@@ -113,6 +114,8 @@ class Parameter:
     pass_choice: bool = False
     """Hand the callback the `Choice` picked rather than its value."""
     enum_class: builtins.type[enum.Enum] | None = None
+    transformer: "Transformer[object] | None" = None
+    """Turns the converted value into what the callback receives, once the checks pass."""
 
     def __post_init__(self) -> None:
         if not self.display_name:
@@ -231,6 +234,9 @@ def parameter_from_annotation(name: str, annotation: object, default: object) ->
     Raises:
         TypeError: The annotation is not something an option can hold.
     """
+    transformer = transformer_of(annotation)
+    if transformer is not None:
+        return _transformed(name, annotation, default, transformer)
     spec: RangeSpec | None = None
     if get_origin(annotation) is typing.Annotated:
         annotation, *extras = get_args(annotation)
@@ -243,6 +249,28 @@ def parameter_from_annotation(name: str, annotation: object, default: object) ->
     parameter = _classify(name, members, default)
     if spec is not None:
         _apply_range(parameter, spec)
+    return parameter
+
+
+def _transformed(
+    name: str, annotation: object, default: object, transformer: "Transformer[object]"
+) -> Parameter:
+    """An option shaped by `transformer`; `Transform[T | None, X]` makes it optional."""
+    inner = get_args(annotation)[0] if get_origin(annotation) is typing.Annotated else annotation
+    if type(None) in _union_members(inner) and default is REQUIRED:
+        default = None
+    parameter = Parameter(
+        name=name,
+        type=transformer.type,
+        default=default,
+        choices=list(transformer.choices),
+        channel_types=list(transformer.channel_types),
+        autocomplete=transformer.autocomplete if transformer.has_autocomplete() else None,
+        accepts_member=True,
+        accepts_user=True,
+        transformer=transformer,
+    )
+    _apply_range(parameter, RangeSpec(transformer.min_value, transformer.max_value))
     return parameter
 
 

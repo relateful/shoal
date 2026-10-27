@@ -4,6 +4,9 @@
     await server.start()
     shards = ShardManager(..., dispatch=server.publish)
 
+On one host, `EventServer(token=secret, path="/run/bot/events.sock")` listens on a Unix socket
+instead (not on Windows), which skips TCP and is reached only through the file system.
+
 Each subscriber gets its own bounded queue and writer task. A subscriber that falls behind by
 `queue_size` events is disconnected (and counted in `shoal_ipc_disconnects_total{reason="slow"}`)
 instead of growing the gateway process's memory; it reconnects and continues.
@@ -13,7 +16,9 @@ import asyncio
 import contextlib
 import hmac
 import logging
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from ssl import SSLContext
 from typing import Final, final
 
@@ -46,6 +51,9 @@ _DISCARD_CHUNK: Final = 64 * 1024
 _LOGGED_NAME_LENGTH: Final = 100
 """How much of a client's self-chosen name is kept for logs and task names."""
 
+_UNIX_SOCKETS: Final = sys.platform != "win32"
+"""Whether this platform has Unix sockets (a name, so both platforms' type checks reach every line)."""
+
 
 @dataclass(eq=False, slots=True)
 class _Subscriber:
@@ -75,6 +83,13 @@ class EventServer:
         max_frame_size: Largest frame accepted from a client.
         metrics: Receives subscriber counts, events sent and disconnects.
         ssl: TLS context for the listening socket.
+        path: Listen on a Unix socket at this path instead of `host` and `port`. The socket is made
+            readable and writable by the bot's user only, once it is bound: put it in a directory only
+            that user can enter, so nothing reaches it before, and the client never connects to a
+            socket someone else put there. Not available on Windows.
+
+    Raises:
+        ValueError: `token` is empty, or `path` is given on Windows.
     """
 
     __slots__ = (
@@ -82,6 +97,7 @@ class EventServer:
         "_host",
         "_max_frame",
         "_metrics",
+        "_path",
         "_port",
         "_queue_size",
         "_server",
@@ -100,11 +116,16 @@ class EventServer:
         max_frame_size: int = MAX_FRAME_SIZE,
         metrics: Metrics | None = None,
         ssl: SSLContext | None = None,
+        path: str | None = None,
     ) -> None:
         """Create a server; call `start` to listen."""
         if not token:
             msg = "an IPC token is required"
             raise ValueError(msg)
+        if path is not None and not _UNIX_SOCKETS:
+            msg = "Unix sockets are not available on Windows; listen on a host and port"
+            raise ValueError(msg)
+        self._path: str | None = path
         self._token: bytes = token.encode()
         self._host: str = host
         self._port: int = port
@@ -121,13 +142,18 @@ class EventServer:
         """The host and port the server listens on.
 
         Raises:
-            RuntimeError: The server has not been started.
+            RuntimeError: The server has not been started, or listens on a Unix socket (see `path`).
         """
-        if self._server is None or not self._server.sockets:
-            msg = "the EventServer is not listening"
+        if self._server is None or not self._server.sockets or self._path is not None:
+            msg = "the EventServer is not listening on a host and port"
             raise RuntimeError(msg)
         host, port = self._server.sockets[0].getsockname()[:2]
         return str(host), int(port)
+
+    @property
+    def path(self) -> str | None:
+        """The Unix socket path the server listens on, if it was given one."""
+        return self._path
 
     @property
     def subscriber_count(self) -> int:
@@ -136,9 +162,20 @@ class EventServer:
 
     async def start(self) -> None:
         """Start listening. Idempotent."""
-        if self._server is None:
+        if self._server is not None:
+            return
+        if self._path is None:
             self._server = await asyncio.start_server(self._accept, self._host, self._port, ssl=self._ssl)
             _log.info("IPC server listening on %s:%d", *self.address)
+        elif sys.platform != "win32":
+            server = await asyncio.start_unix_server(self._accept, self._path, ssl=self._ssl)
+            try:
+                await asyncio.to_thread(Path(self._path).chmod, 0o600)
+            except BaseException:
+                server.close()
+                raise
+            self._server = server
+            _log.info("IPC server listening on %s", self._path)
 
     async def close(self) -> None:
         """Stop listening and disconnect every connection, including ones still authenticating.

@@ -4,18 +4,20 @@
         async for event in client:
             interaction = event.decode(Interaction)
 
-The client reconnects by itself with backoff when the connection drops. Events published while it
-was disconnected are not replayed.
+A server listening on a Unix socket is reached with
+`EventClient.unix("/run/bot/events.sock", token=secret)`. The client reconnects by itself with
+backoff when the connection drops. Events published while it was disconnected are not replayed.
 """
 
 import asyncio
 import contextlib
 import logging
 import random
+import sys
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from ssl import SSLContext
 from types import TracebackType
-from typing import Self, final
+from typing import Final, Self, final
 
 from shoal.core.backoff import backoff_delay
 from shoal.core.clock import Clock, SystemClock, sleep_unless
@@ -43,6 +45,9 @@ from shoal.ipc.protocol import (
 
 _log = logging.getLogger("shoal.ipc.client")
 
+_UNIX_SOCKETS: Final = sys.platform != "win32"
+"""Whether this platform has Unix sockets (a name, so both platforms' type checks reach every line)."""
+
 
 @final
 class EventClient:
@@ -68,6 +73,7 @@ class EventClient:
         "_host",
         "_max_frame",
         "_name",
+        "_path",
         "_port",
         "_random_source",
         "_shard_ids",
@@ -102,9 +108,49 @@ class EventClient:
         self._clock: Clock = clock or SystemClock()
         self._random_source: random.Random = random_source or random.Random()  # noqa: S311 - jitter, not security
         self._writer: asyncio.StreamWriter | None = None
+        self._path: str | None = None
         self._ssl: SSLContext | None = ssl
         self._closing: bool = False
         self._stopped: asyncio.Event = asyncio.Event()
+
+    @classmethod
+    def unix(
+        cls,
+        path: str,
+        *,
+        token: str,
+        name: str = "worker",
+        shard_ids: Sequence[int] | None = None,
+        events: Sequence[str] | None = None,
+        max_frame_size: int = MAX_FRAME_SIZE,
+        clock: Clock | None = None,
+        random_source: random.Random | None = None,
+    ) -> Self:
+        """A client of a server listening on the Unix socket at `path`; the other arguments are as above.
+
+        Raises:
+            ValueError: Called on Windows, which has no Unix sockets.
+        """
+        if not _UNIX_SOCKETS:
+            msg = "Unix sockets are not available on Windows; connect to a host and port"
+            raise ValueError(msg)
+        client = cls(
+            path,
+            0,
+            token=token,
+            name=name,
+            shard_ids=shard_ids,
+            events=events,
+            max_frame_size=max_frame_size,
+            clock=clock,
+            random_source=random_source,
+        )
+        client._path = path
+        return client
+
+    @property
+    def _target(self) -> str:
+        return self._path if self._path is not None else f"{self._host}:{self._port}"
 
     async def __aenter__(self) -> Self:
         return self
@@ -153,13 +199,7 @@ class EventClient:
                 delay = backoff_delay(
                     failures, cap=CLIENT_RECONNECT_BACKOFF_CAP, random_source=self._random_source
                 )
-                _log.warning(
-                    "IPC connect to %s:%d failed (%s); retrying in %.1fs",
-                    self._host,
-                    self._port,
-                    error,
-                    delay,
-                )
+                _log.warning("IPC connect to %s failed (%s); retrying in %.1fs", self._target, error, delay)
                 await sleep_unless(self._clock, delay, self._stopped)
                 continue
             if connection is None:
@@ -196,11 +236,7 @@ class EventClient:
         Raises:
             OSError: The connection failed or did not open within `CLIENT_CONNECT_TIMEOUT`.
         """
-        opening = asyncio.ensure_future(
-            asyncio.wait_for(
-                asyncio.open_connection(self._host, self._port, ssl=self._ssl), CLIENT_CONNECT_TIMEOUT
-            )
-        )
+        opening = asyncio.ensure_future(asyncio.wait_for(self._open(), CLIENT_CONNECT_TIMEOUT))
         stopped = asyncio.ensure_future(self._stopped.wait())
         try:
             await asyncio.wait({opening, stopped}, return_when=asyncio.FIRST_COMPLETED)
@@ -214,6 +250,11 @@ class EventClient:
             return None
         await cancel_and_wait(opening)
         return None
+
+    async def _open(self) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        if self._path is not None and sys.platform != "win32":
+            return await asyncio.open_unix_connection(self._path)
+        return await asyncio.open_connection(self._host, self._port, ssl=self._ssl)
 
     async def _handshake(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         hello = Subscribe(PROTOCOL_VERSION, self._token, self._name, self._shard_ids, self._events)
@@ -231,7 +272,7 @@ class EventClient:
         if not isinstance(answer, Accepted):
             msg = "the IPC server sent an event before accepting the subscription"
             raise ConnectionError(msg)
-        _log.info("IPC subscribed to %s:%d as %r", self._host, self._port, self._name)
+        _log.info("IPC subscribed to %s as %r", self._target, self._name)
 
     async def _receive(self, reader: asyncio.StreamReader) -> AsyncGenerator[DispatchEvent]:
         while True:

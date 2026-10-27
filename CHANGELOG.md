@@ -96,12 +96,75 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `guild.chunk()` and `guild.query_members()`: members over the gateway. Concurrent `chunk()` calls
   share one request, the cache drops members who are not in the full list, and a request Discord rate
   limits fails at once (`MemberRequestRateLimitedError`).
+- `chunk_guilds_at_startup`: with the Server Members intent, every guild that arrives without its
+  member list is chunked as it streams in, one guild at a time per shard, retrying after
+  `RATE_LIMITED`; each shard is ready once its startup guilds are chunked, and joined guilds are
+  chunked too. On by default with that intent; pass `False` to chunk on demand.
+- `docs/examples/`: bots to copy and run, from a one-file ping bot to a big bot with Prometheus and
+  Grafana, each tested against Discord.
 - `shoal_events_dropped_total`: gateway payloads and dispatches dropped because they did not decode.
 - Webhook events: every event Discord posts to an app's Webhook Events URL is typed
   (`WebhookEventPayload`, `WEBHOOK_EVENT_PAYLOADS`), and `Endpoint(..., events=handler)` receives them,
   acknowledging each at once. `client.endpoint()` emits them as events (`on_application_authorized`,
   `on_entitlement_create`, `on_lobby_message_create`, ...). `shoal_http_webhook_events_total` counts
   them.
+- Components V2 in `shoal.ui`: `LayoutView` (the whole message), `ActionRow` (with `@row.button`
+  and `@row.select`), `Container`, `Section`, `TextDisplay`, `Thumbnail`, `MediaGallery`, `File` and
+  `Separator`; items declared on a view or container class are copied per instance. Modals take
+  `Label`s around any input, `TextDisplay`s, and the new `FileUpload`, `RadioGroup`, `CheckboxGroup`
+  and `Checkbox`. Every documented limit is checked before sending, and a Components V2 message sent
+  with content, embeds, a poll or stickers raises `TypeError`.
+- `File.uri`: the `attachment://` reference embeds and components use for a file sent with them
+  (with the `SPOILER_` prefix a spoiler file is uploaded under).
+- `pip install "shoal[all]"` installs every optional dependency.
+- `shoal.compat`: familiar names for migrating bots (`import shoal.compat as discord`): the error
+  names without `Error` (`Forbidden`, `commands.MissingRequiredArgument`), renamed types under their
+  old names, `compat.utils` (`get`, `find`, `oauth_url`, `snowflake_time`, `as_chunks`, ...).
+- Prefix commands: `FlagConverter` and `flag()` (also as hybrid options), `param()` with context
+  defaults (`Author`, `CurrentChannel`, `CurrentGuild`) and descriptions, `clean_content`, a converter
+  class for every conversion and new ones for colours, invites, stickers, scheduled events, soundboard
+  sounds and timestamps, `Attachment` parameters, `run_converters`, `dynamic_cooldown`,
+  `bot_has_any_role`, `GroupCog`, `MinimalHelpCommand`, `Paginator` and `AutoShardedBot`.
+- Slash commands: `Transformer` and `Transform` (run after the checks), `Translator` and `locale_str`
+  (localized names and descriptions on `sync`), `dynamic_cooldown`, and `guild_install`,
+  `user_install`, `dm_only` and `private_channel_only`. New errors: `CommandAlreadyRegisteredError`,
+  `CommandLimitReachedError`, `CommandSignatureMismatchError`, `CommandSyncFailureError` and
+  `MissingApplicationIDError`, each a subclass of what was raised before.
+- `shoal.core.formatting`: `escape_markdown`, `remove_markdown`, `escape_mentions`, `format_dt` and the
+  mention and timestamp patterns; `Message.clean_content`.
+- `PrivilegedIntentsRequiredError`: the gateway's close for intents the application has not enabled,
+  saying where to enable them.
+- `interaction.namespace` is typed (`OptionNamespace`), so `interaction.namespace.member` type-checks.
+- `shoal.redis` (`shoal[redis]`): state shared by a bot's processes. `RedisIdentifyLimiter` and
+  `RedisSessionStore` for clusters, `RedisRateLimiter` (route buckets, the global limit and the
+  invalid request window counted across processes) and `RedisCollections` for a cache in Redis.
+  `CacheStore(collections=...)` takes any `CollectionFactory`.
+- Events through a Redis stream (`RedisEventStream`, `RedisEventConsumer`): a broker for IPC, with
+  consumer groups that share the events and read again what a crashed worker left unfinished.
+- IPC over Unix sockets: `EventServer(path=...)` and `EventClient.unix(path, ...)`.
+- Cluster coordination: a `ShardDirectory` where every `ShardManager` reports its shards, and a
+  `CommandRouter` that sends a gateway command on the shard of its guild whichever cluster runs it
+  (`ShardManager.send_command`, `send_to_guild`); in memory and in Redis (`RedisShardDirectory`,
+  `RedisCommandRouter`). `Client` takes them as `shard_directory=` and `command_router=`, and
+  `Client.shard_manager` reaches the shards.
+- Voice messages: `send(voice_message=VoiceMessage.from_ogg(...))` on channels, replies, contexts,
+  interaction responses and follow-ups, with the duration read from the Ogg Opus stream and
+  `waveform_of` for the preview; `File` carries `duration` and `waveform` into the attachment.
+- Voice (`shoal[voice]`): `await channel.connect()` joins a voice channel and returns the guild's
+  `VoiceClient`, which plays (`OggOpusSource`, `FFmpegSource`), pauses, moves and listens
+  (`listen()`), and joins again by itself when the session is lost. Calls are end-to-end encrypted
+  with DAVE (through `davey`); packets are sealed with AES-256-GCM or XChaCha20-Poly1305. The voice
+  gateway (v8, buffered resume), IP discovery and the payloads are in `shoal.voice` and
+  `shoal.payloads.voice_gateway`; `shoal.core.ogg` reads and writes Ogg Opus.
+- Resharding without downtime: `ShardManager.reshard` and `Client.reshard` start the new shard count
+  beside the old one and switch in every cluster once all of it is ready.
+- `RestProxy`: one process holds a bot's token and rate limits, and every other process sends REST
+  through it with only the proxy's secret (`RestClient(None, base_url=..., proxy_secret=...)`).
+  `RouteTable` finds the documented route of a method and path; `rate_limit_of` reads a response's
+  rate limits.
+- `GatewayRequiredError` and `MemberRequestRateLimitedError` are exported from `shoal.models`.
+- `CollectionFactory.shared` and `CacheStore.resharded()`: a store over shared collections numbers
+  its writes on from the clock and keeps no snapshots; after a reshard, entries keep their freshness.
 - `shoal.metrics.prometheus`: `PrometheusMetrics`, exporting every metric in the catalog.
 - `shoal.diagnostics`: `LoopMonitor`, which names the code blocking the event loop while it blocks.
 - Documentation site with generated API reference, guides (including writing a bot), and a Discord
@@ -109,6 +172,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `SessionStore.delete` takes the shard count too, and sessions are kept per shard count
+  (`FileSessionStore` writes `shard-<count>-<id>.json`), so a reshard's two shard counts never
+  overwrite each other's sessions. Session files from earlier versions are not read: each shard
+  identifies once after upgrading.
+- A shard builds its identify once it holds its identify slot, so a presence set while it waited
+  goes out with it.
+- `Context.reply` takes every keyword `Context.send` does.
+
+- `ui.Item` is the base of every component; the custom ID, `row` and callbacks moved to
+  `ui.InteractiveItem`. `TextInput.to_component()` is the bare input (a modal puts it in a label),
+  and its `label` is optional inside a `ui.Label`.
+- A slash command missing a required option, or sent one it does not have, raises
+  `CommandSignatureMismatchError` (sync the tree) instead of `TransformerError`.
+- `to_partial_emoji` raises `PartialEmojiConversionFailureError` and `to_object`
+  `ObjectNotFoundError`; both are still `BadArgumentError`s.
 - Renamed for the naming rules: `rest.channels.set_voice_status` is `edit_voice_status`
   (`EditVoiceStatusParams`), `rest.guilds.edit_widget` is `edit_widget_settings`
   (`EditWidgetSettingsParams`), `BulkLobbyMemberParams` is `BulkEditLobbyMemberParams` and

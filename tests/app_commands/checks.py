@@ -120,6 +120,22 @@ async def test_the_cooldown_decorator_refuses_a_second_use() -> None:
     assert 59.0 < error.retry_after <= 60.0
 
 
+async def test_a_dynamic_cooldown_takes_its_limit_from_a_function() -> None:
+    client, _ = await started()
+    tree = CommandTree(client)
+    limited = app_commands.checks.dynamic_cooldown(lambda _: app_commands.Cooldown(1, 30.0))
+    tree.add_command(limited(app_commands.command()(guarded)))
+    assert await run(client, tree, command("guarded")) == []
+    [error] = await run(client, tree, command("guarded"))
+    assert isinstance(error, CommandOnCooldownError)
+    assert 29.0 < error.retry_after <= 30.0
+    free = app_commands.checks.dynamic_cooldown(lambda _: None)
+    unlimited = CommandTree(client)
+    unlimited.add_command(free(app_commands.command(name="free")(guarded)))
+    for _ in range(3):
+        assert await run(client, unlimited, command("free")) == []
+
+
 async def test_a_use_refused_by_another_check_does_not_count_against_the_cooldown() -> None:
     client, _ = await started()
     tree = CommandTree(client)

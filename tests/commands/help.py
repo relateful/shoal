@@ -4,7 +4,7 @@ import pytest
 
 from shoal import commands
 from shoal.commands import Bot, Cog, Context, DefaultHelpCommand, HelpCommand
-from shoal.commands.help import HelpMapping
+from shoal.commands.help import HelpMapping, MinimalHelpCommand, Paginator
 from shoal.payloads.message import MESSAGE_CONTENT_MAX_LENGTH
 from tests.support.client import INTENTS
 from tests.support.commands import PrefixBot, bot_started, context_in, say, sent
@@ -143,3 +143,48 @@ def test_help_context_exists_only_while_it_runs() -> None:
         _ = DefaultHelpCommand().context
     bot = Bot("!", intents=INTENTS, help_command=None)
     assert bot.help_command is None
+
+
+def test_a_paginator_splits_lines_into_pages_that_fit() -> None:
+    pages = Paginator(max_size=20)
+    pages.add_line("a" * 10)
+    pages.add_line("b" * 10, empty=True)
+    assert pages.pages == ["```\naaaaaaaaaa\n```", "```\nbbbbbbbbbb\n\n```"]
+    assert len(pages) == len("```\naaaaaaaaaa\n```") + len("```\nbbbbbbbbbb\n\n")
+    assert repr(pages) == "<Paginator pages=2 max_size=20>"
+    with pytest.raises(RuntimeError, match="does not fit"):
+        pages.add_line("c" * 13)
+    pages.close_page()
+    pages.clear()
+    assert pages.pages == []
+    # Each line counts the separator after it, so two two-letter words fill six characters.
+    plain = Paginator(prefix=None, suffix=None, max_size=6, linesep=" ")
+    for word in ("ab", "cd", "ef"):
+        plain.add_line(word)
+    assert plain.pages == ["ab cd", "ef"]
+
+
+async def test_the_minimal_help_lists_commands_inline() -> None:
+    bot, transport = await helped_bot()
+    bot.help_command = MinimalHelpCommand()
+    await say(bot, transport, "!help", replies=1)
+    await say(bot, transport, "!help Tools", replies=1)
+    await say(bot, transport, "!help tag", replies=1)
+    await say(bot, transport, "!help calc", replies=1)
+    bot_page, cog_page, group_page, command_page = sent(transport)
+    assert bot_page == (
+        "A test bot.\n\n"
+        "Use `!help [command]` for more info on a command.\n\n"
+        "__**Tools**__\n`calc` `tag`\n"
+        "__**No Category**__\n`help` `ping`"
+    )
+    assert cog_page == (
+        "Use `!help [command]` for more info on a command.\n\n"
+        "Handy tools.\n\n"
+        "__**Commands**__\n`!calc` — Add two numbers.\n`!tag` — Manage tags."
+    )
+    assert group_page == "`!tag`\n\nManage tags.\n\n__**Commands**__\n`!tag create` — Create a tag."
+    assert (
+        command_page
+        == "`!calc <first> [second=1]`\n**Aliases:** c\n\nAdd two numbers.\n\nSecond defaults to one."
+    )

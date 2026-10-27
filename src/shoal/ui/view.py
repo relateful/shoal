@@ -1,4 +1,6 @@
-"""Views: a message's buttons and selects, and what happens when they are used.
+"""Views: a message's components, and what happens when they are used.
+
+A `View` lays buttons and selects out in action rows:
 
     class Counter(ui.View):
         def __init__(self) -> None:
@@ -13,16 +15,26 @@
 
     await channel.send("Count with me", view=Counter())
 
+A `LayoutView` is the whole message, in Components V2: text, media, sections and containers, with
+buttons and selects in action rows among them. It replaces the content and embeds.
+
+    class Welcome(ui.LayoutView):
+        text = ui.TextDisplay("# Welcome!")
+        row = ui.ActionRow()
+
+        @row.button(label="Get started", style=ButtonStyle.PRIMARY)
+        async def start(self, interaction: Interaction, button: ui.Button) -> None: ...
+
 A view stops after `timeout` seconds without an interaction (the timer restarts on each one), or
 when `stop()` is called. A persistent view (`timeout=None`, every item with a `custom_id` of your
 choosing) keeps working after a restart once added again with `client.add_view(view)`.
 
-Discord: https://docs.discord.com/developers/components/reference#action-row
+Discord: https://docs.discord.com/developers/components/reference
 """
 
 import logging
-from collections.abc import Awaitable, Callable, Collection, Sequence
-from typing import ClassVar, Final, Self, cast, override
+from collections.abc import Callable, Collection, Iterator, Sequence
+from typing import ClassVar, Final, Self, override
 
 from msgspec import UnsetType
 
@@ -33,87 +45,69 @@ from shoal.core.tasks import spawn
 from shoal.payloads.components import (
     ACTION_ROW_MAX_BUTTONS,
     LEGACY_MESSAGE_MAX_ACTION_ROWS,
-    ActionRow,
+    MESSAGE_MAX_COMPONENTS,
     ActionRowChild,
-    Label,
     MessageComponent,
 )
+from shoal.payloads.components import ActionRow as ActionRowPayload
 from shoal.payloads.interactions import ComponentInteraction, ResolvedData
+from shoal.ui.action_row import ActionRow, RowItem, row_item
+from shoal.ui.content import File, MediaGallery, Separator, TextDisplay
 from shoal.ui.defaults import VIEW_TIMEOUT
-from shoal.ui.item import ITEM_FACTORY, Item
+from shoal.ui.item import (
+    ITEM_FACTORY,
+    Decorated,
+    InteractiveItem,
+    Item,
+    bind_method,
+    decorated_methods,
+    instantiate,
+    item_templates,
+)
+from shoal.ui.layout import Container, Section
 from shoal.ui.lifetime import Lifetime
 
 _log = logging.getLogger("shoal.ui")
 
 MAX_ITEMS: Final = ACTION_ROW_MAX_BUTTONS * LEGACY_MESSAGE_MAX_ACTION_ROWS
-"""The most items a view can hold: five rows of five buttons."""
-
-type _Factory = Callable[[], Item]
-type _Decorated = Callable[..., Awaitable[None]]
+"""The most items a `View` can hold: five rows of five buttons."""
 
 
-class View(DispatchableView):
-    """A set of buttons and selects sent with a message.
+class BaseView[T: Item](DispatchableView):
+    """What `View` and `LayoutView` share: their items, their lifetime, and routing interactions.
 
-    Discord: https://docs.discord.com/developers/components/reference#action-row
+    Discord: https://docs.discord.com/developers/components/reference
     """
 
     # Subclasses that add attributes of their own get a __dict__ by not declaring slots.
     __slots__ = ("_children", "_lifetime")
 
-    __view_items__: ClassVar[list[_Decorated]] = []
-
-    @override
-    def __init_subclass__(cls) -> None:
-        """Collect the methods decorated with `@ui.button` and `@ui.select`, base classes first.
-
-        A subclass that redefines one without the decorator removes its item.
-        """
-        super().__init_subclass__()
-        found: dict[str, _Decorated] = {}
-        for base in reversed(cls.__mro__):
-            for name, member in vars(base).items():
-                if callable(member) and hasattr(member, ITEM_FACTORY):
-                    found[name] = cast("_Decorated", member)  # only the item decorators set ITEM_FACTORY
-                elif name in found:
-                    del found[name]
-        cls.__view_items__ = list(found.values())
-
     def __init__(self, *, timeout: float | None = VIEW_TIMEOUT, clock: Clock | None = None) -> None:
         """A view that stops after `timeout` seconds without an interaction (`None`: never)."""
-        self._children: list[Item] = []
+        self._children: list[T] = []
         self._lifetime: Lifetime = Lifetime(
             timeout,
             clock=clock or SystemClock(),
             on_timeout=lambda: spawn(self._run_timeout(), name="shoal-view-timeout"),
         )
-        for method in type(self).__view_items__:
-            factory: _Factory = getattr(method, ITEM_FACTORY)
-            item = factory()
-            item.bind(_bind(method, self, item))
-            self.add_item(item)
 
     @property
-    def children(self) -> list[Item]:
-        """The items, in the order they were added."""
+    def children(self) -> list[T]:
+        """The top-level items, in the order they were added."""
         return list(self._children)
 
-    def add_item(self, item: Item) -> Self:
-        """Add an item, placed in its `row` or in the first row with room.
+    def walk_children(self) -> Iterator[Item]:
+        """Every item, at any depth, parents before their children."""
+        for child in self._children:
+            yield child
+            yield from child.walk()
 
-        Raises:
-            ValueError: The view is full (25 items, or no row has room for this one).
-        """
-        if len(self._children) >= MAX_ITEMS:
-            msg = f"a view holds at most {MAX_ITEMS} items"
-            raise ValueError(msg)
-        _arrange([*self._children, item])
-        item.attach(self)
-        self._children.append(item)
-        return self
+    def find_item(self, id: int, /) -> Item | None:
+        """The item with component `id`, at any depth."""
+        return next((item for item in self.walk_children() if item.id == id), None)
 
-    def remove_item(self, item: Item) -> Self:
-        """Remove an item (nothing happens if it is not in the view)."""
+    def remove_item(self, item: T) -> Self:
+        """Remove a top-level item (nothing happens if it is not in the view)."""
         if item in self._children:
             self._children.remove(item)
             item.attach(None)
@@ -126,33 +120,39 @@ class View(DispatchableView):
         self._children.clear()
         return self
 
-    @override
-    def to_components(self) -> list[MessageComponent]:
-        """The action rows to send. Sending the view also starts its timeout.
+    def _append(self, item: T) -> None:
+        item.attach(self)
+        self._children.append(item)
+
+    def _interactive(self) -> Iterator[InteractiveItem]:
+        return (
+            item
+            for item in self.walk_children()
+            if isinstance(item, InteractiveItem) and item.is_dispatchable()
+        )
+
+    def _validate(self) -> None:
+        """Check every item, and that no custom ID or component ID is used twice.
 
         Raises:
-            TypeError: An item belongs in a modal (a text input), not in a message.
+            ValueError: An item is outside Discord's limits, or an ID is used twice.
         """
-        seen: set[str] = set()
-        for item in self._children:
-            item.validate()
-            if item.is_dispatchable():
-                if item.custom_id in seen:
-                    msg = f"{item!r}: another item of the view has custom_id {item.custom_id!r}"
+        for child in self._children:
+            child.validate()
+        custom_ids: set[str] = set()
+        for item in self._interactive():
+            if item.custom_id in custom_ids:
+                msg = f"{item!r}: another item of the view has custom_id {item.custom_id!r}"
+                raise ValueError(msg)
+            custom_ids.add(item.custom_id)
+        ids: set[int] = set()
+        for component in self.walk_children():
+            # Discord treats an id of 0 as unset.
+            if component.id:
+                if component.id in ids:
+                    msg = f"{component!r}: another item of the view has id {component.id}"
                     raise ValueError(msg)
-                seen.add(item.custom_id)
-        self._lifetime.restart()
-        rows: list[MessageComponent] = []
-        for row in _arrange(self._children):
-            children: list[ActionRowChild] = []
-            for item in row:
-                component = item.to_component()
-                if isinstance(component, Label):
-                    msg = f"{item!r} belongs in a modal, not in a message's view"
-                    raise TypeError(msg)
-                children.append(component)
-            rows.append(ActionRow(components=children))
-        return rows
+                ids.add(component.id)
 
     @property
     def timeout(self) -> float | None:
@@ -165,15 +165,15 @@ class View(DispatchableView):
 
     @override
     def is_dispatchable(self) -> bool:
-        return any(item.is_dispatchable() for item in self._children)
+        return any(True for _ in self._interactive())
 
     @override
     def custom_ids(self) -> Collection[str]:
-        return [item.custom_id for item in self._children if item.is_dispatchable()]
+        return [item.custom_id for item in self._interactive()]
 
     @override
     def is_persistent(self) -> bool:
-        return self.timeout is None and all(item.is_persistent() for item in self._children)
+        return self.timeout is None and all(item.is_persistent() for item in self._interactive())
 
     @override
     def is_finished(self) -> bool:
@@ -209,7 +209,7 @@ class View(DispatchableView):
     async def on_timeout(self) -> None:
         """Runs when the view times out; the default does nothing."""
 
-    async def on_error(self, interaction: Interaction, error: Exception, item: Item) -> None:
+    async def on_error(self, interaction: Interaction, error: Exception, item: InteractiveItem) -> None:
         """Runs when an item's callback raises; the default logs it."""
         del interaction
         _log.error("view %r: the callback of %r raised", self, item, exc_info=error)
@@ -217,13 +217,13 @@ class View(DispatchableView):
     @override
     async def dispatch(self, interaction: Interaction, custom_id: str) -> bool:
         """Route an interaction to the item with `custom_id`, in its own task; whether it has one."""
-        item = next((child for child in self._children if child.custom_id == custom_id), None)
+        item = next((child for child in self._interactive() if child.custom_id == custom_id), None)
         if item is None or self._lifetime.finished:
             return False
         _ = spawn(self._run(interaction, item), name=f"shoal-view-{custom_id}")
         return True
 
-    async def _run(self, interaction: Interaction, item: Item) -> None:
+    async def _run(self, interaction: Interaction, item: InteractiveItem) -> None:
         try:
             # Checked first: an interaction the view refuses changes nothing, not even its timeout.
             if not await self.interaction_check(interaction):
@@ -243,22 +243,157 @@ class View(DispatchableView):
         return f"<{type(self).__name__} items={len(self._children)} timeout={self.timeout}>"
 
 
-def _bind(method: _Decorated, view: View, item: Item) -> Callable[[Interaction], Awaitable[None]]:
-    """The decorated method, called as `(view, interaction, item)`."""
+class View(BaseView[RowItem]):
+    """Buttons and selects sent with a message, laid out in up to five action rows.
 
-    async def handler(interaction: Interaction) -> None:
-        await method(view, interaction, item)
+    Discord: https://docs.discord.com/developers/components/reference#action-row
+    """
 
-    return handler
+    __slots__ = ()
+
+    __view_items__: ClassVar[list[Decorated]] = []
+
+    @override
+    def __init_subclass__(cls) -> None:
+        """Collect the methods decorated with `@ui.button` and `@ui.select`, base classes first.
+
+        A subclass that redefines one without the decorator removes its item.
+        """
+        super().__init_subclass__()
+        cls.__view_items__ = decorated_methods(cls)
+
+    def __init__(self, *, timeout: float | None = VIEW_TIMEOUT, clock: Clock | None = None) -> None:
+        """A view that stops after `timeout` seconds without an interaction (`None`: never)."""
+        super().__init__(timeout=timeout, clock=clock)
+        for method in type(self).__view_items__:
+            factory: Callable[[], InteractiveItem] = getattr(method, ITEM_FACTORY)
+            item = factory()
+            item.bind(bind_method(method, self, item))
+            self.add_item(row_item(item))
+
+    def add_item(self, item: RowItem) -> Self:
+        """Add a button or select, placed in its `row` or in the first row with room.
+
+        Raises:
+            TypeError: `item` is not a button or a select (`LayoutView` takes the rest).
+            ValueError: The view is full (25 items, or no row has room for this one).
+        """
+        item = row_item(item)
+        if len(self._children) >= MAX_ITEMS:
+            msg = f"a view holds at most {MAX_ITEMS} items"
+            raise ValueError(msg)
+        _arrange([*self._children, item])
+        self._append(item)
+        return self
+
+    @override
+    def to_components(self) -> list[MessageComponent]:
+        """The action rows to send. Sending the view also starts its timeout."""
+        self._validate()
+        self._lifetime.restart()
+        rows: list[MessageComponent] = []
+        for row in _arrange(self._children):
+            children: list[ActionRowChild] = [item.to_component() for item in row]
+            rows.append(ActionRowPayload(components=children))
+        return rows
 
 
-def _arrange(items: Sequence[Item]) -> list[list[Item]]:
+type LayoutItem = ActionRow | Container | Section | TextDisplay | MediaGallery | File | Separator
+"""What a `LayoutView` holds at the top level."""
+
+
+class LayoutView(BaseView[LayoutItem]):
+    """A whole message in Components V2: text, media, sections, containers and action rows.
+
+    Declare its items as class attributes (each view gets its own copies), or add them with
+    `add_item`. Buttons and selects go in an `ActionRow` (a button can also be a section's
+    accessory); decorate their methods through the row: `@row.button(...)`.
+
+    Discord: https://docs.discord.com/developers/components/reference
+    """
+
+    __slots__ = ()
+
+    __layout_items__: ClassVar[list[tuple[str, Item]]] = []
+
+    @override
+    def __init_subclass__(cls) -> None:
+        """Remember the items declared on the class, base classes first.
+
+        Raises:
+            TypeError: A method is decorated with `@ui.button` or `@ui.select` directly.
+        """
+        super().__init_subclass__()
+        stray = decorated_methods(cls)
+        if stray:
+            msg = (
+                f"{cls.__name__}.{stray[0].__name__}: a layout view's buttons and selects go in an "
+                "action row; declare `row = ui.ActionRow()` and decorate with `@row.button(...)`"
+            )
+            raise TypeError(msg)
+        cls.__layout_items__ = item_templates(cls)
+
+    def __init__(self, *, timeout: float | None = VIEW_TIMEOUT, clock: Clock | None = None) -> None:
+        """A view of the class's items that stops after `timeout` seconds without an interaction.
+
+        Raises:
+            TypeError: An item declared on the class cannot be at the top of a message.
+        """
+        super().__init__(timeout=timeout, clock=clock)
+        for item in instantiate(self, type(self).__layout_items__):
+            self.add_item(_layout_item(item))
+
+    def add_item(self, item: LayoutItem) -> Self:
+        """Add a top-level item.
+
+        Raises:
+            TypeError: `item` cannot be at the top of a message (a button or a select needs an
+                action row; a thumbnail needs a section).
+        """
+        self._append(_layout_item(item))
+        return self
+
+    def has_components_v2(self) -> bool:
+        """Whether the view needs a Components V2 message: anything but action rows does."""
+        return any(item.is_v2 for item in self.walk_children())
+
+    @override
+    def to_components(self) -> list[MessageComponent]:
+        """The components to send. Sending the view also starts its timeout.
+
+        Raises:
+            ValueError: An item is outside Discord's limits, or the message holds too many components.
+        """
+        self._validate()
+        if self.has_components_v2():
+            total = sum(child.count() for child in self._children)
+            if total > MESSAGE_MAX_COMPONENTS:
+                msg = f"{self!r}: a message holds at most {MESSAGE_MAX_COMPONENTS} components, not {total}"
+                raise ValueError(msg)
+        elif len(self._children) > LEGACY_MESSAGE_MAX_ACTION_ROWS:
+            msg = f"{self!r}: a message of action rows only holds {LEGACY_MESSAGE_MAX_ACTION_ROWS} of them"
+            raise ValueError(msg)
+        self._lifetime.restart()
+        return [child.to_component() for child in self._children]
+
+
+def _layout_item(item: Item) -> LayoutItem:
+    if not isinstance(item, ActionRow | Container | Section | TextDisplay | MediaGallery | File | Separator):
+        msg = (
+            f"{item!r} cannot be at the top of a message: put a button or a select in an ActionRow, "
+            "and a thumbnail in a Section"
+        )
+        raise TypeError(msg)
+    return item
+
+
+def _arrange(items: Sequence[RowItem]) -> list[list[RowItem]]:
     """Lay the items out in action rows: those with a `row` there, the rest in the first with room.
 
     Raises:
         ValueError: An item does not fit in its row, or no row has room for it.
     """
-    rows: list[list[Item]] = [[] for _ in range(LEGACY_MESSAGE_MAX_ACTION_ROWS)]
+    rows: list[list[RowItem]] = [[] for _ in range(LEGACY_MESSAGE_MAX_ACTION_ROWS)]
     widths = [0] * LEGACY_MESSAGE_MAX_ACTION_ROWS
     for item in items:
         row = item.row

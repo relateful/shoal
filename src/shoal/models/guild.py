@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     from shoal.models.member import Member
     from shoal.models.role import Role
     from shoal.models.thread import Thread
+    from shoal.models.voice import VoiceClient
 
 
 class Guild(Hashable):
@@ -273,6 +274,11 @@ class Guild(Hashable):
         return [
             Member(self._state, data, self.id) for data in members if not isinstance(data.user, UnsetType)
         ]
+
+    @property
+    def voice_client(self) -> "VoiceClient | None":
+        """The bot's voice client in this guild, while it is in one of its voice channels."""
+        return self._state.voice.voice_client(self.id)
 
     def get_member(self, user_id: int, /) -> "Member | None":
         """The cached member with this ID."""

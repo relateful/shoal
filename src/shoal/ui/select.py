@@ -10,7 +10,7 @@ Discord: https://docs.discord.com/developers/components/reference#string-select
 """
 
 from collections.abc import Awaitable, Callable, Sequence
-from typing import TYPE_CHECKING, ClassVar, overload, override
+from typing import ClassVar, overload, override
 
 from msgspec import UNSET, UnsetType
 
@@ -46,13 +46,15 @@ from shoal.payloads.components import (
     UserSelect as UserSelectPayload,
 )
 from shoal.payloads.interactions import ResolvedData
-from shoal.ui.item import ITEM_FACTORY, Item, check_length
+from shoal.ui.item import ITEM_FACTORY, InteractiveItem, check_length
 
-if TYPE_CHECKING:
-    from shoal.ui.view import View
+type SelectPayload = (
+    StringSelect | UserSelectPayload | RoleSelectPayload | MentionableSelectPayload | ChannelSelectPayload
+)
+"""A select as Discord takes it."""
 
 
-class BaseSelect(Item):
+class BaseSelect(InteractiveItem):
     """What every select shares: a placeholder, how many choices, and being disabled.
 
     Discord: https://docs.discord.com/developers/components/reference#string-select
@@ -81,9 +83,10 @@ class BaseSelect(Item):
         disabled: bool = False,
         required: bool | None = None,
         row: int | None = None,
+        id: int | None = None,
     ) -> None:
         """A select; see the subclasses for what it chooses."""
-        super().__init__(custom_id=custom_id, row=row)
+        super().__init__(custom_id=custom_id, row=row, id=id)
         self.placeholder: str | None = placeholder
         self.min_values: int = min_values
         self.max_values: int = max_values
@@ -98,6 +101,15 @@ class BaseSelect(Item):
         self._values = list(values)
         self._interaction = interaction
         self._resolved = resolved
+
+    @override
+    def to_component(self) -> SelectPayload:
+        """The select as Discord takes it."""
+        raise NotImplementedError
+
+    @override
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} custom_id={self.custom_id!r}>"
 
     @override
     def validate(self) -> None:
@@ -130,6 +142,7 @@ class Select(BaseSelect):
         disabled: bool = False,
         required: bool | None = None,
         row: int | None = None,
+        id: int | None = None,
     ) -> None:
         """A string select with up to 25 `options`."""
         super().__init__(
@@ -140,6 +153,7 @@ class Select(BaseSelect):
             disabled=disabled,
             required=required,
             row=row,
+            id=id,
         )
         self.options: list[SelectOption] = list(options)
 
@@ -184,6 +198,7 @@ class Select(BaseSelect):
     def to_component(self) -> StringSelect:
         """The select as Discord takes it."""
         return StringSelect(
+            id=unset_if_none(self.id),
             custom_id=self.custom_id,
             options=self.options,
             placeholder=unset_if_none(self.placeholder),
@@ -256,6 +271,7 @@ class _ResolvedSelect(BaseSelect):
         required: bool | None = None,
         default_values: Sequence[SelectDefaultValue] = (),
         row: int | None = None,
+        id: int | None = None,
     ) -> None:
         super().__init__(
             custom_id=custom_id,
@@ -265,6 +281,7 @@ class _ResolvedSelect(BaseSelect):
             disabled=disabled,
             required=required,
             row=row,
+            id=id,
         )
         self.default_values: list[SelectDefaultValue] = list(default_values)
 
@@ -288,6 +305,7 @@ class UserSelect(_ResolvedSelect):
     def to_component(self) -> UserSelectPayload:
         """The select as Discord takes it."""
         return UserSelectPayload(
+            id=unset_if_none(self.id),
             custom_id=self.custom_id,
             placeholder=unset_if_none(self.placeholder),
             default_values=self.default_values or UNSET,
@@ -317,6 +335,7 @@ class RoleSelect(_ResolvedSelect):
     def to_component(self) -> RoleSelectPayload:
         """The select as Discord takes it."""
         return RoleSelectPayload(
+            id=unset_if_none(self.id),
             custom_id=self.custom_id,
             placeholder=unset_if_none(self.placeholder),
             default_values=self.default_values or UNSET,
@@ -347,6 +366,7 @@ class MentionableSelect(_ResolvedSelect):
     def to_component(self) -> MentionableSelectPayload:
         """The select as Discord takes it."""
         return MentionableSelectPayload(
+            id=unset_if_none(self.id),
             custom_id=self.custom_id,
             placeholder=unset_if_none(self.placeholder),
             default_values=self.default_values or UNSET,
@@ -377,6 +397,7 @@ class ChannelSelect(_ResolvedSelect):
         required: bool | None = None,
         default_values: Sequence[SelectDefaultValue] = (),
         row: int | None = None,
+        id: int | None = None,
     ) -> None:
         """A channel select, limited to `channel_types` when given."""
         super().__init__(
@@ -388,6 +409,7 @@ class ChannelSelect(_ResolvedSelect):
             required=required,
             default_values=default_values,
             row=row,
+            id=id,
         )
         self.channel_types: list[ChannelType] = list(channel_types)
 
@@ -402,6 +424,7 @@ class ChannelSelect(_ResolvedSelect):
     def to_component(self) -> ChannelSelectPayload:
         """The select as Discord takes it."""
         return ChannelSelectPayload(
+            id=unset_if_none(self.id),
             custom_id=self.custom_id,
             channel_types=self.channel_types or UNSET,
             placeholder=unset_if_none(self.placeholder),
@@ -415,51 +438,24 @@ class ChannelSelect(_ResolvedSelect):
 
 type AnySelect = Select | UserSelect | RoleSelect | MentionableSelect | ChannelSelect
 """Every select."""
-type SelectCallback[V: View, S: BaseSelect] = Callable[[V, Interaction, S], Awaitable[None]]
-"""A view method decorated with `@ui.select`."""
+type SelectCallback[O, S: BaseSelect] = Callable[[O, Interaction, S], Awaitable[None]]
+"""A method decorated with `@ui.select`, on a view, an action row or a container."""
 
 
-@overload
-def select[V: View](
+def select_factory(
     *,
-    cls: None = None,
-    custom_id: str | None = None,
-    placeholder: str | None = None,
-    min_values: int = 1,
-    max_values: int = 1,
-    options: Sequence[SelectOption] = (),
-    disabled: bool = False,
-    row: int | None = None,
-) -> Callable[[SelectCallback[V, Select]], SelectCallback[V, Select]]: ...
-@overload
-def select[V: View, S: BaseSelect](
-    *,
-    cls: type[S],
-    custom_id: str | None = None,
-    placeholder: str | None = None,
-    min_values: int = 1,
-    max_values: int = 1,
-    options: Sequence[SelectOption] = (),
-    channel_types: Sequence[ChannelType] = (),
-    disabled: bool = False,
-    row: int | None = None,
-) -> Callable[[SelectCallback[V, S]], SelectCallback[V, S]]: ...
-def select(
-    *,
-    cls: type[BaseSelect] | None = None,
-    custom_id: str | None = None,
-    placeholder: str | None = None,
-    min_values: int = 1,
-    max_values: int = 1,
-    options: Sequence[SelectOption] = (),
-    channel_types: Sequence[ChannelType] = (),
-    disabled: bool = False,
-    row: int | None = None,
-) -> Callable[[Callable[..., Awaitable[None]]], Callable[..., Awaitable[None]]]:
-    """Turn a view method into a select (a string select, or `cls`); the method runs on a choice.
-
-    The method takes `(self, interaction, select)`. Each view instance gets its own select.
-    """
+    cls: type[BaseSelect] | None,
+    custom_id: str | None,
+    placeholder: str | None,
+    min_values: int,
+    max_values: int,
+    options: Sequence[SelectOption],
+    channel_types: Sequence[ChannelType],
+    disabled: bool,
+    row: int | None,
+    id: int | None,
+) -> Callable[[], BaseSelect]:
+    """A function making the select `@ui.select` and `ActionRow.select` describe, once per instance."""
     kind = cls or Select
 
     def make() -> BaseSelect:
@@ -472,6 +468,7 @@ def select(
                 options=options,
                 disabled=disabled,
                 row=row,
+                id=id,
             )
         if issubclass(kind, ChannelSelect):
             return kind(
@@ -482,6 +479,7 @@ def select(
                 max_values=max_values,
                 disabled=disabled,
                 row=row,
+                id=id,
             )
         return kind(
             custom_id=custom_id,
@@ -490,7 +488,69 @@ def select(
             max_values=max_values,
             disabled=disabled,
             row=row,
+            id=id,
         )
+
+    return make
+
+
+@overload
+def select[O](
+    *,
+    cls: None = None,
+    custom_id: str | None = None,
+    placeholder: str | None = None,
+    min_values: int = 1,
+    max_values: int = 1,
+    options: Sequence[SelectOption] = (),
+    disabled: bool = False,
+    row: int | None = None,
+    id: int | None = None,
+) -> Callable[[SelectCallback[O, Select]], SelectCallback[O, Select]]: ...
+@overload
+def select[O, S: BaseSelect](
+    *,
+    cls: type[S],
+    custom_id: str | None = None,
+    placeholder: str | None = None,
+    min_values: int = 1,
+    max_values: int = 1,
+    options: Sequence[SelectOption] = (),
+    channel_types: Sequence[ChannelType] = (),
+    disabled: bool = False,
+    row: int | None = None,
+    id: int | None = None,
+) -> Callable[[SelectCallback[O, S]], SelectCallback[O, S]]: ...
+def select(
+    *,
+    cls: type[BaseSelect] | None = None,
+    custom_id: str | None = None,
+    placeholder: str | None = None,
+    min_values: int = 1,
+    max_values: int = 1,
+    options: Sequence[SelectOption] = (),
+    channel_types: Sequence[ChannelType] = (),
+    disabled: bool = False,
+    row: int | None = None,
+    id: int | None = None,
+) -> Callable[[Callable[..., Awaitable[None]]], Callable[..., Awaitable[None]]]:
+    """Turn a method of a `View` or an `ActionRow` subclass into a select (a string select, or `cls`).
+
+    The method takes `(self, interaction, select)` and runs on each choice. Each instance gets its
+    own select.
+    """
+    make = select_factory(
+        cls=cls,
+        custom_id=custom_id,
+        placeholder=placeholder,
+        min_values=min_values,
+        max_values=max_values,
+        options=options,
+        channel_types=channel_types,
+        disabled=disabled,
+        row=row,
+        id=id,
+    )
 
     def decorator(function: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
         setattr(function, ITEM_FACTORY, make)

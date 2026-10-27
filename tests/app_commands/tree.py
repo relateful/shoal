@@ -9,9 +9,10 @@ from shoal.app_commands.commands import Command, Group
 from shoal.app_commands.errors import (
     CheckFailureError,
     CommandInvokeError,
+    CommandLimitReachedError,
     CommandNotFoundError,
+    CommandSignatureMismatchError,
     NoPrivateMessageError,
-    TransformerError,
 )
 from shoal.app_commands.models import Choice, Namespace
 from shoal.app_commands.tree import CommandTree
@@ -23,18 +24,11 @@ from shoal.models.user import User
 from shoal.payloads import APPLICATION_MAX_COMMANDS, ApplicationCommandType
 from tests.support.client import INTENTS, started
 from tests.support.fakes import FakeTransport, SentRequest, settle
-from tests.support.interactions import autocomplete, command, common, payload
+from tests.support.interactions import autocomplete, command, common, option, payload
 from tests.support.models import ALICE, APPLICATION, BOB, GUILD, member, message, user
 
 type Json = dict[str, object]
 type Seen = list[tuple[str, object]]
-
-
-def string(name: str, value: str, *, focused: bool = False) -> Json:
-    option: Json = {"name": name, "type": 3, "value": value}
-    if focused:
-        option["focused"] = True
-    return option
 
 
 def sub(name: str, *options: Json, group: bool = False) -> Json:
@@ -152,7 +146,7 @@ def test_the_number_of_commands_is_limited_as_discord_limits_it() -> None:
     with pytest.raises(ValueError, match="100 CHAT_INPUT"):
         tree.add_command(Command(callback=ping, name="extra"))
     tree.add_command(Command(callback=ping, name="extra"), guild=GUILD)
-    with pytest.raises(ValueError, match="most Discord allows in a guild"):
+    with pytest.raises(CommandLimitReachedError, match="in guild 10 is the most Discord allows"):
         tree.copy_global_to(guild=GUILD)
 
 
@@ -201,7 +195,7 @@ async def test_a_command_receives_its_options_converted() -> None:
     resolved: Json = {"users": {str(BOB): user(BOB, "bob")}, "members": {str(BOB): partial}}
     member_option: Json = {"name": "member", "type": 6, "value": str(BOB)}
     await client.process_interaction(
-        payload(command("ban", member_option, string("reason", "spam"), resolved=resolved))
+        payload(command("ban", member_option, option("reason", "spam"), resolved=resolved))
     )
     await settle()
     assert seen[0] == ("call", (BOB, "spam", 1))
@@ -238,7 +232,7 @@ class Tags(Group, name="tags"):
 async def test_subcommands_run_bound_to_their_group() -> None:
     client, _, tree, seen = await setup()
     tree.add_command(Tags(seen))
-    await client.process_interaction(payload(command("tags", sub("show", string("name", "faq")))))
+    await client.process_interaction(payload(command("tags", sub("show", option("name", "faq")))))
     wiped = await client.process_interaction(payload(command("tags", sub("admin", sub("wipe"), group=True))))
     await settle()
     assert seen == [("show", "faq")]
@@ -250,7 +244,7 @@ async def test_autocomplete_suggests_at_most_25_choices() -> None:
     tree.add_command(Tags(seen))
     transport.queue(204)
     await client.process_interaction(
-        payload(autocomplete("tags", sub("show", string("name", "fa", focused=True))))
+        payload(autocomplete("tags", sub("show", option("name", "fa", focused=True))))
     )
     await settle()
     assert seen == [("suggest", "fa")]
@@ -448,7 +442,7 @@ async def test_checks_refuse_before_the_callback_runs() -> None:
         ("error", CheckFailureError),
         ("error", NoPrivateMessageError),
         ("error", CheckFailureError),
-        ("error", TransformerError),
+        ("error", CommandSignatureMismatchError),
     ]
 
 
@@ -564,11 +558,11 @@ async def test_autocomplete_without_a_callback_suggests_nothing() -> None:
         del interaction, name, count
 
     transport.queue(204)
-    focused = string("name", "f", focused=True)
+    focused = option("name", "f", focused=True)
     await client.process_interaction(
         payload(autocomplete("tag", focused, {"name": "count", "type": 4, "value": 3}))
     )
-    await client.process_interaction(payload(autocomplete("tag", string("other", "x", focused=True))))
+    await client.process_interaction(payload(autocomplete("tag", option("other", "x", focused=True))))
     await client.process_interaction(payload(autocomplete("tag")))
     await settle()
     answer = msgspec.json.decode(sent_body(transport.requests[-1]), type=AutocompleteAnswer)
@@ -603,7 +597,7 @@ async def test_autocomplete_sees_the_other_options_and_reports_its_errors() -> N
 
     unresolved: Json = {"name": "member", "type": 6, "value": str(BOB)}
     await client.process_interaction(
-        payload(autocomplete("give", unresolved, string("item", "sw", focused=True)))
+        payload(autocomplete("give", unresolved, option("item", "sw", focused=True)))
     )
     await settle()
     assert seen == [("member", str(BOB)), ("current", "sw"), ("error", LookupError)]

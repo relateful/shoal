@@ -21,7 +21,7 @@ from shoal.app_commands.errors import (
 )
 from shoal.client.interaction import Interaction
 from shoal.core.clock import Clock
-from shoal.core.cooldown import Cooldown
+from shoal.core.cooldown import AnyCooldown, Cooldown, DynamicCooldown
 from shoal.models.member import Member
 from shoal.payloads.permissions import Permissions
 
@@ -118,8 +118,24 @@ def cooldown[T: Decoratable](
     Raises:
         ValueError: `rate` is below 1 or `per` is not positive.
     """
-    limiter = Cooldown[Interaction](rate, per, key=key, clock=clock)
+    return _limited(Cooldown[Interaction](rate, per, key=key, clock=clock))
 
+
+def dynamic_cooldown[T: Decoratable](
+    cooldown: Callable[[Interaction], Cooldown[Interaction] | None],
+    *,
+    key: CooldownKey = by_user,
+    clock: Clock | None = None,
+) -> Callable[[T], T]:
+    """A cooldown whose limit `cooldown` chooses per user (or per `key`); `None` means no limit.
+
+    `cooldown` gets the interaction of the key's first use and returns a `Cooldown(rate, per)`; it is
+    asked again once the key's uses have expired. Refused uses raise `CommandOnCooldownError`.
+    """
+    return _limited(DynamicCooldown[Interaction](cooldown, key=key, clock=clock))
+
+
+def _limited[T: Decoratable](limiter: AnyCooldown[Interaction]) -> Callable[[T], T]:
     def predicate(interaction: Interaction) -> bool:
         wait = limiter.update_rate_limit(interaction)
         if wait > 0:

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from shoal.core.errors import ShoalError
 
 if TYPE_CHECKING:
+    from shoal.commands.flags import Flag
     from shoal.commands.parameters import Parameter
 
 
@@ -64,6 +65,15 @@ class MissingRequiredArgumentError(UserInputError):
     def __init__(self, parameter: "Parameter") -> None:
         """`parameter` was not given."""
         super().__init__(f"{parameter.name} is a required argument that is missing")
+        self.parameter: Parameter = parameter
+
+
+class MissingRequiredAttachmentError(UserInputError):
+    """A parameter that takes an attached file had none left to take."""
+
+    def __init__(self, parameter: "Parameter") -> None:
+        """`parameter` got no attachment."""
+        super().__init__(f"{parameter.name} is a required attachment that is missing")
         self.parameter: Parameter = parameter
 
 
@@ -201,6 +211,110 @@ class GuildNotFoundError(_NotFoundError):
     kind = "guild"
 
 
+class GuildStickerNotFoundError(_NotFoundError):
+    """No sticker of the guild matches the argument."""
+
+    kind = "sticker"
+
+
+class ScheduledEventNotFoundError(_NotFoundError):
+    """No scheduled event of the guild matches the argument."""
+
+    kind = "scheduled event"
+
+
+class SoundboardSoundNotFoundError(_NotFoundError):
+    """No soundboard sound of the guild matches the argument."""
+
+    kind = "soundboard sound"
+
+
+class ObjectNotFoundError(_NotFoundError):
+    """The argument is not an ID or a mention."""
+
+    kind = "ID or mention"
+
+
+class PartialEmojiConversionFailureError(_NotFoundError):
+    """The argument is not a custom emoji's text (`<:name:id>`)."""
+
+    kind = "custom emoji"
+
+
+class BadColourArgumentError(BadArgumentError):
+    """The argument is not a colour: `#RRGGBB`, `0xRRGGBB`, `RRGGBB` or `rgb(r, g, b)`."""
+
+    def __init__(self, argument: str) -> None:
+        """`argument` is not a colour."""
+        super().__init__(f"{argument!r} is not a colour")
+        self.argument: str = argument
+
+
+BadColorArgumentError = BadColourArgumentError
+"""The same as `BadColourArgumentError`."""
+
+
+class BadInviteArgumentError(BadArgumentError):
+    """The argument is not an invite, or the invite has expired."""
+
+    def __init__(self, argument: str) -> None:
+        """`argument` is not a valid invite."""
+        super().__init__(f"{argument!r} is not a valid invite")
+        self.argument: str = argument
+
+
+class BadTimestampArgumentError(BadArgumentError):
+    """The argument is not a timestamp (`<t:1618953630>`)."""
+
+    def __init__(self, argument: str) -> None:
+        """`argument` is not a timestamp."""
+        super().__init__(f"{argument!r} is not a timestamp")
+        self.argument: str = argument
+
+
+class FlagError(BadArgumentError):
+    """A flag could not be read."""
+
+
+class BadFlagArgumentError(FlagError):
+    """A flag's value did not convert."""
+
+    def __init__(self, flag: "Flag", argument: str, original: CommandError) -> None:
+        """`argument`, given to `flag`, did not convert (`original`)."""
+        super().__init__(f"could not convert {argument!r} for flag {flag.name!r}: {original}")
+        self.flag: Flag = flag
+        self.argument: str = argument
+        self.original: CommandError = original
+
+
+class MissingFlagArgumentError(FlagError):
+    """A flag was given without a value (or a tuple flag with too few words)."""
+
+    def __init__(self, flag: "Flag") -> None:
+        """`flag` was given empty."""
+        super().__init__(f"flag {flag.name!r} needs a value")
+        self.flag: Flag = flag
+
+
+class MissingRequiredFlagError(FlagError):
+    """A flag without a default was left out."""
+
+    def __init__(self, flag: "Flag") -> None:
+        """`flag` was not given."""
+        super().__init__(f"flag {flag.name!r} is required and missing")
+        self.flag: Flag = flag
+
+
+class TooManyFlagsError(FlagError):
+    """A flag was given more times than it takes."""
+
+    def __init__(self, flag: "Flag", values: Sequence[str]) -> None:
+        """`flag` was given `values`, more than its `max_args`."""
+        super().__init__(f"flag {flag.name!r} takes at most {flag.max_args} values, not {len(values)}")
+        self.flag: Flag = flag
+        self.values: list[str] = list(values)
+
+
 class ChannelNotReadableError(BadArgumentError):
     """The bot cannot read the channel the argument names."""
 
@@ -311,6 +425,15 @@ class MissingAnyRoleError(CheckFailureError):
     def __init__(self, roles: Sequence[int | str]) -> None:
         """The author has none of `roles`."""
         super().__init__(f"you need one of the roles {list(roles)!r}")
+        self.missing_roles: list[int | str] = list(roles)
+
+
+class BotMissingAnyRoleError(CheckFailureError):
+    """The bot has none of the roles the command accepts."""
+
+    def __init__(self, roles: Sequence[int | str]) -> None:
+        """The bot has none of `roles`."""
+        super().__init__(f"the bot needs one of the roles {list(roles)!r}")
         self.missing_roles: list[int | str] = list(roles)
 
 

@@ -43,6 +43,10 @@ class GatewayConnection(Protocol):
         """Send a text frame containing UTF-8 JSON."""
         ...
 
+    async def send_binary(self, data: bytes) -> None:
+        """Send a binary frame (the voice gateway's DAVE messages)."""
+        ...
+
     async def close(self, code: int) -> None:
         """Close the socket with `code`. 1000/1001 end the session; anything else keeps it resumable."""
         ...
@@ -83,6 +87,10 @@ class _AiohttpConnection(GatewayConnection):
     @override
     async def send(self, data: bytes) -> None:
         await self._socket.send_str(data.decode())
+
+    @override
+    async def send_binary(self, data: bytes) -> None:
+        await self._socket.send_bytes(data)
 
     @override
     async def close(self, code: int) -> None:

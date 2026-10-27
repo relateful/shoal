@@ -1,32 +1,16 @@
 # Roadmap
 
-What is built is described in the guides. This page is what comes next, in rough order, and why.
+What is built is described in the guides. Everything the previous roadmap planned is built:
 
-## 1. Finishing the bot API
+- **The bot API**, including Components V2 layouts and the familiar names of `shoal.compat`
+  ([writing a bot](guide/bot.md), [migrating](guide/migrating-from-discord-py.md)).
+- **Shared state for clusters**: Redis implementations of the identify limiter, session store, rate
+  limiter and cache; a REST proxy; IPC over Unix sockets and through a Redis stream; a shard
+  directory and command routing between clusters; resharding without downtime
+  ([scaling](guide/scaling.md), [caching](guide/caching.md)).
+- **Voice messages** ([writing a bot](guide/bot.md#voice-messages)).
+- **Voice** with DAVE end-to-end encryption: joining, playing and listening ([voice](guide/voice.md)).
 
-The bot API is built: models, slash, prefix and hybrid commands, cogs, extensions, views, modals and
-the application's emojis ([writing a bot](guide/bot.md)). Still planned:
-
-- **Components v2** layouts (sections, containers, media galleries) in `ui`.
-- **A discord.py compatibility layer**: aliases such as `discord.NotFound` and the rest of the
-  `ext.commands` surface (`FlagConverter`, `clean_content`, `commands.param`,
-  `app_commands.Transformer`, dynamic cooldowns), so a migration can be incremental.
-
-## 2. Shared state for clusters
-
-- Redis implementations of `IdentifyLimiter`, `SessionStore`, `RateLimiter` and `CacheCollection`,
-  so clusters on many hosts share identify slots, sessions, rate limits and cache.
-- A **REST proxy** server: one process owns the rate limits, every bot and dashboard talks to it.
-- IPC over Unix sockets, and an optional broker transport (NATS or Redis streams).
-- Resharding without downtime, using Discord's support for parallel sessions with a new shard count.
-
-## 3. The rest of the Discord API
-
-Every HTTP endpoint and every gateway event Discord documents is implemented; `docs/coverage.md`
-shows both and CI fails when Discord documents something new, and the cache follows every event that
-changes something it holds, and the webhook events Discord posts to an app are received by
-`Endpoint`. Still to come: voice messages.
-
-## 4. Voice
-
-Voice send with DAVE end-to-end encryption, then receive as an optional extension.
+Nothing new is planned yet. Shoal keeps up with Discord's API as it changes: CI compares every
+endpoint and event with Discord's documentation each week, and mirrors each change Discord makes to
+it as a pull request.

@@ -8,13 +8,15 @@ Discord: https://docs.discord.com/developers/resources/message#message-object
 """
 
 import logging
-from collections.abc import AsyncIterator, Sequence
+import re
+from collections.abc import AsyncIterator, Iterable, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Final, override
 
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from shoal.core.formatting import ANY_MENTION, escape_mentions
 from shoal.core.snowflake import Snowflake
 from shoal.models.base import MISSING, Hashable, MissingType, unset_if_none
 from shoal.models.embed import Embed
@@ -39,7 +41,7 @@ from shoal.payloads.message import Message as MessagePayload
 from shoal.payloads.message import Reaction as ReactionPayload
 from shoal.payloads.poll import Poll, PollCreateRequest
 from shoal.payloads.sticker import StickerItem
-from shoal.rest.files import File
+from shoal.rest.files import File, VoiceMessage
 from shoal.rest.resources.message import ReactionEmoji
 
 if TYPE_CHECKING:
@@ -151,6 +153,7 @@ class PartialMessage(Hashable):
         suppress_embeds: bool = False,
         silent: bool = False,
         poll: PollCreateRequest | None = None,
+        voice_message: VoiceMessage | None = None,
     ) -> "Message":
         """Reply to this message; the keywords are `send`'s.
 
@@ -173,6 +176,7 @@ class PartialMessage(Hashable):
             suppress_embeds=suppress_embeds,
             silent=silent,
             poll=poll,
+            voice_message=voice_message,
         )
 
     async def edit(
@@ -381,6 +385,11 @@ class Message(PartialMessage):
     def content(self) -> str:
         """The text. Empty without the Message Content intent, except in DMs, mentions and replies."""
         return self._data.content
+
+    @property
+    def clean_content(self) -> str:
+        """The text with mentions written as names (`@Ada`, `#general`) that ping nobody."""
+        return clean_mentions(self._state, self.content, guild_id=self._guild_id, mentioned=self.mentions)
 
     @property
     @override
@@ -619,3 +628,50 @@ class Reaction:
 def _reaction(emoji: EmojiLike) -> ReactionEmoji:
     """`emoji` as the reaction endpoints take it; a string (unicode, or `name:id`) passes through."""
     return emoji if isinstance(emoji, str) else partial_emoji(emoji)
+
+
+def clean_mentions(
+    state: State,
+    text: str,
+    *,
+    guild_id: int | None,
+    mentioned: "Iterable[User | Member]" = (),
+    channels: bool = True,
+    nicknames: bool = True,
+) -> str:
+    """`text` with user, role and channel mentions written as names, and nothing in it able to ping.
+
+    Users come from `mentioned` (a message's own mentions), then the cache; `nicknames` names members
+    by their nickname. `channels` names channel mentions too. What is not known shows as
+    `@deleted-user`, `@deleted-role` or `#deleted-channel`.
+    """
+    from shoal.models.channel import DMChannel, resolve_cached_channel
+    from shoal.models.guild import Guild
+    from shoal.models.role import Role
+    from shoal.models.user import User
+
+    known = {user.id: user for user in mentioned}
+    guild = Guild.from_cache(state, guild_id) if guild_id is not None else None
+
+    def named(match: re.Match[str]) -> str:
+        kind, found_id = match[1], int(match[2])
+        if kind in {"@", "@!"}:
+            user: User | Member | None = known.get(Snowflake(found_id))
+            if user is None and guild is not None:
+                user = guild.get_member(found_id)
+            if user is None:
+                user = User.from_cache(state, found_id)
+            if user is None:
+                return "@deleted-user"
+            return f"@{user.display_name if nicknames else user.name}"
+        if kind == "@&":
+            role = Role.from_cache(state, found_id)
+            return "@deleted-role" if role is None else f"@{role.name}"
+        if not channels:
+            return match[0]
+        channel = resolve_cached_channel(state, found_id)
+        if channel is None:
+            return "#deleted-channel"
+        return match[0] if isinstance(channel, DMChannel) else f"#{channel.name}"
+
+    return escape_mentions(ANY_MENTION.sub(named, text))

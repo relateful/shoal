@@ -17,19 +17,18 @@ from shoal.payloads.components import (
     LABEL_MAX_LENGTH,
     TEXT_INPUT_MAX_LENGTH,
     TEXT_INPUT_PLACEHOLDER_MAX_LENGTH,
-    Label,
     TextInputStyle,
 )
 from shoal.payloads.components import TextInput as TextInputPayload
 from shoal.payloads.interactions import ResolvedData
-from shoal.ui.item import Item, check_length
+from shoal.ui.item import InteractiveItem, check_length
 
 
-class TextInput(Item):
+class TextInput(InteractiveItem):
     """A text field in a modal; `value` holds what the user typed, once submitted.
 
-    Discord shows it with a label above it (a Label component); `description` adds help text under
-    the label.
+    Discord shows it under a label. Added to a modal directly, it is shown under its own `label`
+    (and `description`, help text under the label); inside a `ui.Label`, under that label's.
 
     Discord: https://docs.discord.com/developers/components/reference#text-input
     """
@@ -49,7 +48,7 @@ class TextInput(Item):
     def __init__(
         self,
         *,
-        label: str,
+        label: str | None = None,
         style: TextInputStyle = TextInputStyle.SHORT,
         custom_id: str | None = None,
         placeholder: str | None = None,
@@ -59,10 +58,11 @@ class TextInput(Item):
         max_length: int | None = None,
         description: str | None = None,
         row: int | None = None,
+        id: int | None = None,
     ) -> None:
-        """A text input labelled `label` (up to 45 characters)."""
-        super().__init__(custom_id=custom_id, row=row)
-        self.label: str = label
+        """A text input labelled `label` (up to 45 characters; needed unless it is in a `ui.Label`)."""
+        super().__init__(custom_id=custom_id, row=row, id=id)
+        self.label: str | None = label
         self.style: TextInputStyle = style
         self.placeholder: str | None = placeholder
         self.default: str | None = default
@@ -96,9 +96,10 @@ class TextInput(Item):
             raise ValueError(msg)
 
     @override
-    def to_component(self) -> Label:
-        """The input, in its label, as Discord takes it."""
-        field = TextInputPayload(
+    def to_component(self) -> TextInputPayload:
+        """The input as Discord takes it; a modal puts it in a label."""
+        return TextInputPayload(
+            id=unset_if_none(self.id),
             custom_id=self.custom_id,
             style=self.style,
             min_length=unset_if_none(self.min_length),
@@ -106,11 +107,6 @@ class TextInput(Item):
             required=self.required,
             value=unset_if_none(self.default),
             placeholder=unset_if_none(self.placeholder),
-        )
-        return Label(
-            label=self.label,
-            description=unset_if_none(self.description),
-            component=field,
         )
 
     @override

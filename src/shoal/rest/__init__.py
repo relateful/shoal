@@ -23,13 +23,15 @@ from shoal.rest.errors import (
     UnauthorizedError,
     flatten_errors,
 )
-from shoal.rest.files import File
+from shoal.rest.files import File, VoiceMessage, flat_waveform, ogg_opus_duration, waveform_of
+from shoal.rest.proxy import RestProxy, RouteTable
 from shoal.rest.ratelimit import (
     InvalidRequestGuard,
     LocalRateLimiter,
     RateLimiter,
     RateLimitHeaders,
     WaitTooLongError,
+    rate_limit_of,
 )
 from shoal.rest.requester import QueryScalar, QueryValue, Requester
 from shoal.rest.resources.message import ReactionEmoji, reaction_emoji
@@ -59,7 +61,9 @@ __all__ = [
     "ReactionEmoji",
     "Requester",
     "RestClient",
+    "RestProxy",
     "Route",
+    "RouteTable",
     "SearchIndexNotReadyError",
     "ServerError",
     "Token",
@@ -67,10 +71,15 @@ __all__ = [
     "TokenType",
     "TransportError",
     "UnauthorizedError",
+    "VoiceMessage",
     "WaitTooLongError",
     "defaults",
     "endpoints",
+    "flat_waveform",
     "flatten_errors",
+    "ogg_opus_duration",
+    "rate_limit_of",
     "reaction_emoji",
     "resources",
+    "waveform_of",
 ]

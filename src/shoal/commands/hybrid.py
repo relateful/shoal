@@ -15,7 +15,7 @@ a `Message`, an `Emoji`) becomes a text option, converted like the prefix comman
 
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
-from typing import Self, Unpack, override
+from typing import Final, Self, Unpack, get_origin, override
 
 from shoal.app_commands import commands as app
 from shoal.app_commands.parameters import NO_DESCRIPTION, parameter_from_annotation
@@ -23,27 +23,51 @@ from shoal.app_commands.parameters import REQUIRED as APP_REQUIRED
 from shoal.client.interaction import Interaction
 from shoal.commands.core import Command, CommandCallback, CommandOptions, Group, GroupOptions
 from shoal.commands.errors import HybridCommandError
-from shoal.commands.parameters import NO_DEFAULT, Parameter, has_own_converter
+from shoal.commands.flags import Flag
+from shoal.commands.parameters import Parameter, flags_of, has_own_converter
 from shoal.payloads.application_commands import COMMAND_DESCRIPTION_MAX_LENGTH
 
 
-def _slash_annotation(parameter: Parameter) -> tuple[object, bool]:
-    """The annotation the slash command uses for `parameter`, and whether it is text to convert.
+class _Left:
+    """The slash default of an option with a default: left out, the prefix command's default is used."""
 
-    A parameter with a converter of its own (`Annotated[str, Shout]`, a `Converter`) is always text
-    run through that converter, so both ways of using the command convert it the same.
+    __slots__ = ()
+
+    @override
+    def __repr__(self) -> str:
+        return "<left out>"
+
+
+_LEFT_OUT: Final = _Left()
+
+
+def _slash_default(parameter: Parameter) -> object:
+    """What the slash command passes for `parameter` when it is left out."""
+    return _LEFT_OUT if parameter.has_default or parameter.optional else APP_REQUIRED
+
+
+def _slash_annotation(
+    name: str, annotation: object, *, optional: bool, default: object
+) -> tuple[object, bool]:
+    """The annotation the slash command uses for an option, and whether it is text to convert.
+
+    One with a converter of its own (`Annotated[str, Shout]`, a `Converter`), or of a type no option
+    holds (a list, a `Message`), is text run through the prefix command's conversion, so both ways
+    of using the command convert it the same.
     """
-    as_text = (str | None if parameter.optional else str), True
-    if has_own_converter(parameter.annotation):
+    as_text = (str | None if optional else str), True
+    if has_own_converter(annotation) or get_origin(annotation) in {list, tuple, dict}:
         return as_text
-    default = (
-        APP_REQUIRED if parameter.default is NO_DEFAULT and not parameter.optional else parameter.default
-    )
     try:
-        parameter_from_annotation(parameter.name, parameter.annotation, default)
+        parameter_from_annotation(name, annotation, default)
     except TypeError:
         return as_text
-    return parameter.annotation, False
+    return annotation, False
+
+
+def _flag_default(found: Flag) -> object:
+    """What the slash command passes for a flag left out."""
+    return APP_REQUIRED if found.required else _LEFT_OUT
 
 
 def _app_callback(hybrid: "HybridCommand") -> Callable[..., Awaitable[None]]:
@@ -57,22 +81,39 @@ def _app_callback(hybrid: "HybridCommand") -> Callable[..., Awaitable[None]]:
         inspect.Parameter("interaction", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Interaction)
     ]
     annotations: dict[str, object] = {"interaction": Interaction, "return": None}
+
+    def add(name: str, annotation: object, default: object) -> None:
+        if name in annotations:
+            msg = f"hybrid command {hybrid.name!r}: two options are called {name!r}"
+            raise TypeError(msg)
+        annotations[name] = annotation
+        signature.append(
+            inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY, default=default, annotation=annotation)
+        )
+
     for parameter in hybrid.params:
         if parameter.kind == "every_word" or parameter.greedy:
             msg = f"hybrid command {hybrid.name!r}: *{parameter.name} and Greedy cannot be slash options"
             raise TypeError(msg)
-        annotation, as_text = _slash_annotation(parameter)
+        flags = flags_of(parameter.annotation)
+        if flags is not None:
+            # Each flag is an option of its own.
+            for found in flags.get_flags().values():
+                default = _flag_default(found)
+                annotation, as_text = _slash_annotation(
+                    found.name, found.annotation, optional=not found.required, default=default
+                )
+                if as_text:
+                    converted_from_text.add(found.name)
+                add(found.name, annotation, default)
+            continue
+        default = _slash_default(parameter)
+        annotation, as_text = _slash_annotation(
+            parameter.name, parameter.annotation, optional=parameter.optional, default=default
+        )
         if as_text:
             converted_from_text.add(parameter.name)
-        annotations[parameter.name] = annotation
-        signature.append(
-            inspect.Parameter(
-                parameter.name,
-                inspect.Parameter.KEYWORD_ONLY,
-                default=parameter.default,
-                annotation=annotation,
-            )
-        )
+        add(parameter.name, annotation, default)
     vars(run)["__signature__"] = inspect.Signature(signature)
     run.__annotations__ = annotations
     run.__name__ = hybrid.name
@@ -111,9 +152,20 @@ async def _run_from_interaction(
         await hybrid.ready(ctx)
         kwargs: dict[str, object] = {}
         for parameter in hybrid.params:
-            value = values.get(parameter.name, parameter.fallback)
-            if parameter.name in as_text and isinstance(value, str):
-                ctx.current_parameter = parameter
+            ctx.current_parameter = parameter
+            flags = flags_of(parameter.annotation)
+            if flags is not None:
+                given = {
+                    name: value
+                    for name in flags.get_flags()
+                    if (value := values.get(name, _LEFT_OUT)) is not _LEFT_OUT
+                }
+                kwargs[parameter.name] = await flags.from_options(ctx, given, as_text)
+                continue
+            value = values.get(parameter.name, _LEFT_OUT)
+            if value is _LEFT_OUT:
+                value = await parameter.default_for(ctx)
+            elif parameter.name in as_text and isinstance(value, str):
                 ctx.current_argument = value
                 value = await parameter.converter(ctx, value)
             kwargs[parameter.name] = value
@@ -147,6 +199,26 @@ class HybridCommand(Command):
         description = (self.short_doc or NO_DESCRIPTION)[:COMMAND_DESCRIPTION_MAX_LENGTH]
         command = app.Command(callback=_app_callback(self), name=self.name, description=description)
         command.error(self._slash_error)
+        # `param(description=...)` and `flag(description=...)` describe the options, unless
+        # `@app_commands.describe` already did.
+        described: dict[str, str] = {}
+        for parameter in self.params:
+            flags = flags_of(parameter.annotation)
+            if flags is not None:
+                described.update(
+                    (found.name, found.description)
+                    for found in flags.get_flags().values()
+                    if found.description
+                )
+            elif parameter.description is not None:
+                described[parameter.name] = parameter.description
+        undescribed = {
+            name: text
+            for name, text in described.items()
+            if (option := command.get_parameter(name)) is not None and option.description == NO_DESCRIPTION
+        }
+        if undescribed:
+            app.describe(**undescribed)(command)
         return command
 
     async def _slash_error(self, interaction: Interaction, error: Exception) -> bool:

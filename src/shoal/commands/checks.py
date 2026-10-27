@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Final
 
 from shoal.commands.core import BucketType, Check, Command, Hook, MaxConcurrency, PendingSettings, pending_of
 from shoal.commands.errors import (
+    BotMissingAnyRoleError,
     BotMissingPermissionsError,
     BotMissingRoleError,
     CheckAnyFailureError,
@@ -27,7 +28,7 @@ from shoal.commands.errors import (
     PrivateMessageOnlyError,
 )
 from shoal.core.clock import Clock
-from shoal.core.cooldown import Cooldown
+from shoal.core.cooldown import Cooldown, DynamicCooldown
 from shoal.models.channel import GuildChannel
 from shoal.models.member import Member
 from shoal.models.thread import Thread
@@ -230,6 +231,18 @@ def bot_has_role(role: int | str) -> CheckDecorator:
     return check(predicate)
 
 
+def bot_has_any_role(*roles: int | str) -> CheckDecorator:
+    """Refuse when the bot has none of `roles` (IDs or names), with `BotMissingAnyRoleError`."""
+
+    def predicate(ctx: "Context") -> bool:
+        member = _member(ctx.me)
+        if not any(member.has_role(role) for role in roles):
+            raise BotMissingAnyRoleError(roles)
+        return True
+
+    return check(predicate)
+
+
 def is_owner() -> CheckDecorator:
     """Allow only the bot's owner (or its team), with `NotOwnerError` for anyone else."""
 
@@ -295,6 +308,31 @@ def cooldown[T: Decoratable](
         ValueError: `rate` is below 1 or `per` is not positive.
     """
     limiter = Cooldown["Context"](rate, per, key=type.key, clock=clock)
+
+    def decorator(target: T) -> T:
+        def on_command(command: Command) -> None:
+            command.cooldown = limiter
+
+        def on_function(pending: PendingSettings) -> None:
+            pending.cooldown = limiter
+
+        return _apply(target, on_command, on_function)
+
+    return decorator
+
+
+def dynamic_cooldown[T: Decoratable](
+    cooldown: Callable[["Context"], Cooldown["Context"] | None],
+    type: BucketType = BucketType.DEFAULT,  # noqa: A002 - the bucket type, as every bot writes it
+    *,
+    clock: Clock | None = None,
+) -> Callable[[T], T]:
+    """A cooldown whose limit `cooldown` chooses for each `type` bucket; `None` means no limit.
+
+    `cooldown` gets the context of the bucket's first use and returns a `Cooldown(rate, per)`; it is
+    asked again once the bucket's uses have expired. Refused uses raise `CommandOnCooldownError`.
+    """
+    limiter = DynamicCooldown["Context"](cooldown, key=type.key, clock=clock)
 
     def decorator(target: T) -> T:
         def on_command(command: Command) -> None:

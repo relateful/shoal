@@ -64,6 +64,34 @@ Both take `fresh_only` and count in the lookup metrics like the async reads. Wit
 collections (the default) they see everything; a collection backed by a remote store answers them
 from a local copy it keeps, or with nothing.
 
+## Sharing the cache across processes
+
+`CacheStore(collections=...)` chooses where each kind is stored. `shoal.redis` stores them in Redis
+(install `shoal[redis]`), so gateway processes write what workers and a dashboard read:
+
+```python
+from redis.asyncio import Redis
+from shoal.redis import RedisCollections
+
+store = CacheStore(config, collections=RedisCollections(Redis.from_url("redis://localhost")))
+```
+
+Each entry is its own key, expiring as its kind's `ttl` says, indexed per kind and per guild so
+guild-wide work (reconciling, forgetting a guild) reads only that guild's entries. The indexes drop
+an entry when it expires, is deleted or moves to another guild, each change in one step, so no
+process ever sees an entry missing from its guild. `peek` answers from a local copy of what this
+process last read or wrote, bounded by the kind's `max_entries`.
+
+- Redis's own memory limit bounds what it keeps: use the `noeviction` or a `volatile-*` eviction
+  policy, so Redis never evicts an index.
+- Create the Redis client without `decode_responses`: entries are binary.
+- Run one Redis (or a replicated one behind Sentinel), not Redis Cluster: each change touches
+  several keys at once.
+- The cache outlives the process already, so the store saves and loads no snapshots, and numbers
+  its writes on from the clock: a restarted process never writes below what is stored.
+- Two processes writing one entry at the same moment keep the last write: let one process (the
+  gateway's) run the `CacheUpdater`.
+
 ## Warm restarts
 
 ```python

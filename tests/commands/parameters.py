@@ -4,17 +4,34 @@ from typing import Annotated, Literal, override
 
 import pytest
 
-from shoal.commands import Context, Converter, Greedy, Range
+from shoal import commands
+from shoal.commands import (
+    Author,
+    Context,
+    Converter,
+    CurrentChannel,
+    CurrentGuild,
+    Greedy,
+    ParameterOptions,
+    Range,
+    param,
+)
 from shoal.commands.errors import (
     BadArgumentError,
     BadBoolArgumentError,
     BadLiteralArgumentError,
     BadUnionArgumentError,
     ConversionError,
+    NoPrivateMessageError,
     RangeError,
 )
-from shoal.commands.parameters import Parameter, converter_for, parameter_of
-from tests.support.commands import bot_started, context_in
+from shoal.commands.parameters import Parameter, converter_for, parameter_of, run_converters
+from shoal.models.guild import Guild
+from shoal.models.member import Member
+from shoal.models.user import User
+from tests.support.client import Recorder
+from tests.support.commands import bot_started, context_in, errors_of, say
+from tests.support.models import ALICE, GENERAL, GUILD
 
 
 class Colour(enum.Enum):
@@ -139,4 +156,77 @@ def test_help_shows_each_kind_of_parameter() -> None:
     rest = parameter("reason", "rest", str)
     assert rest.consumes_rest
     assert rest.required
-    assert parameter("members", "every", int).fallback is None
+    assert not parameter("members", "every", int).has_default
+
+
+async def test_param_defaults_are_worked_out_from_the_context() -> None:
+    bot, transport = await bot_started()
+    events = Recorder(bot, "command_error")
+    seen: list[object] = []
+
+    async def doubled(ctx: Context) -> int:
+        return ctx.author.id * 2
+
+    @bot.command()
+    async def who(
+        ctx: Context,
+        person: Member | User = Author,
+        twice: int = param(default=doubled, displayed_default="<twice your ID>"),
+    ) -> None:
+        del ctx
+        seen.extend([person.id, twice])
+
+    @bot.command()
+    async def here(ctx: Context, guild: Guild = CurrentGuild, channel: object = CurrentChannel) -> None:
+        del ctx
+        seen.extend([guild.id, getattr(channel, "id", None)])
+
+    await say(bot, transport, "!who")
+    # A word that is not a member is left for the next parameter, and the author used.
+    transport.queue(200, [])  # the member search finds nobody called "21"
+    await say(bot, transport, "!who 21")
+    await say(bot, transport, "!here")
+    await say(bot, transport, "!here", in_guild=False)
+    assert seen == [ALICE, ALICE * 2, ALICE, 21, GUILD, GENERAL]
+    [error] = errors_of(events)
+    assert isinstance(error, NoPrivateMessageError)
+    assert who.signature == "[person=<you>] [twice=<twice your ID>]"
+
+
+async def test_param_replaces_the_converter_and_describes_the_parameter() -> None:
+    bot, transport = await bot_started()
+    seen: list[object] = []
+
+    def shout(text: str) -> str:
+        return text.upper()
+
+    @bot.command()
+    async def loud(
+        ctx: Context,
+        word: str = param(converter=shout, default="hey", description="What to shout"),
+        *,
+        rest: Annotated[str, param(description="The rest", displayed_name="more")],
+    ) -> None:
+        del ctx
+        seen.extend([word, rest])
+
+    await say(bot, transport, "!loud hi there you")
+    assert seen == ["HI", "there you"]
+    word, rest = loud.params
+    assert (word.description, rest.description) == ("What to shout", "The rest")
+    assert loud.signature == "[word=hey] <more>"
+
+
+def test_parameter_is_another_name_for_param() -> None:
+    assert commands.parameter is param
+    assert isinstance(param(description="x"), ParameterOptions)
+
+
+async def test_run_converters_converts_as_an_annotation_would() -> None:
+    bot, _ = await bot_started()
+    ctx = context_in(bot)
+    assert await run_converters(ctx, int, "42") == 42
+    assert await run_converters(ctx, Literal["a", "b"], "B") == "b"
+    with pytest.raises(BadArgumentError):
+        await run_converters(ctx, int, "many")
+    assert commands.AutoShardedBot is commands.Bot

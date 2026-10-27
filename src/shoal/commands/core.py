@@ -32,10 +32,12 @@ from shoal.commands.errors import (
     DisabledCommandError,
     MaxConcurrencyReachedError,
     MissingRequiredArgumentError,
+    MissingRequiredAttachmentError,
     TooManyArgumentsError,
 )
-from shoal.commands.parameters import NO_DEFAULT, Parameter, parameter_of
-from shoal.core.cooldown import Cooldown
+from shoal.commands.parameters import Parameter, parameter_of
+from shoal.core.cooldown import AnyCooldown
+from shoal.payloads.message import Attachment
 
 if TYPE_CHECKING:
     from shoal.commands.cog import Cog
@@ -164,7 +166,7 @@ class PendingSettings:
     """Settings decorators record on a function before it becomes a command."""
 
     checks: list[Check] = field(default_factory=list[Check])
-    cooldown: Cooldown["Context"] | None = None
+    cooldown: AnyCooldown["Context"] | None = None
     max_concurrency: MaxConcurrency | None = None
     before_invoke: Hook | None = None
     after_invoke: Hook | None = None
@@ -277,7 +279,7 @@ class Command:
         self.rest_is_raw: bool = rest_is_raw
         self.extras: dict[str, object] = dict(extras or {})
         self.checks: list[Check] = list(pending.checks)
-        self.cooldown: Cooldown[Context] | None = pending.cooldown
+        self.cooldown: AnyCooldown[Context] | None = pending.cooldown
         self.max_concurrency: MaxConcurrency | None = pending.max_concurrency
         self._before_invoke: Hook | None = pending.before_invoke
         self._after_invoke: Hook | None = pending.after_invoke
@@ -444,8 +446,12 @@ class Command:
         ctx.args = []
         ctx.kwargs = {}
         view = ctx.view
+        attachments = list(ctx.message.attachments) if ctx.message is not None else []
         for parameter in self.params:
             ctx.current_parameter = parameter
+            if parameter.kind == "attachment":
+                ctx.args.append(await _attachment(ctx, parameter, attachments))
+                continue
             if parameter.kind == "every_word":
                 ctx.args.extend(await _every_word(ctx, parameter))
                 break
@@ -547,18 +553,18 @@ async def _one(ctx: "Context", parameter: Parameter) -> object:
             except CommandError:
                 view.index = start
                 break
-        if not converted and parameter.default is NO_DEFAULT:
+        if not converted and not parameter.has_default:
             raise MissingRequiredArgumentError(parameter)
-        return converted or parameter.fallback
+        return converted or await parameter.default_for(ctx)
     view.skip_ws()
     if view.at_end():
         if parameter.required:
             raise MissingRequiredArgumentError(parameter)
-        return parameter.fallback
+        return await parameter.default_for(ctx)
     start = view.index
     word = view.get_quoted_word()
     if word is None:
-        return parameter.fallback
+        return await parameter.default_for(ctx)
     ctx.current_argument = word
     try:
         return await parameter.converter(ctx, word)
@@ -566,7 +572,21 @@ async def _one(ctx: "Context", parameter: Parameter) -> object:
         if not parameter.optional:
             raise
         view.index = start
-        return parameter.fallback
+        return await parameter.default_for(ctx)
+
+
+async def _attachment(ctx: "Context", parameter: Parameter, attachments: list[Attachment]) -> object:
+    """The next attached file (or, for `Greedy`, every one left); they are taken in order."""
+    if parameter.greedy:
+        taken = list(attachments)
+        attachments.clear()
+        if taken:
+            return taken
+    elif attachments:
+        return attachments.pop(0)
+    if parameter.required:
+        raise MissingRequiredAttachmentError(parameter)
+    return await parameter.default_for(ctx)
 
 
 async def _every_word(ctx: "Context", parameter: Parameter) -> list[object]:
@@ -587,7 +607,7 @@ async def _rest(ctx: "Context", parameter: Parameter, *, raw: bool) -> object:
     if view.at_end():
         if parameter.required:
             raise MissingRequiredArgumentError(parameter)
-        return parameter.fallback
+        return await parameter.default_for(ctx)
     rest = view.read_rest()
     argument = rest if raw else rest.strip()
     ctx.current_argument = argument

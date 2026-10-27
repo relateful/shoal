@@ -7,11 +7,13 @@ from shoal.commands import (
     BucketType,
     Command,
     Context,
+    Cooldown,
     Greedy,
     Group,
     MaxConcurrency,
     command,
     cooldown,
+    dynamic_cooldown,
     group,
     max_concurrency,
 )
@@ -24,21 +26,17 @@ from shoal.commands.errors import (
     DisabledCommandError,
     MaxConcurrencyReachedError,
     MissingRequiredArgumentError,
+    MissingRequiredAttachmentError,
     TooManyArgumentsError,
 )
+from shoal.payloads import Attachment
 from tests.support.client import Recorder
-from tests.support.commands import bot_started, context_in, say
+from tests.support.commands import bot_started, context_in, errors_of, say
 from tests.support.fakes import settle
-from tests.support.models import ALICE, BOB, GUILD
+from tests.support.models import ALICE, BOB, GUILD, Json
 
 NO_NUMBERS: Greedy[int] = Greedy()
 """No numbers: the default of a greedy parameter that may match none."""
-
-
-async def errors_of(events: Recorder) -> list[Exception]:
-    return [
-        args[1] for name, args in events.seen if name == "command_error" and isinstance(args[1], Exception)
-    ]
 
 
 async def test_words_quotes_optional_greedy_and_the_rest() -> None:
@@ -93,7 +91,7 @@ async def test_argument_errors_reach_the_error_event() -> None:
     await say(bot, transport, "!add 1 x")
     await say(bot, transport, "!add 1 2 3")
     await say(bot, transport, "!greedy x")
-    first, second, third, fourth = await errors_of(events)
+    first, second, third, fourth = errors_of(events)
     assert isinstance(first, MissingRequiredArgumentError)
     assert first.parameter.name == "second"
     assert isinstance(second, BadArgumentError)
@@ -201,7 +199,7 @@ async def test_checks_disabled_commands_and_hooks() -> None:
     guarded.enabled = False
     await say(bot, transport, "!guarded")
     assert order == ["before", "run", "after"]
-    refused, disabled = await errors_of(events)
+    refused, disabled = errors_of(events)
     assert isinstance(refused, CheckFailureError)
     assert isinstance(disabled, DisabledCommandError)
 
@@ -219,13 +217,34 @@ async def test_cooldowns_refuse_until_reset() -> None:
     await say(bot, transport, "!slow")
     await say(bot, transport, "!slow")
     await say(bot, transport, "!slow", author=BOB)
-    [error] = await errors_of(events)
+    [error] = errors_of(events)
     assert isinstance(error, CommandOnCooldownError)
     ctx = context_in(bot)
     assert slow.retry_after(ctx) > 0
     slow.reset_cooldown(ctx)
     assert slow.retry_after(ctx) == 0.0
     assert ran == [ALICE, BOB]
+
+
+async def test_a_dynamic_cooldown_limits_each_bucket_as_its_function_says() -> None:
+    bot, transport = await bot_started()
+    events = Recorder(bot, "command_error")
+    ran: list[int] = []
+
+    def limit(ctx: Context) -> Cooldown[Context] | None:
+        return None if ctx.author.id == BOB else Cooldown(1, 60.0)
+
+    @dynamic_cooldown(limit, BucketType.USER)
+    @bot.command()
+    async def tiered(ctx: Context) -> None:
+        ran.append(ctx.author.id)
+
+    for _ in range(2):
+        await say(bot, transport, "!tiered")
+        await say(bot, transport, "!tiered", author=BOB)
+    [error] = errors_of(events)
+    assert isinstance(error, CommandOnCooldownError)
+    assert ran == [ALICE, BOB, BOB]
 
 
 async def test_asking_a_command_how_long_to_wait_keeps_the_uses() -> None:
@@ -242,7 +261,7 @@ async def test_asking_a_command_how_long_to_wait_keeps_the_uses() -> None:
     assert twice.retry_after(ctx) == 0.0
     await say(bot, transport, "!twice")
     await say(bot, transport, "!twice")
-    [error] = await errors_of(events)
+    [error] = errors_of(events)
     assert isinstance(error, CommandOnCooldownError)
 
 
@@ -264,7 +283,7 @@ async def test_max_concurrency_refuses_or_queues() -> None:
     await say(bot, transport, "!once")
     release.set()
     await first
-    [error] = await errors_of(events)
+    [error] = errors_of(events)
     assert isinstance(error, MaxConcurrencyReachedError)
     assert running == ["once"]
 
@@ -369,3 +388,45 @@ def test_groups_hold_unique_names() -> None:
     assert isinstance(parent, Group)
     assert parent.commands == [child]
     assert parent.copy().commands[0] is not child
+
+
+def attachment(attachment_id: int, filename: str) -> Json:
+    return {
+        "id": str(attachment_id),
+        "filename": filename,
+        "size": 1,
+        "url": f"https://cdn.discordapp.com/{filename}",
+        "proxy_url": f"https://media.discordapp.net/{filename}",
+    }
+
+
+async def test_attachment_parameters_take_the_attached_files_in_order() -> None:
+    bot, transport = await bot_started()
+    events = Recorder(bot, "command_error")
+    seen: list[object] = []
+
+    @bot.command()
+    async def upload(
+        ctx: Context, first: Attachment, note: str, second: Attachment | None = None, *rest: str
+    ) -> None:
+        del ctx
+        seen.append((first.filename, note, second.filename if second else None, rest))
+
+    @bot.command()
+    async def every(ctx: Context, files: Greedy[Attachment]) -> None:
+        del ctx
+        seen.append([file.filename for file in files])
+
+    await say(
+        bot, transport, "!upload hello a b", attachments=[attachment(1, "a.png"), attachment(2, "b.png")]
+    )
+    await say(bot, transport, "!upload hi", attachments=[attachment(3, "c.png")])
+    await say(bot, transport, "!every", attachments=[attachment(4, "d.png"), attachment(5, "e.png")])
+    await say(bot, transport, "!upload hi")
+    await say(bot, transport, "!every")
+    assert seen == [("a.png", "hello", "b.png", ("a", "b")), ("c.png", "hi", None, ()), ["d.png", "e.png"]]
+    missing, none = errors_of(events)
+    assert isinstance(missing, MissingRequiredAttachmentError)
+    assert missing.parameter.name == "first"
+    assert isinstance(none, MissingRequiredAttachmentError)
+    assert upload.signature == "<first> <note> [second] [rest...]"

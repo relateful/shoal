@@ -30,7 +30,7 @@ from shoal.payloads.message import (
 from shoal.payloads.message import Embed as EmbedPayload
 from shoal.payloads.poll import PollCreateRequest
 from shoal.payloads.webhook import EditWebhookMessageParams
-from shoal.rest.files import File
+from shoal.rest.files import File, VoiceMessage
 
 type EmbedLike = Embed | EmbedPayload
 """An embed to send: the builder, or the payload when you already have one."""
@@ -57,7 +57,16 @@ class Outgoing:
     def message_params(
         self, *, reference: MessageReference | None = None, sticker_ids: Sequence[int] = ()
     ) -> CreateMessageParams:
-        """Create Message's body."""
+        """Create Message's body.
+
+        Raises:
+            TypeError: Stickers were given with a Components V2 view or a voice message.
+        """
+        if sticker_ids and _is_v2(self.flags):
+            msg = "a Components V2 message (a LayoutView) cannot have stickers"
+            raise TypeError(msg)
+        if sticker_ids and isinstance(self.flags, MessageFlags) and self.flags.is_voice_message:
+            raise TypeError(_VOICE_ALONE)
         return CreateMessageParams(
             content=self.content,
             tts=self.tts,
@@ -95,6 +104,22 @@ class Outgoing:
         )
 
 
+_V2_REPLACES = (
+    "a Components V2 message (a LayoutView) has no content, embeds or poll: "
+    "show text with ui.TextDisplay, and group it with ui.Container"
+)
+
+
+_VOICE_ALONE = (
+    "a voice message is a single audio attachment: it has no content, embeds, other files, "
+    "components, poll or stickers"
+)
+
+
+def _is_v2(flags: MessageFlags | UnsetType | None) -> bool:
+    return isinstance(flags, MessageFlags) and flags.is_components_v2
+
+
 def _components_flags(components: list[MessageComponent], flags: MessageFlags) -> MessageFlags:
     """Components other than action rows are Components V2, which Discord requires a flag for."""
     if any(not isinstance(component, ActionRow) for component in components):
@@ -116,6 +141,7 @@ def outgoing(
     silent: bool = False,
     ephemeral: bool = False,
     poll: PollCreateRequest | None = None,
+    voice_message: VoiceMessage | None = None,
 ) -> Outgoing:
     """Check `send`'s keywords and build the message.
 
@@ -123,8 +149,20 @@ def outgoing(
     (`suppress_notifications`); `ephemeral` only applies to interaction responses.
 
     Raises:
-        TypeError: Both `embed` and `embeds`, or both `file` and `files`, were given.
+        TypeError: Both `embed` and `embeds`, or both `file` and `files`, were given; content,
+            embeds or a poll with a Components V2 view (a `LayoutView`), which replaces them; or
+            anything but `voice_message` (and `silent`, `allowed_mentions`) with a voice message.
     """
+    if voice_message is not None:
+        others = (content, embed, embeds, file, files, view, poll)
+        if any(other is not None for other in others) or tts or suppress_embeds:
+            raise TypeError(_VOICE_ALONE)
+        flags = MessageFlags(is_voice_message=True, suppress_notifications=silent, ephemeral=ephemeral)
+        return Outgoing(
+            allowed_mentions=UNSET if allowed_mentions is None else allowed_mentions,
+            flags=flags,
+            files=[voice_message.file],
+        )
     if embed is not None and embeds is not None:
         msg = "cannot pass both embed and embeds"
         raise TypeError(msg)
@@ -138,6 +176,8 @@ def outgoing(
     if view is not None:
         components = view.to_components()
         flags = _components_flags(components, flags)
+        if flags.is_components_v2 and (content is not None or chosen_embeds is not None or poll is not None):
+            raise TypeError(_V2_REPLACES)
     return Outgoing(
         content=UNSET if content is None else str(content),
         tts=tts or UNSET,
@@ -156,9 +196,9 @@ class Edit:
     """An edit to a message, from `edit(...)`'s keywords."""
 
     content: str | UnsetType | None = UNSET
-    embeds: list[EmbedPayload] | UnsetType | None = UNSET
+    embeds: list[EmbedPayload] | UnsetType = UNSET
     allowed_mentions: AllowedMentions | UnsetType | None = UNSET
-    components: list[MessageComponent] | UnsetType | None = UNSET
+    components: list[MessageComponent] | UnsetType = UNSET
     flags: MessageFlags | UnsetType | None = UNSET
     attachments: list[AttachmentRequest] | UnsetType = UNSET
     """The existing attachments to keep; the request adds an entry for each new file."""
@@ -223,23 +263,30 @@ def edit(
     message's current flags, which the edit has to repeat.
 
     Raises:
-        TypeError: Both `embed` and `embeds` were given.
+        TypeError: Both `embed` and `embeds` were given; content or embeds with a Components V2
+            view (a `LayoutView`), which replaces them; or `view=None` on a Components V2 message,
+            which would leave it empty (Discord refuses that: edit it with another layout, or
+            delete it).
     """
     if not isinstance(embed, MissingType) and not isinstance(embeds, MissingType):
         msg = "cannot pass both embed and embeds"
         raise TypeError(msg)
-    new_embeds: list[EmbedPayload] | UnsetType | None = UNSET
+    # Clearing sends an empty list: Discord leaves embeds and components unchanged on `null`.
+    new_embeds: list[EmbedPayload] | UnsetType = UNSET
     if not isinstance(embed, MissingType):
-        new_embeds = None if embed is None else [_payload(embed)]
+        new_embeds = [] if embed is None else [_payload(embed)]
     elif not isinstance(embeds, MissingType):
         new_embeds = [_payload(item) for item in embeds]
-    components: list[MessageComponent] | UnsetType | None = UNSET
+    components: list[MessageComponent] | UnsetType = UNSET
     new_flags: MessageFlags | UnsetType = UNSET
     chosen_view = None
     if not isinstance(view, MissingType):
+        if view is None and flags.is_components_v2:
+            msg = "a Components V2 message is its layout and cannot drop it: edit it with another view"
+            raise TypeError(msg)
         chosen_view = view
-        components = None if view is None else view.to_components()
-        if isinstance(components, list) and _components_flags(components, flags) != flags:
+        components = [] if view is None else view.to_components()
+        if view is not None and _components_flags(components, flags) != flags:
             new_flags = _components_flags(components, flags)
     if not isinstance(suppress, MissingType):
         current = new_flags if isinstance(new_flags, MessageFlags) else flags
@@ -247,6 +294,10 @@ def edit(
     new_content: str | UnsetType | None = UNSET
     if not isinstance(content, MissingType):
         new_content = None if content is None else str(content)
+    if (_is_v2(new_flags) or (flags.is_components_v2 and isinstance(components, list))) and (
+        isinstance(new_content, str) or bool(new_embeds)
+    ):
+        raise TypeError(_V2_REPLACES)
     return Edit(
         content=new_content,
         embeds=new_embeds,

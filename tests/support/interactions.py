@@ -86,6 +86,17 @@ def command(
     return common(interaction_id, in_guild=in_guild) | {"type": 2, "data": data}
 
 
+def option(name: str, value: object, kind: int = 3, *, focused: bool = False) -> Json:
+    """A slash command option as Discord sends it: `kind` 3 is a string, 4 an integer.
+
+    `focused` marks the option the user is typing in, for autocomplete.
+    """
+    data: Json = {"name": name, "type": kind, "value": value}
+    if focused:
+        data["focused"] = True
+    return data
+
+
 def autocomplete(name: str, *options: Json) -> Json:
     """An autocomplete interaction."""
     return common() | {"type": 4, "data": {"id": "20", "name": name, "type": 1, "options": list(options)}}

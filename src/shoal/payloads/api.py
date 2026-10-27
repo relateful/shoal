@@ -20,6 +20,12 @@ API_VERSION: Final = 10
 Discord: https://docs.discord.com/developers/reference#api-versioning
 """
 
+ATTACHMENT_SCHEME: Final = "attachment://"
+"""How an embed or a component refers to a file sent with the same message.
+
+Discord: https://docs.discord.com/developers/reference#uploading-files
+"""
+
 AUDIT_LOG_REASON_MAX_LENGTH: Final = 512
 """The longest `X-Audit-Log-Reason` value, in characters, before URL encoding.
 
@@ -46,6 +52,12 @@ Discord: https://docs.discord.com/developers/reference#image-formatting
 
 DOCS_BASE_URL: Final = "https://docs.discord.com/developers/"
 """Where Discord publishes its developer documentation; every docs link in Shoal starts with this."""
+
+OAUTH_AUTHORIZE_URL: Final = "https://discord.com/oauth2/authorize"
+"""Where a user authorizes an app, or adds a bot to a guild.
+
+Discord: https://docs.discord.com/developers/topics/oauth2#shared-resources-oauth2-urls
+"""
 
 USER_AGENT_FORMAT: Final = "DiscordBot ({url}, {version})"
 """The `User-Agent` shape Discord requires on every HTTP request.
