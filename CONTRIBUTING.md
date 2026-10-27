@@ -256,7 +256,8 @@ So that anything can be found without searching:
 - Docstrings explain behaviour and reasons (Google style). Comments are rare and explain why, never
   what. No section-banner comments (`# Login ------`); a module that needs them should be split.
 - Code, comments, docstrings and tests describe Shoal on its own terms and never mention other
-  Discord libraries. Only the docs that compare directly (the migration guide) name discord.py.
+  Discord libraries. Only what compares directly names discord.py: the README, the migration guide
+  and the `compat` example (a discord.py bot moved over) with its entry in the examples index.
   A dependency (aiohttp, redis-py) may be named where its behaviour is the reason for the code.
 - No unreachable or defensive dead code: pyright reports code that narrowing makes unreachable
   (`enableReachabilityAnalysis`), and a branch that cannot happen is removed, not kept "just in case".

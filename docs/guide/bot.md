@@ -2,7 +2,9 @@
 
 This page builds a bot from the top: a `Client` (or `commands.Bot`), slash commands, prefix and
 hybrid commands, buttons and modals, cogs and extensions, and the application's emojis. Every name
-a bot uses most is also available as `shoal.<Name>`.
+a bot uses most is also available as `shoal.<Name>`. Complete bots to run and copy, from a ping bot
+to a sharded one with Grafana, are in the repository's
+[`docs/examples`](https://github.com/relateful/shoal/tree/main/docs/examples).
 
 ## A client and its events
 
@@ -34,10 +36,15 @@ models (`Message`, `Member`, `Guild`) whose methods call Discord: `message.reply
 
 `client.wait_for("message", check=..., timeout=30)` waits for the next matching event.
 
-A large guild's members are not all sent at startup. `await guild.chunk()` fetches every member
-over the gateway (Server Members intent) and drops cached members who left while the bot was not
-told; concurrent calls share one request. `await guild.query_members("ada")` or
-`query_members(user_ids=[...])` fetches up to 100. A request Discord rate limits fails at once with
+A guild's members are not all sent when it arrives (without the Presence intent, almost none
+are). With the Server Members intent the client fetches the member list of each guild that arrives
+without it, as the guilds stream in: one guild at a time per shard, waiting out Discord's limit of
+one full list per guild every 30 seconds, and each shard counts as ready once its guilds are
+chunked. Guilds the bot joins later are chunked too. `chunk_guilds_at_startup=True` without that
+intent raises `ValueError`. Large bots often pass `chunk_guilds_at_startup=False` and fetch members
+where they need them: `await guild.chunk()` fetches every member over the gateway and drops cached
+members who left while the bot was not told; concurrent calls share one request.
+`await guild.query_members("ada")` or `query_members(user_ids=[...])` fetches up to 100. A request Discord rate limits fails at once with
 `MemberRequestRateLimitedError` and its `retry_after`.
 Subclass `Client` and define `on_<event>` methods, or override `setup_hook` to run code after
 logging in and before connecting (syncing commands, adding persistent views).

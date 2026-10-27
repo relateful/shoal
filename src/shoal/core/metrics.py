@@ -146,6 +146,14 @@ LOOP_LAG_SECONDS: Final = MetricSpec(
     "How late the event loop ran the monitor's last tick; near zero on a healthy loop.",
 )
 
+MEMBER_CHUNKS: Final = MetricSpec(
+    "shoal_member_chunks_total",
+    MetricKind.COUNTER,
+    "Member lists fetched at startup or on join, by result (fetched, retried, rate_limited, timeout, "
+    "disconnected, error).",
+    ("result",),
+)
+
 REST_INVALID_REQUESTS: Final = MetricSpec(
     "shoal_rest_invalid_requests",
     MetricKind.GAUGE,
@@ -212,6 +220,7 @@ ALL_METRICS: Final = (
     LOOP_BLOCKS,
     LOOP_BLOCK_SECONDS,
     LOOP_LAG_SECONDS,
+    MEMBER_CHUNKS,
     REST_INVALID_REQUESTS,
     REST_RATE_LIMITED,
     REST_REQUESTS,

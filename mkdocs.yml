@@ -3,6 +3,10 @@ site_description: A fully typed Discord API library for Python, built for bots t
 repo_url: https://github.com/relateful/shoal
 edit_uri: edit/main/docs/
 strict: true
+# Runnable bots with their own READMEs, read on GitHub (they use its notice syntax and link between
+# folders); the guide links to them on GitHub instead of rendering them.
+exclude_docs: |
+  examples/
 watch:
   - theme
 

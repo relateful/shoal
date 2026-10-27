@@ -196,9 +196,9 @@ class Edit:
     """An edit to a message, from `edit(...)`'s keywords."""
 
     content: str | UnsetType | None = UNSET
-    embeds: list[EmbedPayload] | UnsetType | None = UNSET
+    embeds: list[EmbedPayload] | UnsetType = UNSET
     allowed_mentions: AllowedMentions | UnsetType | None = UNSET
-    components: list[MessageComponent] | UnsetType | None = UNSET
+    components: list[MessageComponent] | UnsetType = UNSET
     flags: MessageFlags | UnsetType | None = UNSET
     attachments: list[AttachmentRequest] | UnsetType = UNSET
     """The existing attachments to keep; the request adds an entry for each new file."""
@@ -263,24 +263,30 @@ def edit(
     message's current flags, which the edit has to repeat.
 
     Raises:
-        TypeError: Both `embed` and `embeds` were given, or content or embeds with a Components V2
-            view (a `LayoutView`), which replaces them.
+        TypeError: Both `embed` and `embeds` were given; content or embeds with a Components V2
+            view (a `LayoutView`), which replaces them; or `view=None` on a Components V2 message,
+            which would leave it empty (Discord refuses that: edit it with another layout, or
+            delete it).
     """
     if not isinstance(embed, MissingType) and not isinstance(embeds, MissingType):
         msg = "cannot pass both embed and embeds"
         raise TypeError(msg)
-    new_embeds: list[EmbedPayload] | UnsetType | None = UNSET
+    # Clearing sends an empty list: Discord leaves embeds and components unchanged on `null`.
+    new_embeds: list[EmbedPayload] | UnsetType = UNSET
     if not isinstance(embed, MissingType):
-        new_embeds = None if embed is None else [_payload(embed)]
+        new_embeds = [] if embed is None else [_payload(embed)]
     elif not isinstance(embeds, MissingType):
         new_embeds = [_payload(item) for item in embeds]
-    components: list[MessageComponent] | UnsetType | None = UNSET
+    components: list[MessageComponent] | UnsetType = UNSET
     new_flags: MessageFlags | UnsetType = UNSET
     chosen_view = None
     if not isinstance(view, MissingType):
+        if view is None and flags.is_components_v2:
+            msg = "a Components V2 message is its layout and cannot drop it: edit it with another view"
+            raise TypeError(msg)
         chosen_view = view
-        components = None if view is None else view.to_components()
-        if isinstance(components, list) and _components_flags(components, flags) != flags:
+        components = [] if view is None else view.to_components()
+        if view is not None and _components_flags(components, flags) != flags:
             new_flags = _components_flags(components, flags)
     if not isinstance(suppress, MissingType):
         current = new_flags if isinstance(new_flags, MessageFlags) else flags

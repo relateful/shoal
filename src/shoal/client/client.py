@@ -30,11 +30,13 @@ from collections.abc import Awaitable, Callable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Unpack, final
 
+import msgspec
 from msgspec import UNSET, UnsetType
 
 from shoal.cache.store import CacheStore
 from shoal.cache.updater import CacheUpdater
 from shoal.client.defaults import (
+    CHUNK_ATTEMPTS,
     GUILD_READY_TIMEOUT,
     MEMBER_LIST_MEMBERS_PER_SECOND,
     MEMBER_LIST_MIN_TIMEOUT,
@@ -47,7 +49,7 @@ from shoal.core.clock import Clock, SystemClock, within
 from shoal.core.codec import decode_json
 from shoal.core.dispatch import DispatchEvent
 from shoal.core.errors import ShoalError
-from shoal.core.metrics import Metrics, NoopMetrics
+from shoal.core.metrics import MEMBER_CHUNKS, Metrics, NoopMetrics
 from shoal.core.replies import REPLY_WRITTEN
 from shoal.core.snowflake import Snowflake
 from shoal.core.tasks import spawn
@@ -55,7 +57,7 @@ from shoal.emojis.registry import AppEmojis
 from shoal.gateway.cluster import CommandRouter, ShardDirectory
 from shoal.gateway.manager import ShardManager
 from shoal.gateway.session import SessionStore
-from shoal.gateway.shard import ShardOptions
+from shoal.gateway.shard import ShardNotConnectedError, ShardOptions
 from shoal.gateway.sharding import IdentifyLimiter, LocalIdentifyLimiter, wait_for_session_starts
 from shoal.models.channel import (
     AnyGuildChannel,
@@ -82,7 +84,7 @@ from shoal.payloads.gateway_events import (
     UpdateVoiceState,
     VoiceServerUpdate,
 )
-from shoal.payloads.guild import GuildMember, UnavailableGuild
+from shoal.payloads.guild import GuildMember
 from shoal.payloads.interactions import (
     INTERACTION_RESPONSE_DEADLINE,
     ComponentInteraction,
@@ -133,6 +135,129 @@ class _MemberRequest:
 
 
 @final
+class _GuildChunker:
+    """Fetches the member list of each guild that arrives without it, one guild at a time per shard.
+
+    One at a time: a shard's member requests share its gateway send limit with everything else it
+    sends, and Discord allows one full member list per guild every 30 seconds. A shard's startup
+    guilds hold its readiness back until they are chunked (`on_startup_done`).
+    """
+
+    __slots__ = (
+        "_clock",
+        "_fetch",
+        "_metrics",
+        "_on_startup_done",
+        "_queued",
+        "_queues",
+        "_startup",
+        "_workers",
+    )
+
+    def __init__(
+        self,
+        fetch: Callable[[Snowflake], Awaitable[None]],
+        on_startup_done: Callable[[int], None],
+        clock: Clock,
+        metrics: Metrics,
+    ) -> None:
+        self._fetch: Callable[[Snowflake], Awaitable[None]] = fetch
+        self._on_startup_done: Callable[[int], None] = on_startup_done
+        self._clock: Clock = clock
+        self._metrics: Metrics = metrics
+        self._queues: dict[int, asyncio.Queue[Snowflake]] = {}
+        self._workers: dict[int, asyncio.Task[None]] = {}
+        self._queued: set[Snowflake] = set()
+        """Guilds waiting or being chunked, so a guild is never asked for twice at once."""
+        self._startup: dict[int, set[Snowflake]] = {}
+        """Per shard, the guilds of its startup still being chunked."""
+
+    def queue(self, shard_id: int, guild_id: Snowflake, *, startup: bool) -> None:
+        if startup:
+            self._startup.setdefault(shard_id, set()).add(guild_id)
+        if guild_id in self._queued:
+            return
+        self._queued.add(guild_id)
+        queue = self._queues.get(shard_id)
+        if queue is None:
+            queue = self._queues[shard_id] = asyncio.Queue()  # bounded: a guild is queued once at most
+            self._workers[shard_id] = spawn(self._work(queue), name=f"shoal-chunk-{shard_id}")
+        queue.put_nowait(guild_id)
+
+    def chunking(self, shard_id: int) -> bool:
+        """Whether startup guilds of the shard are still being chunked."""
+        return bool(self._startup.get(shard_id))
+
+    def new_session(self, shard_id: int) -> None:
+        """The shard identified again: its guilds will arrive, and be counted, anew."""
+        self._startup.pop(shard_id, None)
+
+    def cancel(self) -> None:
+        for worker in self._workers.values():
+            worker.cancel()
+
+    async def _work(self, queue: asyncio.Queue[Snowflake]) -> None:
+        while True:
+            guild_id = await queue.get()
+            try:
+                await self._chunk(guild_id)
+            except Exception:  # noqa: BLE001 - one guild's failure must not stop its shard's chunking
+                _log.exception("fetching the members of guild %d failed", guild_id)
+                self._count("error")
+            # Not on cancellation: the client is closing, and nothing becomes ready any more.
+            self._queued.discard(guild_id)
+            self._done(guild_id)
+
+    async def _chunk(self, guild_id: Snowflake) -> None:
+        for _ in range(CHUNK_ATTEMPTS):
+            try:
+                await self._fetch(guild_id)
+            except MemberRequestRateLimitedError as limited:
+                _log.debug(
+                    "members of guild %d rate limited; asking again in %.1fs", guild_id, limited.retry_after
+                )
+                self._count("retried")
+                await self._clock.sleep(limited.retry_after)
+                continue
+            except TimeoutError as error:
+                _log.warning("could not fetch the members of guild %d: %r", guild_id, error)
+                self._count("timeout")
+            except (GatewayRequiredError, ShardNotConnectedError) as error:
+                # The shard is reconnecting, or the guild moved: its next session chunks it again.
+                _log.warning("could not fetch the members of guild %d: %r", guild_id, error)
+                self._count("disconnected")
+            else:
+                self._count("fetched")
+            return
+        _log.warning(
+            "could not fetch the members of guild %d: rate limited %d times", guild_id, CHUNK_ATTEMPTS
+        )
+        self._count("rate_limited")
+
+    def _count(self, result: str) -> None:
+        self._metrics.increment(MEMBER_CHUNKS, {"result": result})
+
+    def _done(self, guild_id: Snowflake) -> None:
+        # Every shard waiting on it: after a reshard, a guild queued by its old shard can be one of
+        # its new shard's startup guilds.
+        for shard_id, pending in list(self._startup.items()):
+            if guild_id in pending:
+                pending.discard(guild_id)
+                if not pending:
+                    del self._startup[shard_id]
+                    self._on_startup_done(shard_id)
+
+
+class _ArrivingGuild(msgspec.Struct):
+    """What `GUILD_CREATE` says about a guild's members: how many it has, and which it carried."""
+
+    id: Snowflake
+    unavailable: bool = False
+    member_count: int = 0
+    members: list[msgspec.Raw] = []
+
+
+@final
 class _Waiter:
     __slots__ = ("check", "future")
 
@@ -148,6 +273,7 @@ class ClientOptions(ShardOptions, total=False):
     """
 
     cache: CacheStore | None
+    chunk_guilds_at_startup: bool | None
     shard_count: int | None
     shard_ids: Sequence[int] | None
     activity: BotActivity | None
@@ -172,6 +298,12 @@ class Client:
             ones (members, presences, message content), which must also be enabled in the
             Developer Portal.
         cache: The cache to keep; by default an in-memory `CacheStore`.
+        chunk_guilds_at_startup: Fetch the member list of every guild that arrives without it, so the
+            cache holds every member, as each guild streams in. `None` (the default) chunks when
+            `intents` has the Server Members intent. Each shard requests one guild at a time and is
+            ready (`on_shard_ready`, then `on_ready`) once its startup guilds are chunked; guilds
+            joined later are chunked too. Large bots often turn it off and call `guild.chunk()`
+            where they need every member.
         shard_count: Total shards; by default the number Discord recommends.
         shard_ids: The shards this process runs, for clusters; by default all of them.
         activity: The bot's activity on connect.
@@ -208,6 +340,7 @@ class Client:
         "_app_emojis",
         "_cache",
         "_cache_snapshot",
+        "_chunker",
         "_clock",
         "_closed",
         "_cluster_name",
@@ -248,6 +381,7 @@ class Client:
         *,
         intents: Intents,
         cache: CacheStore | None = None,
+        chunk_guilds_at_startup: bool | None = None,
         shard_count: int | None = None,
         shard_ids: Sequence[int] | None = None,
         activity: BotActivity | None = None,
@@ -264,12 +398,25 @@ class Client:
         clock: Clock | None = None,
         **options: Unpack[ShardOptions],
     ) -> None:
-        """Create a client; see the class docstring for the arguments. Call `run` or `start`."""
+        """Create a client; see the class docstring for the arguments. Call `run` or `start`.
+
+        Raises:
+            ValueError: `chunk_guilds_at_startup` is true without the Server Members intent.
+        """
+        if chunk_guilds_at_startup and not intents.guild_members:
+            msg = "chunk_guilds_at_startup needs the Server Members intent (guild_members)"
+            raise ValueError(msg)
         self.intents: Intents = intents
         # Not `or`: a registry is empty, so falsy, until it loads at login.
         self._app_emojis: AppEmojis = app_emojis if app_emojis is not None else AppEmojis()
         self._metrics: Metrics = metrics or NoopMetrics()
         self._clock: Clock = clock or SystemClock()
+        chunk = intents.guild_members if chunk_guilds_at_startup is None else chunk_guilds_at_startup
+        self._chunker: _GuildChunker | None = (
+            _GuildChunker(self._fetch_members, self._startup_chunked, self._clock, self._metrics)
+            if chunk
+            else None
+        )
         self._session_store: SessionStore | None = session_store
         self._cache_snapshot: Path | None = Path(cache_snapshot) if cache_snapshot is not None else None
         self._identify_limiter: IdentifyLimiter | None = identify_limiter
@@ -452,6 +599,8 @@ class Client:
         self._closed = True
         for timer in self._ready_timers.values():
             timer.cancel()
+        if self._chunker is not None:
+            self._chunker.cancel()
         # Together: each waits on its voice server, and a few unreachable ones must not add up.
         await asyncio.gather(*(voice.disconnect() for voice in list(self._voice_clients.values())))
         if self._manager is not None:
@@ -721,6 +870,10 @@ class Client:
             await self._updater.apply(event)
             self.dispatch("shard_resumed", event.shard_id)
             self.dispatch("resumed")
+            if event.shard_id not in self._ready_shards and event.shard_id not in self._pending_guilds:
+                # A session saved before a restart: no READY comes, and its guilds are in the cache.
+                # (A shard still receiving the guilds of its READY stays waiting for them.)
+                self._shard_ready(event.shard_id)
         elif event.name == "INTERACTION_CREATE":
             await self._handle_interaction(event)
         else:
@@ -752,14 +905,26 @@ class Client:
             self._user = ClientUser(self._state, ready.user)
         self._ready_shards.discard(event.shard_id)
         self._pending_guilds[event.shard_id] = {guild.id for guild in ready.guilds}
+        if self._chunker is not None:
+            self._chunker.new_session(event.shard_id)
         self.dispatch("connect")
         self._restart_ready_timer(event.shard_id)
 
     def _guild_arrived(self, event: DispatchEvent) -> None:
+        arrived = event.decode(_ArrivingGuild)
         pending = self._pending_guilds.get(event.shard_id)
+        if (
+            self._chunker is not None
+            and not arrived.unavailable
+            and arrived.member_count > len(arrived.members)
+        ):
+            # A startup guild is one READY listed; a guild joined meanwhile holds nothing back.
+            self._chunker.queue(
+                event.shard_id, arrived.id, startup=pending is not None and arrived.id in pending
+            )
         if not pending:
             return
-        guild_id = event.decode(UnavailableGuild).id
+        guild_id = arrived.id
         pending.discard(guild_id)
         if pending:
             self._restart_ready_timer(event.shard_id)
@@ -789,6 +954,8 @@ class Client:
         if timer is not None and timer is not asyncio.current_task():
             timer.cancel()
         self._pending_guilds.pop(shard_id, None)
+        if self._chunker is not None and self._chunker.chunking(shard_id):
+            return  # every guild is in; the chunker calls again once their member lists are too
         if shard_id in self._ready_shards:
             return
         self._ready_shards.add(shard_id)
@@ -804,6 +971,13 @@ class Client:
 
     async def _sweep_stale(self) -> None:
         await self._cache.sweep_stale()
+
+    def _startup_chunked(self, shard_id: int) -> None:
+        if shard_id not in self._pending_guilds:  # its guilds are all in, too
+            self._shard_ready(shard_id)
+
+    async def _fetch_members(self, guild_id: Snowflake) -> None:
+        await self.request_members(guild_id, query="", limit=0, user_ids=None, presences=False)
 
     async def request_members(
         self,

@@ -86,7 +86,7 @@ include = ["src/shoal", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
 [tool.ruff]
 line-length = 110
 target-version = "py312"
-src = ["src", "tests", "scripts"]
+src = ["src", "tests", "scripts", "docs/examples/bigbot", "docs/examples/clusters", "docs/examples/workers"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -123,6 +123,10 @@ known-first-party = ["shoal"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "S101", "PLR2004", "SLF001", "FBT", "S105", "S106", "S311"]
 "scripts/**" = ["T201", "S310"]
+# Bots to copy: callbacks take what Discord passes (a button they may not use), dice are `random`,
+# slash options are plain parameters (`multiple: bool = False`), and docstrings would only repeat
+# each command's own `description`.
+"docs/examples/**" = ["D", "S311", "T201", "ARG001", "ARG002", "FBT", "PLR2004"]
 # `rest.roles.list(...)`: resource methods are named `list`; their signatures say `builtins.list`.
 "src/shoal/rest/resources/**" = ["A003"]
 # The models and the client build each other inside functions to break import cycles (see [tool.pyright]).
@@ -135,7 +139,7 @@ known-first-party = ["shoal"]
 "src/shoal/ui/**" = ["PLC0415", "A002", "A003"]
 
 [tool.pyright]
-include = ["src", "tests", "scripts"]
+include = ["src", "tests", "scripts", "docs/examples"]
 # scripts/ is not a package: the scripts, and their tests, import them by module name.
 extraPaths = ["scripts"]
 venvPath = "."
@@ -158,6 +162,24 @@ enableReachabilityAnalysis = true
 # models, the client and ui import within their own package: annotations under TYPE_CHECKING,
 # construction inside functions. Every other package keeps cycles an error, and import-linter
 # still keeps the layers apart.
+# The examples are bots to copy: overriding `setup_hook` or `on_submit` reads like every other bot.
+# An example that is a package of its own is its own root, so its modules import by package name.
+[[tool.pyright.executionEnvironments]]
+root = "docs/examples/bigbot"
+reportImplicitOverride = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "docs/examples/clusters"
+reportImplicitOverride = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "docs/examples/workers"
+reportImplicitOverride = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "docs/examples"
+reportImplicitOverride = "none"
+
 [[tool.pyright.executionEnvironments]]
 root = "src/shoal/models"
 reportImportCycles = "none"

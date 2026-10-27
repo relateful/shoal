@@ -37,6 +37,7 @@ localhost unless told otherwise.
 | `shoal_loop_block_seconds` | histogram | |
 | `shoal_loop_blocks_total` | counter | |
 | `shoal_loop_lag_seconds` | gauge | |
+| `shoal_member_chunks_total` | counter | `result` (`fetched`, `retried`, `rate_limited`, `timeout`, `disconnected`, `error`) |
 | `shoal_rest_invalid_requests` | gauge | |
 | `shoal_rest_rate_limited_total` | counter | `route`, `scope` |
 | `shoal_rest_request_seconds` | histogram | `method`, `route` |

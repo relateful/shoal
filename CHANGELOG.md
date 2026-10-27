@@ -96,6 +96,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `guild.chunk()` and `guild.query_members()`: members over the gateway. Concurrent `chunk()` calls
   share one request, the cache drops members who are not in the full list, and a request Discord rate
   limits fails at once (`MemberRequestRateLimitedError`).
+- `chunk_guilds_at_startup`: with the Server Members intent, every guild that arrives without its
+  member list is chunked as it streams in, one guild at a time per shard, retrying after
+  `RATE_LIMITED`; each shard is ready once its startup guilds are chunked, and joined guilds are
+  chunked too. On by default with that intent; pass `False` to chunk on demand.
+- `docs/examples/`: bots to copy and run, from a one-file ping bot to a big bot with Prometheus and
+  Grafana, each tested against Discord.
 - `shoal_events_dropped_total`: gateway payloads and dispatches dropped because they did not decode.
 - Webhook events: every event Discord posts to an app's Webhook Events URL is typed
   (`WebhookEventPayload`, `WEBHOOK_EVENT_PAYLOADS`), and `Endpoint(..., events=handler)` receives them,

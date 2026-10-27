@@ -1,0 +1,49 @@
+# The REST proxy, the gateway and two workers: `docker compose up --build`.
+# Deploy new bot code with `docker compose up -d --build worker-a worker-b`: the gateway stays connected.
+x-app: &app
+  build:
+    context: ../../..
+    dockerfile: docs/examples/workers/Dockerfile
+  env_file: .env # DISCORD_TOKEN, IPC_SECRET, PROXY_SECRET
+  restart: unless-stopped
+
+services:
+  proxy:
+    <<: *app
+    command: ["python", "-u", "-m", "app.proxy"]
+    environment:
+      PROXY_HOST: 0.0.0.0 # on the compose network only; no port is published
+
+  gateway:
+    <<: *app
+    command: ["python", "-u", "-m", "app.gateway"]
+    depends_on: [proxy]
+    environment:
+      PROXY_URL: http://proxy:8080/api
+      GATEWAY_HOST: 0.0.0.0
+      SESSIONS_DIR: /sessions
+    volumes:
+      - sessions:/sessions
+    stop_grace_period: 30s
+
+  worker-a:
+    <<: *app
+    command: ["python", "-u", "-m", "app.worker"]
+    depends_on: [gateway]
+    environment: &worker
+      PROXY_URL: http://proxy:8080/api
+      GATEWAY_HOST: gateway
+      WORKER_NAME: worker-a
+      WORKER_SHARDS: "0" # with more shards, give each worker its own share: "0,2,4" and "1,3,5"
+
+  worker-b:
+    <<: *app
+    command: ["python", "-u", "-m", "app.worker"]
+    depends_on: [gateway]
+    environment:
+      <<: *worker
+      WORKER_NAME: worker-b
+      WORKER_SHARDS: "1" # idle on a one-shard bot; it takes shard 1 once the bot has two
+
+volumes:
+  sessions:

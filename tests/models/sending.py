@@ -105,14 +105,19 @@ def test_embed_and_embeds_or_file_and_files_cannot_be_combined() -> None:
         edit(embed=Embed(), embeds=[])
 
 
+def test_a_components_v2_message_cannot_drop_its_layout() -> None:
+    with pytest.raises(TypeError, match="cannot drop it"):
+        edit(view=None, flags=MessageFlags(is_components_v2=True))
+
+
 def test_left_out_edit_keywords_are_kept_and_none_clears() -> None:
     assert json(edit().message_params()) == {}
     cleared = edit(content=None, embed=None, view=None, allowed_mentions=None)
     assert json(cleared.message_params()) == {
         "content": None,
-        "embeds": None,
+        "embeds": [],
         "allowed_mentions": None,
-        "components": None,
+        "components": [],
     }
     assert json(edit(content=MISSING, embeds=[Embed(title="t")]).webhook_params()) == {
         "embeds": [{"title": "t"}]

@@ -508,7 +508,8 @@ def test_the_all_extra_installs_every_other_extra() -> None:
     others = sorted(name for name in extras if name != "all")
     assert extras["all"] == [f"shoal[{','.join(others)}]"]
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert all(f'"shoal[{name}]"' in readme for name in [*others, "all"])
+    # Installed from a clone until Shoal is on PyPI: `pip install -e ".[voice]"`.
+    assert all(f'".[{name}]"' in readme for name in [*others, "all"])
 
 
 @pytest.mark.parametrize("package", ["commands", "app_commands"])

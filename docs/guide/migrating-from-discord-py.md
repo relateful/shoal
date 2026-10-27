@@ -51,6 +51,7 @@ converter class (`MemberConverter`, `ColourConverter`, `Timestamp`, ...), `Attac
 | `interaction.response.send_message(..., ephemeral=True)`, `followup.send` | the same |
 | `client.wait_for("message", check=..., timeout=...)` | the same |
 | `await guild.chunk()`, `await guild.query_members(...)` | the same; `chunk` also drops cached members who left |
+| `chunk_guilds_at_startup=False` | the same; chunking runs one guild at a time per shard, as guilds arrive |
 | `discord.Intents.default()` | `shoal.Intents.default()` |
 | `discord.Permissions(manage_guild=True)` | `shoal.payloads.Permissions(manage_guild=True)` |
 | `perms.manage_guild` | `perms.manage_guild` |
