@@ -34,12 +34,16 @@ class CachePolicy(msgspec.Struct, frozen=True, kw_only=True):
         max_entries: Keep at most this many, evicting the least recently used. `None` is unbounded.
         ttl: Seconds after which an entry is dropped on access. `None` keeps entries until evicted.
         persist: Include this kind in snapshots, so it survives restarts.
+        fields: Cache only these fields (`shoal.cache.trim`); the rest are reset to their defaults.
+            `None` keeps every field. Names are checked against the cached struct when the store
+            is created.
     """
 
     enabled: bool = True
     max_entries: int | None = None
     ttl: float | None = None
     persist: bool = True
+    fields: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         if self.max_entries is not None and self.max_entries < 1:

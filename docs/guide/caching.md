@@ -28,6 +28,27 @@ store = CacheStore(
 | `max_entries` | least recently used entries are evicted beyond this |
 | `ttl` | seconds after which an entry is dropped when read |
 | `persist` | include the kind in snapshots |
+| `fields` | cache only these fields; the rest are reset to their defaults |
+
+### Caching only some fields
+
+```python
+CachePolicy(fields=frozenset({"name", "topic", "parent_id"}))  # for EntityKind.CHANNEL
+```
+
+With `fields`, every other field of the kind's values is reset to its default before it is stored,
+usually `UNSET` (not known), so memory, Redis and snapshots hold only what the bot reads. Fields
+Discord always sends, and the fields that say what an object is and where it belongs (`id`, `type`,
+`guild_id`, `channel_id`, `user`, `user_id`), are always kept. A name the cached struct does not
+have raises `ValueError` when the store is created, so a typo fails at startup. A snapshot saved
+under a policy that kept more is trimmed as it loads.
+
+Processes sharing one Redis cache should share one policy: values are trimmed when written, so
+a process that keeps fewer fields strips them for every reader, and widening `fields` fills the
+new fields in only as Discord sends each object again.
+
+Shoal's models compute from the cache: trimming `permission_overwrites` or a member's `roles`, for
+example, makes permission checks see none. Keep what the features you use read.
 
 By default everything is cached. Messages are bounded to 1,000 and users to 100,000 (message authors
 from every guild pass through them); the other kinds mirror what Discord says the bot's guilds

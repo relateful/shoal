@@ -30,7 +30,7 @@ import logging
 from collections.abc import Awaitable, Callable, Hashable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast, final
+from typing import Protocol, cast, final, get_args
 
 import msgspec
 
@@ -39,6 +39,7 @@ from shoal.cache.defaults import SNAPSHOT_FORMAT, YIELD_EVERY
 from shoal.cache.entry import Entry, Freshness, Source
 from shoal.cache.guild import CachedGuild
 from shoal.cache.policy import CacheConfig, EntityKind, RestartStrategy
+from shoal.cache.trim import FieldTrim
 from shoal.core.clock import Clock, SystemClock
 from shoal.core.codec import PayloadDecodeError, decode_msgpack, encode_msgpack
 from shoal.core.errors import ShoalError
@@ -183,6 +184,7 @@ class CacheStore:
         "_revision",
         "_sequences",
         "_stale_before",
+        "_trims",
         "_unavailable",
         "channels",
         "emojis",
@@ -229,6 +231,8 @@ class CacheStore:
         self._identified: set[int] = set()
         """Shards that started a new session in this process; only their entries can be swept."""
         self._kinds: dict[int, EntityKind] = {}
+        self._trims: dict[int, FieldTrim] = {}
+        """Per collection whose policy names `fields`: resets the rest before every write."""
         self._registry: list[_Registration] = []
         self._collections: dict[EntityKind, object] = {}
         """Each kind's collection, for another store copying into this one."""
@@ -276,6 +280,9 @@ class CacheStore:
             self._factory(kind, policy, key_type, entry_type) if policy.enabled else NullCollection[K, V]()
         )
         self._kinds[id(collection)] = kind
+        if policy.fields is not None:
+            value_type = get_args(entry_type)[0]
+            self._trims[id(collection)] = FieldTrim(kind, value_type, policy.fields)
 
         async def drop(scope: Snowflake | None, doomed: _Doomed, *, every_scope: bool) -> int:
             rows = await collection.items() if every_scope else await collection.scoped(scope)
@@ -400,7 +407,9 @@ class CacheStore:
         shard: int | None = None,
     ) -> None:
         """Store `value` observed now from `source` (through `shard`, for gateway data)."""
-        entry = Entry(value=value, freshness=self.freshness(source, shard=shard), scope=scope)
+        entry = Entry(
+            value=self._trim(collection, value), freshness=self.freshness(source, shard=shard), scope=scope
+        )
         await collection.set(key, entry)
 
     async def edit[K: Hashable, V](
@@ -414,8 +423,13 @@ class CacheStore:
         entry = await collection.get(key)
         if entry is None:
             return False
-        await collection.set(key, msgspec.structs.replace(entry, value=change(entry.value)))
+        value = self._trim(collection, change(entry.value))
+        await collection.set(key, msgspec.structs.replace(entry, value=value))
         return True
+
+    def _trim[K: Hashable, V](self, collection: CacheCollection[K, V], value: V) -> V:
+        trim = self._trims.get(id(collection))
+        return value if trim is None else trim(value)
 
     async def value[K: Hashable, V](
         self, collection: CacheCollection[K, V], key: K, *, fresh_only: bool = False
@@ -734,7 +748,9 @@ class CacheStore:
             return
         for index, (key, entry) in enumerate(rows, start=1):
             freshness = msgspec.structs.replace(entry.freshness, source=Source.SNAPSHOT)
-            await collection.set(key, msgspec.structs.replace(entry, freshness=freshness))
+            # A snapshot saved under a policy that kept more is trimmed to the current one.
+            value = self._trim(collection, entry.value)
+            await collection.set(key, msgspec.structs.replace(entry, value=value, freshness=freshness))
             if index % YIELD_EVERY == 0:
                 await asyncio.sleep(0)
 
