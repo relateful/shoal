@@ -32,6 +32,7 @@ nav:
       - Metrics and Grafana: guide/metrics.md
       - Diagnosing a slow bot: guide/diagnostics.md
       - Migrating from discord.py: guide/migrating-from-discord-py.md
+      - Docs for AI tools: guide/llms.md
   - Roadmap: roadmap.md
   - Discord API coverage: coverage.md
   - API reference: reference/
@@ -78,6 +79,7 @@ plugins:
           - guide/metrics.md
           - guide/diagnostics.md
           - guide/migrating-from-discord-py.md
+          - guide/llms.md
         Project:
           - roadmap.md
           - coverage.md
