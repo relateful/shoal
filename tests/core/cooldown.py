@@ -120,3 +120,12 @@ async def test_a_busy_dynamic_cooldown_forgets_idle_keys() -> None:
     await clock.advance(COOLDOWN_PRUNE_INTERVAL)
     cooldown.update_rate_limit("fresh")
     assert cooldown.tracked == 1
+
+
+def test_retry_after_never_rounds_above_the_window() -> None:
+    # At this clock value `first + per - now` is 60.00000000000003 (Windows CI hit one like it).
+    clock = ManualClock(monotonic=8161.962517661547)
+    cooldown = Cooldown[str](1, 60.0, key=by_name, clock=clock)
+    assert cooldown.update_rate_limit("ana") == 0.0
+    assert cooldown.update_rate_limit("ana") == 60.0
+    assert cooldown.get_retry_after("ana") == 60.0
