@@ -93,6 +93,7 @@ class EventServer:
     """
 
     __slots__ = (
+        "_closing",
         "_connections",
         "_host",
         "_max_frame",
@@ -135,6 +136,8 @@ class EventServer:
         self._server: asyncio.Server | None = None
         self._subscribers: set[_Subscriber] = set()
         self._connections: set[asyncio.StreamWriter] = set()
+        self._closing: bool = False
+        """Set while `close` runs: a connection accepted then is aborted before its handler waits."""
         self._ssl: SSLContext | None = ssl
 
     @property
@@ -164,6 +167,7 @@ class EventServer:
         """Start listening. Idempotent."""
         if self._server is not None:
             return
+        self._closing = False
         if self._path is None:
             self._server = await asyncio.start_server(self._accept, self._host, self._port, ssl=self._ssl)
             _log.info("IPC server listening on %s:%d", *self.address)
@@ -185,6 +189,7 @@ class EventServer:
         `Server.wait_closed` waits for every open connection.
         """
         server, self._server = self._server, None
+        self._closing = True
         if server is not None:
             server.close()
         pumps = [subscriber.task for subscriber in self._subscribers if subscriber.task is not None]
@@ -223,6 +228,11 @@ class EventServer:
             self._metrics.increment(IPC_EVENTS_SENT)
 
     async def _accept(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        if self._closing:
+            # Accepted by the event loop but handed over only after `close` aborted the others (seen
+            # on macOS); left open, it would hold `Server.wait_closed` forever.
+            writer.transport.abort()
+            return
         self._connections.add(writer)
         try:
             async with asyncio.timeout(HANDSHAKE_TIMEOUT):

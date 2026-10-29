@@ -5,7 +5,9 @@ import stat
 import struct
 import sys
 import tempfile
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from ssl import SSLContext
 
 import pytest
 
@@ -93,6 +95,45 @@ async def test_close_does_not_wait_for_clients_still_authenticating(server: Even
     with contextlib.suppress(ConnectionResetError):
         assert await asyncio.wait_for(reader.read(), timeout=5) == b""
     writer.close()
+
+
+async def test_a_connection_handed_over_while_closing_is_aborted(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The event loop can accept a connection and run its handler only after `close` has aborted the
+    # others (macOS CI hung in `wait_closed` this way); the handler must abort it, not wait for it.
+    handlers: list[Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]]] = []
+    start_server = asyncio.start_server
+
+    async def capture(
+        handler: Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]],
+        host: str,
+        port: int,
+        ssl: SSLContext | None,
+    ) -> asyncio.Server:
+        handlers.append(handler)
+        return await start_server(handler, host, port, ssl=ssl)
+
+    monkeypatch.setattr(asyncio, "start_server", capture)
+    server = EventServer(token=TOKEN)
+    await server.start()
+    monkeypatch.undo()
+    [handle] = handlers
+    accepted: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]] = asyncio.Queue()
+
+    async def keep(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        await accepted.put((reader, writer))
+
+    other = await asyncio.start_server(keep, "127.0.0.1", 0)
+    host, port = other.sockets[0].getsockname()[:2]
+    client_reader, client_writer = await asyncio.open_connection(host, port)
+    reader, writer = await accepted.get()
+    other.close()
+    await asyncio.wait_for(server.close(), timeout=5)
+    await asyncio.wait_for(handle(reader, writer), timeout=5)
+    with contextlib.suppress(ConnectionResetError):
+        assert await asyncio.wait_for(client_reader.read(), timeout=5) == b""
+    assert server.subscriber_count == 0
+    client_writer.close()
+    await asyncio.wait_for(other.wait_closed(), timeout=5)
 
 
 def test_server_requires_a_token_and_a_start() -> None:

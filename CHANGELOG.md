@@ -227,3 +227,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   email out of it.
 - The IPC client resets its reconnect backoff only after a subscription lasted a minute, so a worker
   dropped as too slow over and over backs off.
+
+### Fixed
+
+- `EventServer.close()` no longer hangs when the event loop hands over a connection after the
+  others were disconnected (seen on macOS).

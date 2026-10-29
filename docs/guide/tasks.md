@@ -21,16 +21,14 @@ class Status(commands.Cog):
         self.bot = bot
 
     @tasks.loop(minutes=5)
-    async def refresh(self) -> None:
-        ...
+    async def refresh(self) -> None: ...
 
     @refresh.before_loop
     async def before(self) -> None:
         await self.bot.wait_until_ready()
 
     @tasks.loop(time=dt.time(9, 0, tzinfo=dt.timezone.utc))
-    async def morning(self) -> None:
-        ...
+    async def morning(self) -> None: ...
 
     async def cog_load(self) -> None:
         self.refresh.start()

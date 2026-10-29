@@ -64,6 +64,7 @@ dev = [
     "pytest-timeout>=2.4",
     "redis>=5.2",
     "ruff>=0.17",
+    "tzdata>=2025.2 ; sys_platform == 'win32'",
     "zstandard>=0.25; python_version < '3.14'",
 ]
 docs = [
