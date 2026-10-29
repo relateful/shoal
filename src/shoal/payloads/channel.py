@@ -527,7 +527,6 @@ class ChannelPositionParams(Payload):
     lock_permissions: bool | UnsetType | None = UNSET
     """Sync the overwrites with the new parent; needs Manage Roles."""
     parent_id: Snowflake | UnsetType | None = UNSET
-    flags: ChannelFlags | UnsetType | None = UNSET
 
 
 class ActiveThreads(Payload):
