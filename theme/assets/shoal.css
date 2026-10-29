@@ -352,11 +352,12 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .doc-nav, .doc-toc {
   position: sticky; top: var(--bar-height);
   max-height: calc(100vh - var(--bar-height)); overflow-y: auto;
-  padding: 2rem 0 3rem;
+  padding: 2rem 0.5rem 3rem 0;
   font-size: 0.925rem;
 }
 
 .doc-nav-toggle { display: none; }
+.doc-nav-title { padding-left: 0.5rem; }
 .doc-nav-title, .doc-toc-title {
   margin: 0 0 1rem; font-family: var(--font-code); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
 }
@@ -364,7 +365,7 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .tree { list-style: none; margin: 0; padding: 0; }
 .tree .tree { margin: 0.2rem 0 0.4rem 0.75rem; padding-left: 0.75rem; border-left: 1px solid var(--line); }
 .tree a {
-  display: block; padding: 0.3rem 0.5rem; margin-left: -0.5rem;
+  display: block; padding: 0.3rem 0.5rem;
   border-radius: 6px; color: var(--muted); text-decoration: none; line-height: 1.35;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
@@ -372,7 +373,7 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .tree-0 > li:not(.tree-section) > a { padding-left: 1.5rem; }
 .tree a[aria-current="page"] { color: var(--ink); font-weight: 500; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .tree summary {
-  cursor: pointer; padding: 0.3rem 0; color: var(--ink); font-weight: 500; list-style: none;
+  cursor: pointer; padding: 0.3rem 0.5rem; color: var(--ink); font-weight: 500; list-style: none;
 }
 .tree summary::-webkit-details-marker { display: none; }
 .tree summary::before {
