@@ -352,11 +352,12 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .doc-nav, .doc-toc {
   position: sticky; top: var(--bar-height);
   max-height: calc(100vh - var(--bar-height)); overflow-y: auto;
-  padding: 2rem 0 3rem;
+  padding: 2rem 0.5rem 3rem 0;
   font-size: 0.925rem;
 }
 
 .doc-nav-toggle { display: none; }
+.doc-nav-title { padding-left: 0.5rem; }
 .doc-nav-title, .doc-toc-title {
   margin: 0 0 1rem; font-family: var(--font-code); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
 }
@@ -364,7 +365,7 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .tree { list-style: none; margin: 0; padding: 0; }
 .tree .tree { margin: 0.2rem 0 0.4rem 0.75rem; padding-left: 0.75rem; border-left: 1px solid var(--line); }
 .tree a {
-  display: block; padding: 0.3rem 0.5rem; margin-left: -0.5rem;
+  display: block; padding: 0.3rem 0.5rem;
   border-radius: 6px; color: var(--muted); text-decoration: none; line-height: 1.35;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
@@ -372,7 +373,7 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .tree-0 > li:not(.tree-section) > a { padding-left: 1.5rem; }
 .tree a[aria-current="page"] { color: var(--ink); font-weight: 500; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .tree summary {
-  cursor: pointer; padding: 0.3rem 0; color: var(--ink); font-weight: 500; list-style: none;
+  cursor: pointer; padding: 0.3rem 0.5rem; color: var(--ink); font-weight: 500; list-style: none;
 }
 .tree summary::-webkit-details-marker { display: none; }
 .tree summary::before {
@@ -455,6 +456,50 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .prose tbody tr:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .prose td :where(p) { font-size: inherit; margin: 0; }
 .prose td:first-child { color: var(--ink); }
+/* In a table, a narrow column must not split a name mid-word: code wraps between words only, and
+   the first column (usually a name) stays on one line. A wide table scrolls instead. */
+.prose :where(th, td) code { overflow-wrap: normal; word-break: normal; }
+.prose :where(th, td):first-child { white-space: nowrap; }
+.is-reference tr.doc-section-item > td:first-child { white-space: normal; }
+
+/* Coverage: a mark for implemented or not, a quiet badge for deprecated and disabled, and the
+   HTTP method as a pill beside its path. */
+.status-table td:first-child { width: 1%; }
+.status {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-code); font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.status-yes, .status-no {
+  width: 1.35rem; height: 1.35rem; border-radius: 999px; font-size: 0; overflow: hidden;
+}
+.status-yes { background: color-mix(in srgb, #4fbf73 18%, transparent); }
+.status-yes::before {
+  content: ""; width: 0.38rem; height: 0.7rem; margin-top: -0.15rem;
+  border-right: 2px solid #4fbf73; border-bottom: 2px solid #4fbf73; transform: rotate(45deg);
+}
+.status-no { border: 1px solid var(--line); }
+.status-no::before { content: ""; width: 0.55rem; height: 2px; background: var(--muted); }
+.status-deprecated, .status-disabled {
+  padding: 0.1rem 0.5rem; border: 1px dashed var(--muted); border-radius: 999px; color: var(--muted);
+}
+.status-disabled { border-style: solid; text-decoration: line-through; text-decoration-color: var(--muted); }
+
+.method {
+  display: inline-block; min-width: 3.6rem; margin-right: 0.5rem; padding: 0.12rem 0.45rem;
+  border-radius: 5px; text-align: center; vertical-align: 0.05em;
+  font-family: var(--font-code); font-size: 0.68rem; font-weight: 500; letter-spacing: 0.04em;
+}
+.method-get { color: #6fb6ff; background: color-mix(in srgb, #6fb6ff 14%, transparent); }
+.method-post { color: #4fbf73; background: color-mix(in srgb, #4fbf73 14%, transparent); }
+.method-put { color: #e0a84a; background: color-mix(in srgb, #e0a84a 14%, transparent); }
+.method-patch { color: #b79cff; background: color-mix(in srgb, #b79cff 14%, transparent); }
+.method-delete { color: #ff7b72; background: color-mix(in srgb, #ff7b72 14%, transparent); }
+:root[data-theme="light"] .method-get { color: #1f63b8; }
+:root[data-theme="light"] .method-post { color: #1f7a3d; }
+:root[data-theme="light"] .method-put { color: #8a5a00; }
+:root[data-theme="light"] .method-patch { color: #6a43b0; }
+:root[data-theme="light"] .method-delete { color: #b42318; }
+.prose td > code.route { border: 0; background: none; padding: 0; color: var(--muted); white-space: nowrap; }
 
 /* code blocks */
 .prose pre, .highlight pre {
@@ -561,13 +606,14 @@ table.field-list, .doc-section-item { font-size: 0.92rem; }
 /* Parameters, attributes, returns and raises: one row per entry instead of a cramped table.
    The name, type and default share a line; the description gets the full width below. */
 .is-reference .table-scroll:has(.doc-section-item) { overflow: visible; margin: 0.5rem 0 1.5rem; }
-.is-reference table:has(.doc-section-item) { display: block; margin: 0; border-top: 1px solid var(--line); }
+.is-reference table:has(.doc-section-item) { display: block; margin: 0; border: 0; }
+.is-reference tr.doc-section-item:last-child { border-bottom: 0; }
 .is-reference table:has(.doc-section-item) thead { display: none; }
 .is-reference table:has(.doc-section-item) tbody { display: block; }
 .is-reference tr.doc-section-item {
   display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: baseline; gap: 0.3rem 1rem;
-  padding: 0.85rem 0; border-bottom: 1px solid var(--line);
+  padding: 0.9rem 1.1rem; border-bottom: 1px solid var(--line);
 }
 .is-reference tr.doc-section-item > td { display: block; padding: 0; border: 0; min-width: 0; }
 .is-reference tr.doc-section-item > td:first-child code {
