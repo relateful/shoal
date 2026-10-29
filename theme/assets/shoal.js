@@ -76,6 +76,38 @@
     wrapper.appendChild(table);
   });
 
+  // ---------- Coverage marks and routes ----------
+  // The coverage page stays plain Markdown (yes, no, `GET /path`) for llms.txt and its check; here a
+  // status becomes a mark and a route's method a pill.
+
+  var STATUSES = { yes: "Implemented", no: "Not implemented", deprecated: "Deprecated", disabled: "Disabled" };
+  document.querySelectorAll(".prose table").forEach(function (table) {
+    var first = table.querySelector("th");
+    if (!first || first.textContent.trim() !== "") return;
+    table.classList.add("status-table");
+    table.querySelectorAll("tbody tr").forEach(function (row) {
+      var cell = row.cells[0];
+      var status = cell && cell.textContent.trim();
+      if (!STATUSES[status]) return;
+      cell.textContent = "";
+      var mark = document.createElement("span");
+      mark.className = "status status-" + status;
+      mark.title = STATUSES[status];
+      mark.textContent = status === "yes" || status === "no" ? STATUSES[status] : status;
+      cell.appendChild(mark);
+    });
+  });
+  document.querySelectorAll(".prose td > code").forEach(function (code) {
+    var route = /^(GET|POST|PUT|PATCH|DELETE) (\/\S*)$/.exec(code.textContent);
+    if (!route) return;
+    var method = document.createElement("span");
+    method.className = "method method-" + route[1].toLowerCase();
+    method.textContent = route[1];
+    code.textContent = route[2];
+    code.classList.add("route");
+    code.parentNode.insertBefore(method, code);
+  });
+
   // ---------- Start-up race ----------
   // The bars grow once, when they first come into view.
 
