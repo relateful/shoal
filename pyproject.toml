@@ -74,6 +74,7 @@ docs = [
     "mkdocs-literate-nav>=0.6.3",
     "mkdocstrings-python>=2.0.10",
     "mkdocstrings>=1.0.8",
+    "mkdocs-llmstxt>=0.3",
 ]
 
 [tool.hatch.version]

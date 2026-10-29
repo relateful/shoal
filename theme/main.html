@@ -5,7 +5,7 @@
   {%- for item in items %}
   {%- if item.is_section %}
   <li class="tree-section{% if item.active %} is-open{% endif %}">
-    <details{% if item.active or depth == 0 %} open{% endif %}>
+    <details{% if item.active %} open{% endif %}>
       <summary>{{ item.title }}</summary>
       {{ nav_tree(item.children, depth + 1) }}
     </details>

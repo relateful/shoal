@@ -31,6 +31,7 @@ class AuditLogEvent(DiscordIntEnum):
     CHANNEL_OVERWRITE_CREATE = 13
     CHANNEL_OVERWRITE_UPDATE = 14
     CHANNEL_OVERWRITE_DELETE = 15
+    CHANNEL_POSITION_UPDATE = 16
     MEMBER_KICK = 20
     MEMBER_PRUNE = 21
     MEMBER_BAN_ADD = 22
@@ -43,6 +44,7 @@ class AuditLogEvent(DiscordIntEnum):
     ROLE_CREATE = 30
     ROLE_UPDATE = 31
     ROLE_DELETE = 32
+    ROLE_POSITION_UPDATE = 33
     INVITE_CREATE = 40
     INVITE_UPDATE = 41
     INVITE_DELETE = 42
@@ -116,7 +118,9 @@ class AuditLogChange(Payload):
 class OptionalAuditEntryInfo(Payload):
     """Details some kinds of entry carry; which fields are set depends on `action_type`.
 
-    Discord sends the counts as strings.
+    Discord sends the counts as strings. Message deletes, member moves and disconnects, and channel
+    and role reorders by one user in quick succession are merged into one entry, whose `count`
+    grows; only the first request's reason is kept.
 
     Discord: https://docs.discord.com/developers/resources/audit-log#audit-log-entry-object-optional-audit-entry-info
     """

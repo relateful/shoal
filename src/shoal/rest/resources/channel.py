@@ -207,7 +207,9 @@ class Channels(Resource):
             CREATE_GUILD_CHANNEL.compile(guild_id=guild_id), Channel, body=params, reason=reason
         )
 
-    async def edit_positions(self, guild_id: int, positions: Sequence[ChannelPositionParams]) -> None:
+    async def edit_positions(
+        self, guild_id: int, positions: Sequence[ChannelPositionParams], *, reason: str | None = None
+    ) -> None:
         """Reorder channels or move them between categories; only the channels that change are needed.
 
         Needs Manage Channels. At most one channel per call may change its parent.
@@ -215,7 +217,7 @@ class Channels(Resource):
         Discord: https://docs.discord.com/developers/resources/guild#modify-guild-channel-positions
         """
         await self.request_empty(
-            MODIFY_GUILD_CHANNEL_POSITIONS.compile(guild_id=guild_id), body=list(positions)
+            MODIFY_GUILD_CHANNEL_POSITIONS.compile(guild_id=guild_id), body=list(positions), reason=reason
         )
 
 
