@@ -377,6 +377,24 @@ def test_importing_one_layer_does_not_load_the_others() -> None:
     assert loaded.stdout.strip() == "[]"
 
 
+def test_compat_loads_voice_only_when_a_voice_name_is_used() -> None:
+    probe = (
+        "import sys, shoal.compat as discord; "
+        "before = sorted({'davey', 'shoal.voice'} & set(sys.modules)); "
+        "discord.AudioSource; "
+        "print(before, 'shoal.voice' in sys.modules)"
+    )
+    # A fresh interpreter: this one has loaded voice already. The command is fixed above.
+    loaded = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert loaded.stdout.strip() == "[] True"
+    import shoal.compat as discord  # noqa: PLC0415 - the module under test
+
+    with pytest.raises(AttributeError, match="no attribute 'nothing'"):
+        _ = discord.nothing
+
+
 def test_every_package_is_named_wherever_the_layers_are_listed() -> None:
     packages = sorted(path.name for path in SOURCE.iterdir() if (path / "__init__.py").exists())
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
