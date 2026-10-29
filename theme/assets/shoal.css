@@ -532,7 +532,8 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 /* admonitions */
 .admonition, details.admonition {
   margin: 1.75rem 0; padding: 1rem 1.25rem;
-  border: 1px solid var(--line); border-left: 2px solid var(--muted); border-radius: 10px;
+  /* Square on the left, so the coloured edge is a straight bar instead of curving into the frame. */
+  border: 1px solid var(--line); border-left: 2px solid var(--muted); border-radius: 0 10px 10px 0;
   background: var(--surface);
 }
 .admonition.warning, .admonition.danger { border-left-color: #e0a84a; }
