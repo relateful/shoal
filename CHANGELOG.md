@@ -236,5 +236,6 @@ The first pre-release.
 
 ### Fixed
 
+- A cooldown's `retry_after` could round a hair above its window (60.00000000000003 for 60 s).
 - `EventServer.close()` no longer hangs when the event loop hands over a connection after the
   others were disconnected (seen on macOS).
