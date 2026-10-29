@@ -456,6 +456,11 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 .prose tbody tr:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .prose td :where(p) { font-size: inherit; margin: 0; }
 .prose td:first-child { color: var(--ink); }
+/* In a table, a narrow column must not split a name mid-word: code wraps between words only, and
+   the first column (usually a name) stays on one line. A wide table scrolls instead. */
+.prose :where(th, td) code { overflow-wrap: normal; word-break: normal; }
+.prose :where(th, td):first-child { white-space: nowrap; }
+.is-reference tr.doc-section-item > td:first-child { white-space: normal; }
 
 /* code blocks */
 .prose pre, .highlight pre {
