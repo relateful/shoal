@@ -30,12 +30,42 @@ name without `Error` is the error with it. Renamed things keep their old names h
 `discord.utils` has `get`, `find`, `oauth_url`, `snowflake_time`, `format_dt` and the markdown
 helpers. New code reads better with Shoal's own names.
 
-The `ext.commands` and `app_commands` surface is all there: `FlagConverter` and `flag()`,
+Most of the `ext.commands` and `app_commands` surface is there: `FlagConverter` and `flag()`,
 `commands.param()` with `Author`, `CurrentChannel` and `CurrentGuild`, `clean_content`, every
 converter class (`MemberConverter`, `ColourConverter`, `Timestamp`, ...), `Attachment` parameters,
 `dynamic_cooldown`, `GroupCog`, `MinimalHelpCommand` and `Paginator`; `app_commands.Transformer` and
 `Transform`, `Translator` and `locale_str`, and `guild_install`, `user_install`, `dm_only` and
 `private_channel_only`.
+
+### What compat covers
+
+`shoal.compat` has 439 of the 503 names discord.py 2.8 exports. A test checks it against a snapshot
+of those names, so a gap shows up in CI rather than in a bot.
+
+| Package | Names in compat |
+| --- | --- |
+| `discord` | 208 of 253 |
+| `discord.ext.commands` | 142 of 147 |
+| `discord.app_commands` | 49 of 60 |
+| `discord.ui` | 26 of 27 |
+| `discord.ext.tasks` | 1 of 1 |
+| `discord.utils` | 13 of 15 |
+
+A name is in compat only when Shoal's object is the same Discord object, so some familiar names
+point at Shoal's payloads: the `Raw*Event` names are the gateway event payloads, whose fields use
+Discord's names (`MessageDelete.id`, not `message_id`), and `FFmpegPCMAudio` is `FFmpegSource`,
+which takes its options as lists of arguments.
+
+The rest is not there yet. The ones a bot is most likely to meet:
+
+- `PermissionOverwrite`: Shoal's `Overwrite` is Discord's allow and deny payload, not a builder
+  that takes one argument per permission.
+- `Webhook`, `WebhookMessage` and `SyncWebhook`: webhooks are `rest.webhooks` calls, with no
+  webhook object that sends.
+- `Colour` and `Color`: embed colours are plain integers.
+- `ui.DynamicItem`, `utils.sleep_until` and `utils.setup_logging`.
+- Voice sources beyond `AudioSource` and `FFmpegSource`: `PCMAudio`, `PCMVolumeTransformer`,
+  `FFmpegOpusAudio`.
 
 ## Same idea, same name
 
