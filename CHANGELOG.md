@@ -5,6 +5,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Audit log events `CHANNEL_POSITION_UPDATE` and `ROLE_POSITION_UPDATE`, and a `reason` on
+  `rest.channels.edit_positions` (Discord, October 29, 2026).
+
 ## [0.1.0a1] - 2026-10-29
 
 The first pre-release.

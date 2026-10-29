@@ -208,10 +208,12 @@ CASES = [
                 ChannelPositionParams(id=Snowflake(3), position=0),
                 ChannelPositionParams(id=Snowflake(4), parent_id=None, lock_permissions=True),
             ],
+            reason="tidy",
         ),
         method="PATCH",
         path=f"{G}/channels",
         body=[{"id": "3", "position": 0}, {"id": "4", "lock_permissions": True, "parent_id": None}],
+        reason="tidy",
     ),
     EndpointCase(
         name="active threads",
