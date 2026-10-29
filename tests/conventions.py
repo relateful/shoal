@@ -501,6 +501,17 @@ def test_credentials_and_emails_are_hidden_from_reprs() -> None:
     assert secret_fields_shown_in_reprs() == []
 
 
+def test_the_readme_renders_on_pypi() -> None:
+    # The README is the PyPI project page: relative links lead nowhere there, and GitHub's
+    # `> [!NOTE]` alerts show as literal text.
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    relative = [
+        target for target in re.findall(r"\]\(([^)]+)\)", readme) if not target.startswith(("https://", "#"))
+    ]
+    assert relative == [], "README links must be absolute GitHub URLs"
+    assert re.search(r"^> \[!", readme, re.MULTILINE) is None, "README must not use GitHub alerts"
+
+
 def test_the_all_extra_installs_every_other_extra() -> None:
     extras = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"][
         "optional-dependencies"

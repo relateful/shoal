@@ -4,13 +4,8 @@ A fully typed Discord API library for Python, built for bots that grow. It keeps
 from discord.py (`commands.Bot`, `interaction.response.send_message`, `ui.View`, `tree.sync()`) and
 fixes what makes discord.py painful once a bot gets big.
 
-> [!NOTE]
-> **Status: pre-alpha.** Everything below is built and tested, but names can still change before
-> the first release. See the [roadmap](docs/roadmap.md).
-
-> [!IMPORTANT]
-> The first pre-release is `0.1.0a1`. pip installs pre-releases only when asked: use
-> `pip install --pre shoal` (see [Install](#install)).
+> **Status: pre-release.** Everything below is built and tested, but names can still change before
+> 1.0. Install the pre-release with `pip install --pre shoal`. See the [roadmap](https://github.com/relateful/shoal/blob/main/docs/roadmap.md).
 
 ## Why not discord.py?
 
@@ -75,7 +70,7 @@ discord.py leaves IPC to you. Shoal includes it:
 - Strict pyright and mypy over the library and its tests, with `Any` banned.
 - Every type and endpoint links to its section of Discord's docs, and CI checks the links. Every
   HTTP endpoint Discord documents and every gateway event is covered, as the
-  [coverage page](docs/coverage.md), generated from Discord's docs, shows.
+  [coverage page](https://github.com/relateful/shoal/blob/main/docs/coverage.md), generated from Discord's docs, shows.
 - A field that is absent and a field that is `null` stay different (`UNSET` and `None`), so an edit
   can tell "leave it" from "clear it". discord.py turns most of them into `None`.
 - When Discord adds an enum value, Shoal decodes it as a real member of the enum, with its value
@@ -98,10 +93,9 @@ discord.py leaves IPC to you. Shoal includes it:
 - Loops (`tasks.loop`) and a scheduler for reminders and cron jobs that survive restarts with
   Redis, without a sleeping task per job.
 
-> [!TIP]
-> Coming from discord.py? `import shoal.compat as discord` gives you the old names, so a bot can move
-> file by file. See the [compat example](docs/examples/compat/) and the
-> [migration guide](docs/guide/migrating-from-discord-py.md).
+> **Coming from discord.py?** `import shoal.compat as discord` gives you the old names, so a bot can move
+> file by file. See the [compat example](https://github.com/relateful/shoal/tree/main/docs/examples/compat/) and the
+> [migration guide](https://github.com/relateful/shoal/blob/main/docs/guide/migrating-from-discord-py.md).
 
 ## Install
 
@@ -144,23 +138,23 @@ bot.run(os.environ["DISCORD_TOKEN"])
 
 ## Examples
 
-[29 runnable bots](docs/examples/), each with its own README and each run against Discord, from
-the [smallest bot](docs/examples/hello/) to [role menus](docs/examples/roles/buttons/),
-[tickets](docs/examples/tickets/), [music](docs/examples/voice/music/) and
-[a big bot](docs/examples/bigbot/) with Prometheus, Grafana, warm restarts and resharding, plus
-[clusters](docs/examples/clusters/) and [workers](docs/examples/workers/).
+[29 runnable bots](https://github.com/relateful/shoal/tree/main/docs/examples/), each with its own README and each run against Discord, from
+the [smallest bot](https://github.com/relateful/shoal/tree/main/docs/examples/hello/) to [role menus](https://github.com/relateful/shoal/tree/main/docs/examples/roles/buttons/),
+[tickets](https://github.com/relateful/shoal/tree/main/docs/examples/tickets/), [music](https://github.com/relateful/shoal/tree/main/docs/examples/voice/music/) and
+[a big bot](https://github.com/relateful/shoal/tree/main/docs/examples/bigbot/) with Prometheus, Grafana, warm restarts and resharding, plus
+[clusters](https://github.com/relateful/shoal/tree/main/docs/examples/clusters/) and [workers](https://github.com/relateful/shoal/tree/main/docs/examples/workers/).
 
 ## Documentation
 
-- Guides: [writing a bot](docs/guide/bot.md), [commands and interactions](docs/guide/interactions.md),
-  [caching and restarts](docs/guide/caching.md), [scaling, sharding and IPC](docs/guide/scaling.md),
-  [voice](docs/guide/voice.md), [loops and scheduled jobs](docs/guide/tasks.md),
-  [dashboards and REST](docs/guide/dashboards.md),
-  [metrics and Grafana](docs/guide/metrics.md), [diagnosing a slow bot](docs/guide/diagnostics.md),
-  [architecture](docs/guide/architecture.md),
-  [migrating from discord.py](docs/guide/migrating-from-discord-py.md).
+- Guides: [writing a bot](https://github.com/relateful/shoal/blob/main/docs/guide/bot.md), [commands and interactions](https://github.com/relateful/shoal/blob/main/docs/guide/interactions.md),
+  [caching and restarts](https://github.com/relateful/shoal/blob/main/docs/guide/caching.md), [scaling, sharding and IPC](https://github.com/relateful/shoal/blob/main/docs/guide/scaling.md),
+  [voice](https://github.com/relateful/shoal/blob/main/docs/guide/voice.md), [loops and scheduled jobs](https://github.com/relateful/shoal/blob/main/docs/guide/tasks.md),
+  [dashboards and REST](https://github.com/relateful/shoal/blob/main/docs/guide/dashboards.md),
+  [metrics and Grafana](https://github.com/relateful/shoal/blob/main/docs/guide/metrics.md), [diagnosing a slow bot](https://github.com/relateful/shoal/blob/main/docs/guide/diagnostics.md),
+  [architecture](https://github.com/relateful/shoal/blob/main/docs/guide/architecture.md),
+  [migrating from discord.py](https://github.com/relateful/shoal/blob/main/docs/guide/migrating-from-discord-py.md).
 - The API reference is generated from the docstrings: `uv run --group docs mkdocs serve`.
-- [Discord API coverage](docs/coverage.md) lists every endpoint Discord documents and the Shoal method
+- [Discord API coverage](https://github.com/relateful/shoal/blob/main/docs/coverage.md) lists every endpoint Discord documents and the Shoal method
   for it, generated from Discord's docs and checked weekly.
 
 ## Quality
@@ -172,8 +166,8 @@ the [smallest bot](docs/examples/hello/) to [role menus](docs/examples/roles/but
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the rules, the layout and every check CI runs.
+See [CONTRIBUTING.md](https://github.com/relateful/shoal/blob/main/CONTRIBUTING.md) for the rules, the layout and every check CI runs.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/relateful/shoal/blob/main/LICENSE)
