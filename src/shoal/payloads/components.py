@@ -253,6 +253,30 @@ class UnfurledMediaItemFlags(BaseFlags):
     is_animated = flag(0)
 
 
+class ContentScanMetadataFlags(BaseFlags):
+    """What Discord's content scanning flagged a media item as.
+
+    Discord: https://docs.discord.com/developers/components/reference#unfurled-media-item-content-scan-metadata-flags
+    """
+
+    __slots__ = ()
+
+    is_explicit_content = flag(0)
+    is_gore_content = flag(1)
+    is_self_harm_content = flag(2)
+
+
+class ContentScanMetadata(Payload):
+    """The result of Discord's content scanning of a media item.
+
+    Scanning can finish after the message is sent, so this may only arrive in a later Message Update.
+
+    Discord: https://docs.discord.com/developers/components/reference#unfurled-media-item-content-scan-metadata-structure
+    """
+
+    flags: ContentScanMetadataFlags
+
+
 class UnfurledMediaItem(Payload):
     """An image, video or file: a URL, or `attachment://<filename>` for a file sent with the message.
 
@@ -270,6 +294,8 @@ class UnfurledMediaItem(Payload):
     placeholder_version: int | UnsetType = UNSET
     content_type: str | UnsetType = UNSET
     flags: UnfurledMediaItemFlags | UnsetType = UNSET
+    content_scan_metadata: ContentScanMetadata | UnsetType = UNSET
+    """Set once Discord has scanned the media."""
     attachment_id: Snowflake | UnsetType = UNSET
 
 

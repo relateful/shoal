@@ -26,6 +26,7 @@ from shoal.payloads import (
     ChannelSelect,
     ChannelType,
     Container,
+    ContentScanMetadataFlags,
     CreateMessageParams,
     Label,
     Message,
@@ -203,3 +204,13 @@ def test_media_items_report_what_discord_adds() -> None:
     )
     assert item.height is None
     assert item.width == 10
+    assert isinstance(item.content_scan_metadata, msgspec.UnsetType)
+
+
+def test_media_items_carry_content_scan_flags() -> None:
+    item = decode_json(b'{"url":"https://x","content_scan_metadata":{"flags":6}}', UnfurledMediaItem)
+    assert not isinstance(item.content_scan_metadata, msgspec.UnsetType)
+    assert item.content_scan_metadata.flags == ContentScanMetadataFlags(
+        is_gore_content=True, is_self_harm_content=True
+    )
+    assert not item.content_scan_metadata.flags.is_explicit_content

@@ -137,12 +137,18 @@ class EmbedType(DiscordStrEnum):
 class EmbedFlags(BaseFlags):
     """Flags on an embed.
 
+    The `contains_*` flags come from Discord's content scanning of the embed's media, which can
+    finish after the message is sent: check the message you send and any later Message Update.
+
     Discord: https://docs.discord.com/developers/resources/message#embed-object-embed-flags
     """
 
     __slots__ = ()
 
+    contains_explicit_content = flag(4)
     is_content_inventory_entry = flag(5)
+    contains_gore_content = flag(6)
+    contains_self_harm_content = flag(7)
 
 
 class EmbedMediaFlags(BaseFlags):
@@ -259,6 +265,10 @@ class Embed(Payload):
 class AttachmentFlags(BaseFlags):
     """Flags on an attachment.
 
+    The `contains_*` flags come from Discord's content scanning, which can finish after the message
+    is sent: check the message you send and any later Message Update. Attachments in an interaction's
+    resolved data (File Upload components, attachment options) never have them.
+
     Discord: https://docs.discord.com/developers/resources/message#attachment-object-attachment-flags
     """
 
@@ -268,7 +278,10 @@ class AttachmentFlags(BaseFlags):
     is_thumbnail = flag(1)
     is_remix = flag(2)
     is_spoiler = flag(3)
+    contains_explicit_content = flag(4)
     is_animated = flag(5)
+    contains_gore_content = flag(6)
+    contains_self_harm_content = flag(7)
 
 
 class Attachment(Payload):

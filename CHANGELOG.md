@@ -7,6 +7,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Content scanning flags (Discord, October 28, 2026): `AttachmentFlags` and `EmbedFlags` gain
+  `contains_explicit_content`, `contains_gore_content` and `contains_self_harm_content`, and
+  `UnfurledMediaItem.content_scan_metadata` carries `ContentScanMetadataFlags`.
 - `shoal.tasks`: `tasks.loop` (intervals, times of day, hooks), cron expressions with time zones, and
   `client.scheduler` for jobs at a time, after a delay or on a cron schedule, kept in memory or in
   Redis (`RedisJobStore`: survives restarts, each due job claimed by one process, leased).
