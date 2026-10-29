@@ -13,10 +13,17 @@ objects as in Shoal (`discord.Member` is `shoal.Member`, `discord.Forbidden` is 
 code reads better with Shoal's own names.
 """
 
+import importlib
+from typing import TYPE_CHECKING, Final
+
 from shoal import tasks, ui
 from shoal.app_commands.errors import (
     MissingApplicationIDError as MissingApplicationID,
 )
+
+if TYPE_CHECKING:
+    from shoal.voice import AudioSource
+
 from shoal.client import (
     Client,
     Interaction,
@@ -121,6 +128,7 @@ from shoal.models.voice import (
 )
 from shoal.payloads import (
     SKU,
+    ActionRow,
     Activity,
     ActivityType,
     AllowedMentions,
@@ -128,15 +136,20 @@ from shoal.payloads import (
     Attachment,
     AttachmentFlags,
     AuditLogEntry,
+    Button,
     ButtonStyle,
     ChannelFlags,
     ChannelType,
+    CheckboxGroupOption,
     ClientStatus,
+    Component,
     ComponentType,
+    Container,
     EmbedFlags,
     Entitlement,
     EntitlementOwnerType,
     EntitlementType,
+    FileComponent,
     ForumLayoutType,
     ForumTag,
     GuildPreview,
@@ -144,11 +157,16 @@ from shoal.payloads import (
     IntegrationAccount,
     IntegrationApplication,
     Intents,
+    InteractionCallbackResponse,
+    InteractionMessage,
     InteractionType,
     Invite,
     InviteType,
     Locale,
+    MediaGalleryItem,
     MessageFlags,
+    MessageInteraction,
+    MessageInteractionMetadata,
     MessageReference,
     MessageReferenceType,
     MessageSnapshot,
@@ -162,9 +180,11 @@ from shoal.payloads import (
     PollAnswer,
     PollLayoutType,
     PollMedia,
+    RadioGroupOption,
     ReactionType,
     RoleFlags,
     RoleTags,
+    SelectDefaultValue,
     SelectDefaultValueType,
     SelectOption,
     SeparatorSpacing,
@@ -184,9 +204,14 @@ from shoal.payloads import (
     Team,
     TeamMember,
     TeamMemberRole,
+    TextDisplay,
+    TextInput,
+    ThreadMember,
+    UnfurledMediaItem,
     UserFlags,
     VerificationLevel,
     VideoQualityMode,
+    VoiceChannelEffectAnimationType,
     VoiceState,
     WebhookType,
     WelcomeScreen,
@@ -281,6 +306,7 @@ from shoal.rest.files import (
 __all__ = [
     "MISSING",
     "SKU",
+    "ActionRow",
     "Activity",
     "ActivityType",
     "AllowedMentions",
@@ -291,21 +317,26 @@ __all__ = [
     "Asset",
     "Attachment",
     "AttachmentFlags",
+    "AudioSource",
     "AuditLogAction",
     "AuditLogEntry",
     "AutoModRule",
     "AutoShardedClient",
     "BanEntry",
+    "Button",
     "ButtonStyle",
     "CategoryChannel",
     "ChannelFlags",
     "ChannelType",
+    "CheckboxGroupOption",
     "Client",
     "ClientException",
     "ClientStatus",
     "ClientUser",
+    "Component",
     "ComponentType",
     "ConnectionClosed",
+    "Container",
     "ContentFilter",
     "CustomActivity",
     "DMChannel",
@@ -320,6 +351,7 @@ __all__ = [
     "EntityType",
     "EventStatus",
     "File",
+    "FileComponent",
     "Forbidden",
     "ForumChannel",
     "ForumLayoutType",
@@ -337,6 +369,8 @@ __all__ = [
     "IntegrationApplication",
     "Intents",
     "Interaction",
+    "InteractionCallbackResponse",
+    "InteractionMessage",
     "InteractionResponded",
     "InteractionResponse",
     "InteractionType",
@@ -347,9 +381,12 @@ __all__ = [
     "Locale",
     "LoginFailure",
     "MFALevel",
+    "MediaGalleryItem",
     "Member",
     "Message",
     "MessageFlags",
+    "MessageInteraction",
+    "MessageInteractionMetadata",
     "MessageReference",
     "MessageReferenceType",
     "MessageSnapshot",
@@ -374,6 +411,7 @@ __all__ = [
     "PrimaryGuild",
     "PrivacyLevel",
     "PrivilegedIntentsRequired",
+    "RadioGroupOption",
     "RateLimited",
     "Reaction",
     "ReactionType",
@@ -383,6 +421,7 @@ __all__ = [
     "SKUFlags",
     "SKUType",
     "ScheduledEvent",
+    "SelectDefaultValue",
     "SelectDefaultValueType",
     "SelectOption",
     "SeparatorSpacing",
@@ -406,14 +445,19 @@ __all__ = [
     "TeamMemberRole",
     "Template",
     "TextChannel",
+    "TextDisplay",
+    "TextInput",
     "TextStyle",
     "Thread",
+    "ThreadMember",
     "Typing",
+    "UnfurledMediaItem",
     "User",
     "UserFlags",
     "VerificationLevel",
     "VideoQualityMode",
     "VoiceChannel",
+    "VoiceChannelEffectAnimationType",
     "VoiceClient",
     "VoiceState",
     "WebhookType",
@@ -439,3 +483,21 @@ __all__ = [
     "utcnow",
     "utils",
 ]
+
+
+# Voice loads its optional dependencies (davey, cryptography) when imported, so its names load on
+# first use: `import shoal.compat as discord` stays as light as before.
+_VOICE: Final[dict[str, str]] = {
+    "AudioSource": "AudioSource",
+}
+
+
+def __getattr__(name: str) -> object:
+    """Load a voice name on first use (PEP 562)."""
+    source = _VOICE.get(name)
+    if source is None:
+        msg = f"module 'shoal.compat' has no attribute {name!r}"
+        raise AttributeError(msg)
+    value: object = getattr(importlib.import_module("shoal.voice"), source)
+    globals()[name] = value
+    return value
