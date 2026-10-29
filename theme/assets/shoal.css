@@ -464,7 +464,13 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 
 /* Coverage: a mark for implemented or not, a quiet badge for deprecated and disabled, and the
    HTTP method as a pill beside its path. */
-.status-table td:first-child { width: 1%; }
+/* Fixed columns: a long route must not squeeze the names beside it to a letter per line. */
+.prose table.status-table { table-layout: fixed; }
+.status-table :where(th, td):first-child { width: 3.25rem; text-align: center; }
+.status-table.has-routes :where(th, td):nth-child(3) { width: 38%; }
+.status-table td code { overflow-wrap: anywhere; }
+.route-line { display: block; margin-top: 0.35rem; font-size: 0.85rem; }
+.prose .route-line code.route { font-size: 0.8rem; }
 .status {
   display: inline-flex; align-items: center; justify-content: center;
   font-family: var(--font-code); font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase;
@@ -499,7 +505,8 @@ a:hover { color: var(--link-hover); text-decoration-color: currentColor; }
 :root[data-theme="light"] .method-put { color: #8a5a00; }
 :root[data-theme="light"] .method-patch { color: #6a43b0; }
 :root[data-theme="light"] .method-delete { color: #b42318; }
-.prose td > code.route { border: 0; background: none; padding: 0; color: var(--muted); white-space: nowrap; }
+.prose td > code.route { border: 0; background: none; padding: 0; color: var(--muted); }
+.status-table .method { margin-bottom: 0.2rem; }
 
 /* code blocks */
 .prose pre, .highlight pre {

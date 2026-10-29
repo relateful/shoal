@@ -107,6 +107,21 @@
     code.classList.add("route");
     code.parentNode.insertBefore(method, code);
   });
+  // A route column moves under its endpoint's name: three columns read better than four.
+  document.querySelectorAll(".status-table").forEach(function (table) {
+    var heads = table.querySelectorAll("thead th");
+    if (heads.length !== 4 || heads[3].textContent.trim() !== "Route") return;
+    heads[3].remove();
+    table.classList.add("has-routes");
+    table.querySelectorAll("tbody tr").forEach(function (row) {
+      var route = row.cells[3];
+      var line = document.createElement("span");
+      line.className = "route-line";
+      while (route.firstChild) line.appendChild(route.firstChild);
+      row.cells[1].appendChild(line);
+      route.remove();
+    });
+  });
 
   // ---------- Start-up race ----------
   // The bars grow once, when they first come into view.
