@@ -297,8 +297,26 @@ Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes 
 and `build`. Update
 `CHANGELOG.md` under "Unreleased".
 
-Changes reach `main` only through a pull request: branch, push, open it with the template filled in,
-and squash-merge once CI passes.
+## Pull requests
+
+Every change reaches `main` through a pull request; nothing is pushed to `main` directly.
+
+- **One purpose per pull request.** A fix found along the way (a flaky test, an unrelated bug) gets
+  its own pull request, not an extra commit in the current one.
+- **Branches** are named `<type>/<short-topic>` with the commit types above: `feat/voice-receive`,
+  `fix/ci-cross-platform`, `ci/release-workflow`, `docs/pull-request-rules`.
+- **The title** is the Conventional Commit subject the squashed commit will carry.
+- **The description** fills in `.github/PULL_REQUEST_TEMPLATE.md`. "What and why" names the problem
+  first; when a pull request fixes several things, a table gives each one's failure, cause and fix.
+  "Discord docs" links every Discord section the change implements, or says "None" and why. Tick a
+  checklist item only once it is true.
+- **CI must pass on the latest commit**, on every platform. A failure is diagnosed from its log,
+  never rerun until it happens to pass: a flaky test is a bug, fixed in its own pull request.
+- **Before merging, the branch includes the latest `main`.** When another pull request merges first,
+  merge `main` into the branch and let CI run again, so what is merged is what was tested.
+- **Squash-merge** with the title as the subject (GitHub adds the number), then delete the branch.
+  Merge in dependency order: a pull request that others build on goes first.
+- Stage files by name, never `git add -A`: local and generated files stay out of every commit.
 
 ## Releases
 
