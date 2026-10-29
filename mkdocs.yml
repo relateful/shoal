@@ -1,6 +1,7 @@
 site_name: Shoal
 site_description: A fully typed Discord API library for Python, built for bots that grow.
-site_url: https://shoal.readthedocs.io/
+# Read the Docs gives each build its own URL (/en/latest/, /en/stable/); local builds use latest.
+site_url: !ENV [READTHEDOCS_CANONICAL_URL, "https://shoal.readthedocs.io/en/latest/"]
 repo_url: https://github.com/relateful/shoal
 edit_uri: edit/main/docs/
 strict: true
@@ -56,6 +57,32 @@ plugins:
             signature_crossrefs: true
             merge_init_into_class: true
             filters: ["!^_"]
+  # llms.txt and llms-full.txt for language models, and a Markdown copy of every page they list
+  # (the page's URL with `.md`): written from the built HTML, so the API reference is included.
+  - llmstxt:
+      full_output: llms-full.txt
+      markdown_description: >-
+        Shoal is a fully typed Discord API library for Python, built for bots that grow from one
+        guild to millions: parallel identify, sessions and cache that survive restarts, IPC between
+        processes, and protection from invalid-request bans.
+      sections:
+        Guide:
+          - guide/bot.md
+          - guide/architecture.md
+          - guide/interactions.md
+          - guide/caching.md
+          - guide/scaling.md
+          - guide/voice.md
+          - guide/tasks.md
+          - guide/dashboards.md
+          - guide/metrics.md
+          - guide/diagnostics.md
+          - guide/migrating-from-discord-py.md
+        Project:
+          - roadmap.md
+          - coverage.md
+        API reference:
+          - reference/**/*.md
 
 markdown_extensions:
   - admonition
