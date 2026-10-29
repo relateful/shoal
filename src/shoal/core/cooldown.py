@@ -59,7 +59,7 @@ class Cooldown[T]:
         """Seconds until `subject` may use it again, without recording a use; 0.0 when allowed now."""
         now = self._clock.monotonic()
         uses = [moment for moment in self._uses.get(self.key(subject), ()) if moment > now - self.per]
-        return uses[0] + self.per - now if len(uses) >= self.rate else 0.0
+        return _remaining(uses[0], self.per, now) if len(uses) >= self.rate else 0.0
 
     def update_rate_limit(self, subject: T) -> float:
         """Record a use by `subject` when allowed; returns 0.0 then, or the seconds until it would be."""
@@ -74,7 +74,7 @@ class Cooldown[T]:
         uses = [moment for moment in self._uses.get(key, ()) if moment > now - self.per]
         if len(uses) >= self.rate:
             self._uses[key] = uses
-            return uses[0] + self.per - now
+            return _remaining(uses[0], self.per, now)
         uses.append(now)
         self._uses[key] = uses
         return 0.0
@@ -151,3 +151,12 @@ class DynamicCooldown[T]:
 
 type AnyCooldown[T] = Cooldown[T] | DynamicCooldown[T]
 """A cooldown with a fixed limit, or one chosen per key."""
+
+
+def _remaining(first: float, per: float, now: float) -> float:
+    """Seconds left in the window that started at `first`, never above `per`.
+
+    `first + per - now` rounds above `per` at large clock values (Windows CI saw 60.00000000000003
+    for a 60 s cooldown); subtracting first keeps the result within the window.
+    """
+    return (first - now) + per
