@@ -1,11 +1,9 @@
-# Built from the root of the Shoal repository (see docker-compose.yml), so the image installs this
-# clone of Shoal. Once Shoal is on PyPI, `pip install "shoal[prometheus,zstd]"` replaces the first part.
+# Built from the root of the Shoal repository (see docker-compose.yml). Shoal comes from PyPI; to
+# run an unreleased change, copy `pyproject.toml`, `README.md`, `LICENSE`, `CHANGELOG.md` and `src`
+# and install ".[prometheus,zstd]" instead.
 FROM python:3.12-slim
 
-WORKDIR /shoal
-COPY pyproject.toml README.md LICENSE CHANGELOG.md ./
-COPY src ./src
-RUN pip install --no-cache-dir ".[prometheus,zstd]"
+RUN pip install --no-cache-dir --pre "shoal[prometheus,zstd]"
 
 WORKDIR /app
 COPY docs/examples/bigbot/bigbot ./bigbot

@@ -9,7 +9,8 @@ fixes what makes discord.py painful once a bot gets big.
 > the first release. See the [roadmap](docs/roadmap.md).
 
 > [!IMPORTANT]
-> Shoal is not on PyPI yet. Install it from a clone (see [Install](#install)).
+> The first pre-release is `0.1.0a1`. pip installs pre-releases only when asked: use
+> `pip install --pre shoal` (see [Install](#install)).
 
 ## Why not discord.py?
 
@@ -104,17 +105,19 @@ discord.py leaves IPC to you. Shoal includes it:
 
 ## Install
 
-Shoal needs Python 3.12 or newer. From a clone of this repository:
+Shoal needs Python 3.12 or newer. While it is in pre-release, pip needs `--pre`:
 
 ```bash
-pip install -e .                  # the core
-pip install -e ".[voice]"         # join voice channels, play and listen
-pip install -e ".[redis]"         # share limits, sessions, cache, events and shards across processes
-pip install -e ".[prometheus]"    # Prometheus metrics
-pip install -e ".[interactions]"  # receive interactions over HTTP, without a gateway
-pip install -e ".[zstd]"          # zstd gateway compression on Python 3.12 and 3.13
-pip install -e ".[all]"           # everything above
+pip install --pre shoal                   # the core
+pip install --pre "shoal[voice]"          # join voice channels, play and listen
+pip install --pre "shoal[redis]"          # share limits, sessions, cache, events and shards across processes
+pip install --pre "shoal[prometheus]"     # Prometheus metrics
+pip install --pre "shoal[interactions]"   # receive interactions over HTTP, without a gateway
+pip install --pre "shoal[zstd]"           # zstd gateway compression on Python 3.12 and 3.13
+pip install --pre "shoal[all]"            # everything above
 ```
+
+To work on Shoal itself, install it from a clone with `pip install -e ".[all]"`.
 
 Each extra adds a dependency only some bots need, so the core install stays small.
 

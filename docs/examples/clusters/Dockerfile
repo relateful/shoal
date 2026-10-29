@@ -1,11 +1,9 @@
-# Built from the root of the Shoal repository (see docker-compose.yml), so the image installs this
-# clone of Shoal. Once Shoal is on PyPI, `pip install "shoal[redis,zstd]"` replaces the first part.
+# Built from the root of the Shoal repository (see docker-compose.yml). Shoal comes from PyPI; to
+# run an unreleased change, copy `pyproject.toml`, `README.md`, `LICENSE`, `CHANGELOG.md` and `src`
+# and install ".[redis,zstd]" instead.
 FROM python:3.12-slim
 
-WORKDIR /shoal
-COPY pyproject.toml README.md LICENSE CHANGELOG.md ./
-COPY src ./src
-RUN pip install --no-cache-dir ".[redis,zstd]"
+RUN pip install --no-cache-dir --pre "shoal[redis,zstd]"
 
 WORKDIR /app
 COPY docs/examples/clusters/cluster ./cluster

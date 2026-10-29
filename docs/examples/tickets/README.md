@@ -4,7 +4,7 @@ A support desk: members press a button, fill in a short form, and get a private 
 they, staff and the bot can see. Staff close it with a button.
 
 ```bash
-pip install -e "../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal                       # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: /ticketpanel appears there at once
 export STAFF_ROLE=Staff                       # optional: the role that sees every ticket

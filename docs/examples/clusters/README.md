@@ -27,7 +27,7 @@ Each cluster logs the shards it runs. In a server with the bot, `!fleet` lists e
 cluster, whichever cluster answers. Without Docker, start a Redis, then one process per cluster:
 
 ```bash
-pip install -e "../../..[redis,zstd]"   # Shoal from this clone (not on PyPI yet)
+pip install --pre "shoal[redis,zstd]"   # Shoal from PyPI
 export DISCORD_TOKEN=... REDIS_URL=redis://localhost:6379/0 SHARD_COUNT=2 CLUSTER_COUNT=2
 CLUSTER_ID=0 python -m cluster
 CLUSTER_ID=1 python -m cluster          # in another terminal, or on another host

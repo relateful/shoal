@@ -5,8 +5,9 @@ folder has its own README with what it shows and how to run it, and every one wa
 Discord.
 
 > [!NOTE]
-> Shoal is not on PyPI yet. Each README installs it from this clone with `pip install -e`, using a
-> path relative to that folder.
+> Each README installs Shoal from PyPI with `pip install --pre` (it is in pre-release). The examples
+> follow `main`: if one uses something newer than the latest release, install Shoal from a clone
+> instead, with `pip install -e` and the path to the repository root.
 
 Most examples read `DISCORD_TOKEN` from the environment, and `DISCORD_GUILD_ID` when they have slash
 commands: commands synced to one server appear at once, while global commands can take a while.

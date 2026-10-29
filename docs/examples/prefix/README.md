@@ -4,7 +4,7 @@ Classic `!commands` with `commands.Bot`: argument conversion, flags, a command g
 checks, a cooldown and friendly error messages.
 
 ```bash
-pip install -e "../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal   # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 python bot.py
 ```

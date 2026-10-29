@@ -4,7 +4,7 @@ A role menu with buttons (toggle a ping role) and a select menu (pick pronouns),
 after the bot restarts.
 
 ```bash
-pip install -e "../../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal                       # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: /rolemenu appears there at once
 python bot.py
