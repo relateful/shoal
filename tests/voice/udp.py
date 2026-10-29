@@ -5,6 +5,7 @@ from typing import override
 
 import pytest
 
+from shoal.core.clock import SystemClock
 from shoal.voice.defaults import RECEIVED_PACKETS_QUEUE_SIZE
 from shoal.voice.udp import UdpTransportFactory, discover, discovery_request, parse_discovery
 from tests.support.fakes import FakeClock, ManualClock, settle
@@ -62,7 +63,9 @@ async def test_a_real_socket_carries_packets_both_ways() -> None:
     host, port = server.get_extra_info("sockname")[:2]
     socket = await UdpTransportFactory().connect(host, port)
     try:
-        address, local_port = await discover(socket, SSRC, FakeClock())
+        # A real clock: a FakeClock jumps through the timeout at once, before a slow runner's
+        # loopback reply arrives (macOS CI failed this way).
+        address, local_port = await discover(socket, SSRC, SystemClock())
         assert address == "127.0.0.1"
         assert local_port > 0
         data, _ = await asyncio.wait_for(received.get(), timeout=2)
