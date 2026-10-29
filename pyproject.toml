@@ -45,6 +45,7 @@ voice = [
 all = ["shoal[interactions,prometheus,redis,voice,zstd]"]
 
 [project.urls]
+Documentation = "https://shoal.readthedocs.io/"
 Repository = "https://github.com/relateful/shoal"
 Issues = "https://github.com/relateful/shoal/issues"
 

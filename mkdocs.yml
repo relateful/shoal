@@ -1,5 +1,6 @@
 site_name: Shoal
 site_description: A fully typed Discord API library for Python, built for bots that grow.
+site_url: https://shoal.readthedocs.io/
 repo_url: https://github.com/relateful/shoal
 edit_uri: edit/main/docs/
 strict: true
