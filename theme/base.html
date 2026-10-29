@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="auto">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,7 @@
   {% if page and page.canonical_url %}<link rel="canonical" href="{{ page.canonical_url }}">{% endif %}
   <link rel="icon" href="{{ 'assets/favicon.svg' | url }}" type="image/svg+xml">
   <script>
-    // Applied before first paint, so a saved theme never flashes the other one.
+    // Dark unless the reader chose light; applied before first paint, so it never flashes.
     (function () {
       document.documentElement.classList.add("js");
       try {
@@ -19,7 +19,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap">
   <link rel="stylesheet" href="{{ 'assets/shoal.css' | url }}?v={{ build_date_utc.strftime('%Y%m%d%H%M%S') }}">
   {%- for path in config.extra_css %}
   <link rel="stylesheet" href="{{ path | url }}">
@@ -29,7 +29,7 @@
   <a class="skip" href="#content">Skip to content</a>
   <header class="bar">
     <a class="wordmark" href="{{ nav.homepage.url | url }}" aria-label="Shoal home">
-      <svg class="wordmark-fish" viewBox="0 0 32 16" aria-hidden="true"><path d="M2 8c5-6 13-7 20-2l8-5-2 7 2 7-8-5C15 15 7 14 2 8z"/></svg>
+      {% with mark_class = "wordmark-mark" %}{% include "partials/mark.html" %}{% endwith %}
       <span>shoal</span>
     </a>
     <nav class="bar-links" aria-label="Sections">
