@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Releases: pushing a `vX.Y.Z` tag publishes to PyPI through trusted publishing and creates the
+  GitHub release from the changelog (`.github/workflows/release.yml`).
 - Content scanning flags (Discord, October 28, 2026): `AttachmentFlags` and `EmbedFlags` gain
   `contains_explicit_content`, `contains_gore_content` and `contains_self_harm_content`, and
   `UnfurledMediaItem.content_scan_metadata` carries `ContentScanMetadataFlags`.

@@ -296,3 +296,21 @@ Conventional Commits: `type(scope): subject`, imperative and lower case. Scopes 
 `tasks`, `redis`, `voice`, `models`, `emojis`, `client`, `ui`, `app_commands`, `commands`, `compat`) plus `docs`, `ci`
 and `build`. Update
 `CHANGELOG.md` under "Unreleased".
+
+Changes reach `main` only through a pull request: branch, push, open it with the template filled in,
+and squash-merge once CI passes.
+
+## Releases
+
+Shoal is published to PyPI by `.github/workflows/release.yml` through trusted publishing; no token
+is stored. To release `X.Y.Z`:
+
+1. In a pull request, set `__version__` in `src/shoal/_version.py` to `X.Y.Z` and move the
+   "Unreleased" entries of `CHANGELOG.md` under `## [X.Y.Z] - YYYY-MM-DD`. Merge it.
+2. Tag the merge commit on `main` and push the tag: `git tag vX.Y.Z` then `git push origin vX.Y.Z`.
+3. The workflow checks the tag matches the version, is on `main` and has a changelog section, runs
+   the tests, builds, waits for approval in the `pypi` environment, publishes, and creates the
+   GitHub release with that section as its notes (`scripts/release_notes.py`).
+
+PyPI never accepts the same version twice, even after a deletion: a broken release is fixed with a
+new version. Pre-releases (`X.Y.ZaN`, `bN`, `rcN`) are marked as such on GitHub.
