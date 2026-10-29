@@ -5,7 +5,7 @@ dashboard or a worker. This script posts an announcement, then sends and edits a
 webhook.
 
 ```bash
-pip install -e "../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal   # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export CHANNEL_ID=channel-to-post-in
 python script.py

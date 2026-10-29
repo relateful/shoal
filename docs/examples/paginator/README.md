@@ -4,7 +4,7 @@ Long lists split into embed pages, with first / previous / next / last buttons a
 Only the member who ran the command can turn the pages, and the buttons grey out after two minutes.
 
 ```bash
-pip install -e "../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal                       # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: commands appear there at once
 python bot.py

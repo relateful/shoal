@@ -4,7 +4,7 @@ Custom emojis that belong to the bot itself, so they work in every server withou
 "emoji server". Put images in `emojis/`, and the bot uploads them and uses them by name.
 
 ```bash
-pip install -e "../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal                       # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: commands appear there at once
 python bot.py

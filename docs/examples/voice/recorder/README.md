@@ -4,7 +4,7 @@
 `/stop` leaves and posts the files.
 
 ```bash
-pip install -e "../../../..[voice]"   # Shoal from this clone (not on PyPI yet)
+pip install --pre "shoal[voice]"              # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: commands appear there at once
 python bot.py

@@ -4,7 +4,7 @@ A discord.py bot running on Shoal through `shoal.compat`: the imports change, an
 marked `CHANGED` in `bot.py`. Everything else is the code you already have.
 
 ```bash
-pip install -e "../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal   # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 python bot.py
 ```

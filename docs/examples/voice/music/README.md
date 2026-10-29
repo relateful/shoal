@@ -4,7 +4,7 @@ A small music bot: `/play` joins your voice channel and plays a song from the `m
 HTTPS link, with a queue, `/skip`, `/pause`, `/queue` and `/leave`.
 
 ```bash
-pip install -e "../../../..[voice]"   # Shoal from this clone (not on PyPI yet)
+pip install --pre "shoal[voice]"              # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: commands appear there at once
 python bot.py

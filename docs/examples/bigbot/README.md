@@ -8,7 +8,7 @@ downtime. It runs under Docker Compose with Prometheus and Grafana beside it.
 ```
 bigbot/
   .env.example         settings: copy to .env
-  Dockerfile           the bot's image, built from this clone of Shoal
+  Dockerfile           the bot's image, with Shoal from PyPI
   docker-compose.yml   the bot, Prometheus and Grafana
   prometheus.yml       Prometheus scrapes the bot
   grafana/             a provisioned data source and dashboard
@@ -37,7 +37,7 @@ all: Prometheus reaches it on the Compose network.
 Without Docker, from this folder:
 
 ```bash
-pip install -e "../../..[prometheus,zstd]"   # Shoal from this clone (not on PyPI yet)
+pip install --pre "shoal[prometheus,zstd]"   # Shoal from PyPI
 set -a; . ./.env; set +a
 python -m bigbot                             # metrics on http://127.0.0.1:9100/metrics
 ```

@@ -6,7 +6,7 @@ Discord. Views (like the counter) live in the process that sent them, so run one
 message's clicks back to it.
 
 ```bash
-pip install -e "../../..[interactions]"   # Shoal from this clone (not on PyPI yet)
+pip install --pre "shoal[interactions]"         # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_PUBLIC_KEY=your-app-public-key   # Developer Portal → General Information
 export DISCORD_GUILD_ID=your-test-server-id     # optional: commands appear there at once

@@ -5,6 +5,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0a1] - 2026-10-29
+
+The first pre-release.
+
 ### Added
 
 - Releases: pushing a `vX.Y.Z` tag publishes to PyPI through trusted publishing and creates the

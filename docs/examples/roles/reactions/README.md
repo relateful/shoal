@@ -3,7 +3,7 @@
 Members react to a message to get a role and remove the reaction to lose it.
 
 ```bash
-pip install -e "../../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal   # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 python bot.py
 ```

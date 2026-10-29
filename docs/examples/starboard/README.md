@@ -4,7 +4,7 @@ Messages that collect enough ⭐ reactions are reposted to a `#starboard` channe
 to date, and the post goes away if the stars do.
 
 ```bash
-pip install -e "../../.."   # Shoal from this clone (not on PyPI yet)
+pip install --pre shoal       # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export STAR_THRESHOLD=3       # optional: stars needed, 3 by default
 python bot.py
