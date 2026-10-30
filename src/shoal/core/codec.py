@@ -48,12 +48,14 @@ def _json_enc_hook(value: object) -> object:
         return str(int(value))
     if isinstance(value, BaseFlags):
         return str(int(value)) if value.WIRE_AS_STRING else int(value)
+    if isinstance(value, int):
+        return int(value)
     msg = f"Shoal cannot encode {type(value).__name__} to JSON"
     raise TypeError(msg)
 
 
 def _msgpack_enc_hook(value: object) -> object:
-    if isinstance(value, Snowflake | BaseFlags):
+    if isinstance(value, int):
         return int(value)
     msg = f"Shoal cannot encode {type(value).__name__} to msgpack"
     raise TypeError(msg)

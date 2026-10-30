@@ -15,6 +15,7 @@ from msgspec import UNSET, UnsetType
 
 from shoal.core.codec import JSONObject, decode_json, encode_json
 from shoal.models.base import unset_if_none
+from shoal.models.colour import Colour
 from shoal.payloads.message import Embed as EmbedPayload
 from shoal.payloads.message import EmbedAuthor, EmbedField, EmbedFooter, EmbedImage, EmbedProvider, EmbedVideo
 
@@ -108,8 +109,9 @@ class Embed:
 
     @property
     def colour(self) -> int | None:
-        """The colour of the left border, as `0xRRGGBB`."""
-        return _value(self._data.color)
+        """The colour of the left border, as a `Colour`."""
+        color = _value(self._data.color)
+        return None if color is None else Colour(color)
 
     @colour.setter
     def colour(self, value: int | None) -> None:

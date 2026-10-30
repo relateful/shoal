@@ -43,8 +43,6 @@ NOT_PROVIDED: dict[str, dict[str, str]] = {
         "BotIntegration": "integrations are the `Integration` payload",
         "Collectible": "collectibles are the `Collectibles` and `Nameplate` payloads",
         "CollectibleType": NO_COUNTERPART,
-        "Color": "embed colours are integers; there is no colour class yet",
-        "Colour": "embed colours are integers; there is no colour class yet",
         "DefaultAvatar": NO_COUNTERPART,
         "DeletedReferencedMessage": NO_COUNTERPART,
         "Enum": "an enum base class; Shoal's open enums live in `shoal.core`",

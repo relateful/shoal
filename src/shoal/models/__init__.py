@@ -27,6 +27,7 @@ from shoal.models.channel import (
     VoiceChannel,
     channel_from_payload,
 )
+from shoal.models.colour import Color, Colour
 from shoal.models.embed import Embed
 from shoal.models.emoji import Emoji
 from shoal.models.guild import Guild
@@ -54,6 +55,8 @@ __all__ = [
     "BaseUser",
     "CategoryChannel",
     "ClientUser",
+    "Color",
+    "Colour",
     "Competing",
     "ComponentView",
     "CustomActivity",

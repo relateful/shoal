@@ -13,6 +13,7 @@ from msgspec import UNSET, UnsetType
 from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
 from shoal.models.base import MISSING, Hashable, MissingType, given
+from shoal.models.colour import Colour
 from shoal.models.state import State
 from shoal.payloads.api import image_data
 from shoal.payloads.guild import EditRoleParams, RolePositionParams
@@ -79,16 +80,17 @@ class Role(Hashable):
         return self._data.name
 
     @property
-    def colour(self) -> int:
-        """The role's colour as `0xRRGGBB`; 0 means no colour."""
-        return self._data.colors.primary_color
+    def colour(self) -> Colour:
+        """The role's colour; 0 means no colour."""
+        return Colour(self._data.colors.primary_color)
 
     color = colour
 
     @property
-    def secondary_colour(self) -> int | None:
+    def secondary_colour(self) -> Colour | None:
         """The gradient's second colour, for gradient roles."""
-        return self._data.colors.secondary_color
+        color = self._data.colors.secondary_color
+        return None if color is None else Colour(color)
 
     secondary_color = secondary_colour
 
