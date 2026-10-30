@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0a2] - 2026-10-30
+
 ### Removed
 
 - `ChannelPositionParams.flags`: Discord no longer documents it on Modify Guild Channel Positions
