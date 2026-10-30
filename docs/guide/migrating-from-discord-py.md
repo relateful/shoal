@@ -39,12 +39,12 @@ converter class (`MemberConverter`, `ColourConverter`, `Timestamp`, ...), `Attac
 
 ### What compat covers
 
-`shoal.compat` has 439 of the 503 names discord.py 2.8 exports. A test checks it against a snapshot
+`shoal.compat` has 444 of the 503 names discord.py 2.8 exports. A test checks it against a snapshot
 of those names, so a gap shows up in CI rather than in a bot.
 
 | Package | Names in compat |
 | --- | --- |
-| `discord` | 208 of 253 |
+| `discord` | 213 of 253 |
 | `discord.ext.commands` | 142 of 147 |
 | `discord.app_commands` | 49 of 60 |
 | `discord.ui` | 26 of 27 |
@@ -56,13 +56,16 @@ point at Shoal's payloads: the `Raw*Event` names are the gateway event payloads,
 Discord's names (`MessageDelete.id`, not `message_id`), and `FFmpegPCMAudio` is `FFmpegSource`,
 which takes its options as lists of arguments.
 
+`PermissionOverwrite`, `Colour` and `Webhook` work as you know them, with two differences:
+
+- `channel.overwrites_for(target)` gives Discord's `Overwrite` payload. Turn it into a builder
+  with `PermissionOverwrite.from_overwrite(...)`.
+- `Webhook.from_url(url, rest=rest)` takes a `RestClient`, not a session: `bot.rest`, or
+  `RestClient(None)` for a script that only has the webhook's URL.
+
 The rest is not there yet. The ones a bot is most likely to meet:
 
-- `PermissionOverwrite`: Shoal's `Overwrite` is Discord's allow and deny payload, not a builder
-  that takes one argument per permission.
-- `Webhook`, `WebhookMessage` and `SyncWebhook`: webhooks are `rest.webhooks` calls, with no
-  webhook object that sends.
-- `Colour` and `Color`: embed colours are plain integers.
+- `SyncWebhook`: `Webhook` only sends with `await`.
 - `ui.DynamicItem`, `utils.sleep_until` and `utils.setup_logging`.
 - Voice sources beyond `AudioSource` and `FFmpegSource`: `PCMAudio`, `PCMVolumeTransformer`,
   `FFmpegOpusAudio`.

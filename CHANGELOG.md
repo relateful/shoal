@@ -21,8 +21,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `Webhook` and `WebhookMessage`: a webhook from its URL (`Webhook.from_url(url, rest=rest)`) or ID and
   token that sends (`send(..., wait=True)`), and edits and deletes its messages, threads included. It
   needs only the webhook's token, so it works with `RestClient(None)`.
-- `shoal.compat` covers 439 of the 503 names discord.py 2.8 exports, up from 367: names Shoal
-  already had, and aliases for the ones it names differently. A test keeps it checked against a
+- `shoal.compat` covers 444 of the 503 names discord.py 2.8 exports, up from 367: names Shoal
+  already had, aliases for the ones it names differently, and `Colour`, `PermissionOverwrite` and
+  `Webhook`. A test keeps it checked against a
   snapshot of discord.py's names.
 - Audit log events `CHANNEL_POSITION_UPDATE` and `ROLE_POSITION_UPDATE`, and a `reason` on
   `rest.channels.edit_positions` (Discord, October 29, 2026).
