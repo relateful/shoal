@@ -155,3 +155,23 @@ async def test_without_a_token_it_uses_the_bot_token_and_cannot_send() -> None:
     assert last(transport)[:2] == ("DELETE", f"/webhooks/{HOOK}")
     with pytest.raises(ValueError, match="no token"):
         await webhook.send("hi")
+
+
+async def test_a_new_post_is_edited_in_its_thread() -> None:
+    transport = FakeTransport()
+    transport.queue(200, message(9, channel_id=77))
+    sent = await hook(transport).send("first", thread_name="post", wait=True)
+    assert sent is not None
+    transport.queue(204)
+    await sent.delete()
+    assert last(transport)[:2] == ("DELETE", f"/webhooks/{HOOK}/{TOKEN}/messages/9?thread_id=77")
+
+
+async def test_moving_a_webhook_uses_the_bot_token_and_keeps_its_own() -> None:
+    transport = FakeTransport()
+    transport.queue(200, webhook_json(channel_id="6"))
+    moved = await hook(transport).edit(channel=Object(6), reason="move")
+    assert last(transport) == ("PATCH", f"/webhooks/{HOOK}", {"channel_id": "6"})
+    assert transport.requests[-1].headers["X-Audit-Log-Reason"] == "move"
+    assert moved.token == TOKEN
+    assert moved.channel_id == 6
