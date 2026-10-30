@@ -22,9 +22,10 @@ from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
 from shoal.models.base import MISSING, Hashable, MissingType, given, unset_if_none
 from shoal.models.defaults import DEFAULT_BAN_MESSAGE_SECONDS
+from shoal.models.overwrite import OverwritesLike, overwrite_payloads
 from shoal.models.state import State
 from shoal.payloads.api import image_data
-from shoal.payloads.channel import ChannelType, CreateChannelParams, PartialOverwrite
+from shoal.payloads.channel import ChannelType, CreateChannelParams
 from shoal.payloads.emoji import CreateEmojiParams
 from shoal.payloads.gateway_events import MEMBER_QUERY_MAX_RESULTS
 from shoal.payloads.guild import (
@@ -554,7 +555,7 @@ class Guild(Hashable):
         topic: str | None = None,
         nsfw: bool | None = None,
         slowmode_delay: int | None = None,
-        overwrites: Sequence[PartialOverwrite] = (),
+        overwrites: OverwritesLike = (),
         reason: str | None = None,
     ) -> "TextChannel":
         """Create a text channel.
@@ -568,7 +569,7 @@ class Guild(Hashable):
             type=ChannelType.GUILD_TEXT,
             parent_id=_id_or_unset(category),
             position=unset_if_none(position),
-            permission_overwrites=list(overwrites) if overwrites else UNSET,
+            permission_overwrites=overwrite_payloads(overwrites) or UNSET,
             topic=unset_if_none(topic),
             nsfw=unset_if_none(nsfw),
             rate_limit_per_user=unset_if_none(slowmode_delay),
@@ -584,7 +585,7 @@ class Guild(Hashable):
         bitrate: int | None = None,
         user_limit: int | None = None,
         rtc_region: str | None = None,
-        overwrites: Sequence[PartialOverwrite] = (),
+        overwrites: OverwritesLike = (),
         reason: str | None = None,
     ) -> "VoiceChannel":
         """Create a voice channel.
@@ -598,7 +599,7 @@ class Guild(Hashable):
             type=ChannelType.GUILD_VOICE,
             parent_id=_id_or_unset(category),
             position=unset_if_none(position),
-            permission_overwrites=list(overwrites) if overwrites else UNSET,
+            permission_overwrites=overwrite_payloads(overwrites) or UNSET,
             bitrate=unset_if_none(bitrate),
             user_limit=unset_if_none(user_limit),
             rtc_region=unset_if_none(rtc_region),
@@ -610,7 +611,7 @@ class Guild(Hashable):
         name: str,
         *,
         position: int | None = None,
-        overwrites: Sequence[PartialOverwrite] = (),
+        overwrites: OverwritesLike = (),
         reason: str | None = None,
     ) -> "CategoryChannel":
         """Create a category.
@@ -623,7 +624,7 @@ class Guild(Hashable):
             name=name,
             type=ChannelType.GUILD_CATEGORY,
             position=unset_if_none(position),
-            permission_overwrites=list(overwrites) if overwrites else UNSET,
+            permission_overwrites=overwrite_payloads(overwrites) or UNSET,
         )
         return await self._create_channel(CategoryChannel, params, reason)
 

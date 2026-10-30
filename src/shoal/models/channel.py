@@ -15,6 +15,7 @@ from msgspec import UNSET, UnsetType
 from shoal.core.snowflake import Snowflake
 from shoal.models.base import MISSING, Hashable, MissingType, given, unset_if_none
 from shoal.models.messageable import Before, Messageable
+from shoal.models.overwrite import PermissionOverwrite
 from shoal.models.permissions import channel_permissions, guild_permissions
 from shoal.models.sending import EmbedLike, outgoing
 from shoal.models.state import ComponentView, State
@@ -192,16 +193,27 @@ class GuildChannel(Hashable):
         self,
         target: "Member | Role | User",
         *,
+        overwrite: PermissionOverwrite | None = None,
         allow: Permissions | None = None,
         deny: Permissions | None = None,
         reason: str | None = None,
     ) -> None:
-        """Set the overwrite for a role or member; with neither `allow` nor `deny`, remove it.
+        """Set the overwrite for a role or member; with none of `overwrite`, `allow` and `deny`, remove it.
+
+        Pass either an `overwrite`, one permission at a time, or the `allow` and `deny` bit sets.
+
+        Raises:
+            TypeError: Both `overwrite` and `allow` or `deny` were given.
 
         Discord: https://docs.discord.com/developers/resources/channel#edit-channel-permissions
         """
         from shoal.models.role import Role
 
+        if overwrite is not None:
+            if allow is not None or deny is not None:
+                msg = "pass either overwrite or allow and deny, not both"
+                raise TypeError(msg)
+            allow, deny = overwrite.pair()
         if allow is None and deny is None:
             await self._state.rest.channels.delete_permissions(self.id, target.id, reason=reason)
             return

@@ -5,6 +5,7 @@ import pytest
 from shoal.models.base import Object
 from shoal.models.channel import CategoryChannel, ForumChannel, StageChannel, TextChannel, VoiceChannel
 from shoal.models.guild import Guild
+from shoal.models.overwrite import PermissionOverwrite
 from shoal.payloads import Guild as GuildPayload
 from shoal.payloads import GuildFeature, PremiumTier, VerificationLevel
 from tests.support.models import (
@@ -231,6 +232,21 @@ async def test_creating_channels_roles_and_emojis() -> None:
         f"/guilds/{GUILD}/channels",
         {"name": "new", "type": 0, "topic": "t", "rate_limit_per_user": 5, "parent_id": str(CATEGORY)},
     )
+    world.transport.queue(200, channel(84, 0, "staff"))
+    mods = guild.get_role(MODS)
+    assert mods is not None
+    await guild.create_text_channel(
+        "staff",
+        overwrites={mods: PermissionOverwrite(read_messages=True), Object(ALICE): PermissionOverwrite()},
+    )
+    assert world.last_request()[2] == {
+        "name": "staff",
+        "type": 0,
+        "permission_overwrites": [
+            {"id": str(MODS), "type": 0, "allow": str(1 << 10), "deny": "0"},
+            {"id": str(ALICE), "type": 1, "allow": "0", "deny": "0"},
+        ],
+    }
     world.transport.queue(200, channel(81, 2, "vc"))
     assert isinstance(await guild.create_voice_channel("vc", bitrate=64000), VoiceChannel)
     world.transport.queue(200, channel(82, 4, "cat"))

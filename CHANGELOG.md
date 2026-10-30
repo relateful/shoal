@@ -15,6 +15,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `Colour` (also `Color`): an `int` of the form `0xRRGGBB` with `from_rgb`, `from_hsv`, `from_str`,
   `random` and Discord's palette (`Colour.blurple()`). `Role.colour`, `Member.colour`, `Embed.colour`
   and the `Colour` converter now give one; it is still an `int`, so code comparing numbers keeps working.
+- `PermissionOverwrite`: an overwrite built one permission at a time (`True`, `False` or `None`), with
+  `pair()` and `from_pair()`. `channel.set_permissions(target, overwrite=...)` takes one, and
+  `guild.create_text_channel` and the other channel creators take `overwrites={role: overwrite}`.
 - `shoal.compat` covers 439 of the 503 names discord.py 2.8 exports, up from 367: names Shoal
   already had, and aliases for the ones it names differently. A test keeps it checked against a
   snapshot of discord.py's names.

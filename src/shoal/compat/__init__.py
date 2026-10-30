@@ -119,6 +119,7 @@ from shoal.models.messageable import (
     Messageable,
     Typing,
 )
+from shoal.models.overwrite import PermissionOverwrite
 from shoal.models.role import (
     Role,
 )
@@ -596,6 +597,7 @@ __all__ = [
     "PartialMessageable",
     "PartialWebhookChannel",
     "PartialWebhookGuild",
+    "PermissionOverwrite",
     "Permissions",
     "Poll",
     "PollAnswer",
