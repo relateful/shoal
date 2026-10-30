@@ -17,6 +17,7 @@ Voice needs `pip install 'shoal[voice]'`; nothing here loads it until a channel 
 Discord: https://docs.discord.com/developers/topics/voice-connections#connecting-to-voice
 """
 
+import abc
 import asyncio
 import contextlib
 import logging
@@ -37,6 +38,7 @@ from shoal.payloads.voice_gateway import VoiceCloseCode
 
 if TYPE_CHECKING:
     from shoal.gateway.connection import GatewayConnector
+    from shoal.models.channel import VoiceChannel
     from shoal.models.state import State
     from shoal.voice.audio import AudioPlayer, AudioSource
     from shoal.voice.connection import VoiceConnection, VoicePacket
@@ -82,6 +84,131 @@ class VoiceGateway(Protocol):
     def voice_client(self, guild_id: int, /) -> "VoiceClient | None":
         """The guild's voice client, while the bot is in one of its voice channels."""
         ...
+
+    async def connect_protocol(self, voice: "VoiceProtocol", /, *, self_mute: bool, self_deaf: bool) -> None:
+        """Register `voice` as the guild's voice, then call its `connect`.
+
+        Raises:
+            GatewayRequiredError: There is no gateway connection for the guild.
+            VoiceInUseError: The guild already has a voice client or protocol.
+        """
+        ...
+
+    def voice_protocol(self, guild_id: int, /) -> "VoiceProtocol | None":
+        """The guild's registered `VoiceProtocol`, if one is connected instead of a `VoiceClient`."""
+        ...
+
+    async def send_voice_state(
+        self, guild_id: int, channel_id: int | None, *, self_mute: bool, self_deaf: bool
+    ) -> None:
+        """Send the main gateway's voice state update for a guild; a `None` channel leaves voice.
+
+        Raises:
+            GatewayRequiredError: There is no gateway connection for the guild.
+        """
+        ...
+
+    def forget_voice(self, voice: "VoiceProtocol", /) -> None:
+        """Stop sending `voice` the guild's voice events (`VoiceProtocol.cleanup` calls this)."""
+        ...
+
+
+class VoiceInUseError(ShoalError):
+    """The guild already has a voice client or protocol; disconnect it first."""
+
+
+class VoiceProtocol(abc.ABC):
+    """Voice in one guild through something other than Shoal's own connection, such as Lavalink.
+
+    Subclass it and pass the class to `VoiceChannel.connect(cls=...)`. Shoal registers the instance
+    as the guild's voice, then calls `connect`; from then on, the bot's own voice state updates and
+    the guild's voice server updates go to `on_voice_state_update` and `on_voice_server_update`,
+    each in its own task (a failure is logged), so either may run first. Call `cleanup` once done,
+    or the guild stays taken.
+
+        class LavalinkPlayer(VoiceProtocol):
+            session_id: str | None = None
+            server: VoiceServerUpdate | None = None
+
+            async def connect(self, *, self_mute: bool, self_deaf: bool) -> None:
+                await self.change_voice_state(self.channel, self_mute=self_mute, self_deaf=self_deaf)
+
+            async def on_voice_state_update(self, data: VoiceState) -> None:
+                self.session_id = data.session_id
+                await self.update_node()
+
+            async def on_voice_server_update(self, data: VoiceServerUpdate) -> None:
+                self.server = data
+                await self.update_node()
+
+            async def update_node(self) -> None:
+                # The two updates come in either order; the node needs both.
+                server = self.server
+                if self.session_id is not None and server is not None and server.endpoint is not None:
+                    await node.update_voice(self.guild_id, self.session_id, server.token, server.endpoint)
+
+            async def disconnect(self) -> None:
+                await self.change_voice_state(None)
+                self.cleanup()
+
+    Args:
+        client: The client joining voice.
+        channel: The voice channel being joined.
+
+    Discord: https://docs.discord.com/developers/topics/voice-connections#retrieving-voice-server-information
+    """
+
+    __slots__ = ("channel", "client")
+
+    def __init__(self, client: VoiceGateway, channel: "VoiceChannel") -> None:
+        """Keep the client and the channel; see the class docstring for the arguments."""
+        self.client: VoiceGateway = client
+        self.channel: VoiceChannel = channel
+
+    @override
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(guild_id={self.guild_id}, channel_id={self.channel.id})"
+
+    @property
+    def guild_id(self) -> Snowflake:
+        """The guild."""
+        return self.channel.guild_id
+
+    @abc.abstractmethod
+    async def connect(self, *, self_mute: bool, self_deaf: bool) -> None:
+        """Join `channel`; usually through `change_voice_state`, then waiting for the two updates."""
+
+    @abc.abstractmethod
+    async def disconnect(self) -> None:
+        """Leave voice; call `cleanup` once done."""
+
+    @abc.abstractmethod
+    async def on_voice_state_update(self, data: VoiceState) -> None:
+        """The bot's own voice state changed in the guild; `data.session_id` is its voice session."""
+
+    @abc.abstractmethod
+    async def on_voice_server_update(self, data: VoiceServerUpdate) -> None:
+        """Discord named the voice server to connect to (`data.endpoint`) and its `data.token`.
+
+        `data.endpoint` is `None` when the voice server went away; another update follows.
+        """
+
+    async def change_voice_state(
+        self, channel: "int | Hashable | None", *, self_mute: bool = False, self_deaf: bool = False
+    ) -> None:
+        """Join, move to or leave (`None`) a voice channel of the guild.
+
+        Raises:
+            GatewayRequiredError: There is no gateway connection for the guild.
+        """
+        channel_id = None if channel is None else channel if isinstance(channel, int) else int(channel.id)
+        await self.client.send_voice_state(
+            int(self.guild_id), channel_id, self_mute=self_mute, self_deaf=self_deaf
+        )
+
+    def cleanup(self) -> None:
+        """Stop receiving the guild's voice events and free the guild for another voice."""
+        self.client.forget_voice(self)
 
 
 @final

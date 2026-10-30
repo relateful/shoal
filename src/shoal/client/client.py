@@ -26,7 +26,7 @@ import inspect
 import logging
 import secrets
 import signal
-from collections.abc import Awaitable, Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Coroutine, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Unpack, final
 
@@ -52,7 +52,7 @@ from shoal.core.errors import ShoalError
 from shoal.core.metrics import MEMBER_CHUNKS, Metrics, NoopMetrics
 from shoal.core.replies import REPLY_WRITTEN
 from shoal.core.snowflake import Snowflake
-from shoal.core.tasks import spawn
+from shoal.core.tasks import cancel_and_wait, spawn
 from shoal.emojis.registry import AppEmojis
 from shoal.gateway.cluster import CommandRouter, ShardDirectory
 from shoal.gateway.manager import ShardManager
@@ -71,7 +71,7 @@ from shoal.models.guild import Guild
 from shoal.models.member import Member
 from shoal.models.state import GatewayRequiredError, MemberRequestRateLimitedError, State
 from shoal.models.user import ClientUser, User
-from shoal.models.voice import VoiceClient
+from shoal.models.voice import VoiceClient, VoiceInUseError, VoiceProtocol
 from shoal.payloads.gateway import GatewayOpcode, Intents
 from shoal.payloads.gateway_events import (
     BotActivity,
@@ -378,6 +378,7 @@ class Client:
         "_user",
         "_views",
         "_voice_clients",
+        "_voice_tasks",
         "_waiters",
         "intents",
     )
@@ -455,7 +456,9 @@ class Client:
         self._handlers: dict[str, Listener] = {}
         self._listeners: dict[str, list[Listener]] = {}
         self._waiters: dict[str, list[_Waiter]] = {}
-        self._voice_clients: dict[int, VoiceClient] = {}
+        self._voice_clients: dict[int, VoiceClient | VoiceProtocol] = {}
+        self._voice_tasks: set[asyncio.Task[None]] = set()
+        """Running `VoiceProtocol` hooks; `close` cancels them before disconnecting."""
         self._interaction_handlers: list[InteractionHandler] = []
         self._ready: asyncio.Event | None = None
         self._expected_shards: set[int] | None = None
@@ -621,7 +624,14 @@ class Client:
             self._chunker.cancel()
         await self._scheduler.close()  # before the REST client: running jobs may still use it
         # Together: each waits on its voice server, and a few unreachable ones must not add up.
-        await asyncio.gather(*(voice.disconnect() for voice in list(self._voice_clients.values())))
+        for task in list(self._voice_tasks):
+            _ = await cancel_and_wait(task)
+        voices = list(self._voice_clients.values())
+        results = await asyncio.gather(*(voice.disconnect() for voice in voices), return_exceptions=True)
+        for voice, result in zip(voices, results, strict=True):
+            if isinstance(result, BaseException):
+                _log.error("disconnecting %r failed", voice, exc_info=result)
+        self._voice_clients.clear()  # a protocol that never called `cleanup` is let go too
         if self._manager is not None:
             await self._manager.close()
             if self._cache_snapshot is not None:
@@ -633,11 +643,22 @@ class Client:
     @property
     def voice_clients(self) -> list[VoiceClient]:
         """The bot's voice clients, one per guild where it is in a voice channel."""
-        return list(self._voice_clients.values())
+        return [voice for voice in self._voice_clients.values() if isinstance(voice, VoiceClient)]
 
     def voice_client(self, guild_id: int, /) -> VoiceClient | None:
         """The guild's voice client, while the bot is in one of its voice channels."""
-        return self._voice_clients.get(guild_id)
+        voice = self._voice_clients.get(guild_id)
+        return voice if isinstance(voice, VoiceClient) else None
+
+    @property
+    def voice_protocols(self) -> list[VoiceProtocol]:
+        """The `VoiceProtocol`s connected with `VoiceChannel.connect(cls=...)`, one per guild."""
+        return [voice for voice in self._voice_clients.values() if isinstance(voice, VoiceProtocol)]
+
+    def voice_protocol(self, guild_id: int, /) -> VoiceProtocol | None:
+        """The guild's `VoiceProtocol`, when one carries its voice instead of a `VoiceClient`."""
+        voice = self._voice_clients.get(guild_id)
+        return voice if isinstance(voice, VoiceProtocol) else None
 
     async def connect_voice(
         self, guild_id: int, channel_id: int, /, *, self_mute: bool, self_deaf: bool
@@ -651,15 +672,19 @@ class Client:
             GatewayRequiredError: The client is not connected to the gateway.
             TimeoutError: Discord did not answer, or the voice handshake did not finish, in time.
             VoiceConnectionClosedError: The voice server refused the connection.
+            VoiceInUseError: A `VoiceProtocol` carries the guild's voice.
 
         Discord: https://docs.discord.com/developers/topics/voice-connections#connecting-to-voice
         """
         voice = self._voice_clients.get(guild_id)
+        if isinstance(voice, VoiceProtocol):
+            msg = f"{voice!r} carries this guild's voice; disconnect it first"
+            raise VoiceInUseError(msg)
         if voice is None:
             voice = VoiceClient(
                 self.state,
                 guild_id,
-                send_state=self._send_voice_state,
+                send_state=self.send_voice_state,
                 forget=self._forget_voice,
                 metrics=self._metrics,
             )
@@ -672,12 +697,53 @@ class Client:
             raise
         return voice
 
-    async def _send_voice_state(
+    async def connect_protocol(self, voice: VoiceProtocol, /, *, self_mute: bool, self_deaf: bool) -> None:
+        """Register `voice` as its guild's voice, then await its `connect`; `VoiceChannel.connect` calls this.
+
+        When `connect` fails, `voice` is disconnected and let go before the error is raised again.
+
+        Raises:
+            GatewayRequiredError: The client is not connected to the gateway.
+            VoiceInUseError: The guild already has a voice client or protocol.
+        """
+        if self._manager is None:
+            what = "joining a voice channel"
+            raise GatewayRequiredError(what)
+        guild_id = int(voice.guild_id)
+        current = self._voice_clients.get(guild_id)
+        if current is not None:
+            msg = f"{current!r} carries this guild's voice; disconnect it first"
+            raise VoiceInUseError(msg)
+        self._voice_clients[guild_id] = voice
+        try:
+            await voice.connect(self_mute=self_mute, self_deaf=self_deaf)
+        except BaseException:
+            try:
+                await voice.disconnect()
+            except Exception:  # noqa: BLE001 - user code; the connect error is the one raised
+                _log.exception("disconnecting %r after its connect failed also failed", voice)
+            finally:
+                self.forget_voice(voice)  # even when the disconnect is cancelled too
+            raise
+
+    def forget_voice(self, voice: VoiceProtocol, /) -> None:
+        """Stop sending `voice` its guild's voice events; `VoiceProtocol.cleanup` calls this."""
+        if self._voice_clients.get(int(voice.guild_id)) is voice:
+            del self._voice_clients[int(voice.guild_id)]
+
+    async def send_voice_state(
         self, guild_id: int, channel_id: int | None, *, self_mute: bool, self_deaf: bool
     ) -> None:
+        """Send the voice state update for a guild on its shard; a `None` channel leaves voice.
+
+        Raises:
+            GatewayRequiredError: The client is not connected to the gateway.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#update-voice-state
+        """
         manager = self._manager
         if manager is None:
-            what = "joining a voice channel"
+            what = "changing the voice state"
             raise GatewayRequiredError(what)
         update = UpdateVoiceState(
             guild_id=Snowflake(guild_id),
@@ -696,15 +762,26 @@ class Client:
         if event.name == "VOICE_SERVER_UPDATE":
             server = event.decode(VoiceServerUpdate)
             voice = self._voice_clients.get(int(server.guild_id))
-            if voice is not None:
+            if isinstance(voice, VoiceProtocol):
+                self._voice_task(
+                    voice.on_voice_server_update(server), f"shoal-voice-server-{server.guild_id}"
+                )
+            elif voice is not None:
                 voice.on_voice_server(server)
             return
         update = event.decode(VoiceState)
         if not isinstance(update.guild_id, Snowflake) or update.user_id != self.state.user_id:
             return
         voice = self._voice_clients.get(int(update.guild_id))
-        if voice is not None:
+        if isinstance(voice, VoiceProtocol):
+            self._voice_task(voice.on_voice_state_update(update), f"shoal-voice-state-{update.guild_id}")
+        elif voice is not None:
             voice.on_voice_state(update)
+
+    def _voice_task(self, hook: Coroutine[object, object, None], name: str) -> None:
+        task = spawn(hook, name=name)
+        self._voice_tasks.add(task)
+        task.add_done_callback(self._voice_tasks.discard)
 
     def is_closed(self) -> bool:
         """Whether `close` was called."""

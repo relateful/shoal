@@ -72,7 +72,6 @@ NOT_PROVIDED: dict[str, dict[str, str]] = {
         "SyncWebhook": WEBHOOK_MODEL,
         "SyncWebhookMessage": WEBHOOK_MODEL,
         "VoiceChannelSoundEffect": NO_COUNTERPART,
-        "VoiceProtocol": VOICE_SOURCES,
     },
     "discord.ext.commands": {
         "CogMeta": "a metaclass; Shoal's `Cog` needs none",

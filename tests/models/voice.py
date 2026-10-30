@@ -10,7 +10,7 @@ from shoal.core.ogg import OggOpusWriter
 from shoal.core.snowflake import Snowflake
 from shoal.models.channel import VoiceChannel
 from shoal.models.state import GatewayRequiredError, State
-from shoal.models.voice import AudioPlayingError, VoiceClient
+from shoal.models.voice import AudioPlayingError, VoiceClient, VoiceProtocol
 from shoal.payloads import Channel, ChannelType
 from shoal.payloads.gateway_events import VoiceServerUpdate
 from shoal.payloads.voice import VoiceState
@@ -19,6 +19,7 @@ from shoal.voice.audio import AudioSource, OggOpusSource
 from shoal.voice.crypto import TransportCipher
 from shoal.voice.receive import opus
 from shoal.voice.rtp import rtp_header
+from tests.support.calls import call_unchecked
 from tests.support.fakes import FakeTransport, ManualClock, settle
 from tests.support.rest import make_client
 from tests.support.voice import KEY, FakeOpus, FakeVoiceConnector, FakeVoiceGateway, FakeVoiceTransports
@@ -287,6 +288,41 @@ async def test_a_voice_channel_joins_through_its_state() -> None:
     with pytest.raises(GatewayRequiredError, match="joining a voice channel"):
         await channel.connect()
     assert state.voice.voice_client(GUILD) is None
+
+
+class QuietProtocol(VoiceProtocol):
+    @override
+    async def connect(self, *, self_mute: bool, self_deaf: bool) -> None:
+        await self.change_voice_state(self.channel, self_mute=self_mute, self_deaf=self_deaf)
+
+    @override
+    async def disconnect(self) -> None:
+        self.cleanup()
+
+    @override
+    async def on_voice_state_update(self, data: VoiceState) -> None:
+        del data
+
+    @override
+    async def on_voice_server_update(self, data: VoiceServerUpdate) -> None:
+        del data
+
+
+async def test_a_voice_protocol_needs_a_gateway_too() -> None:
+    state = State(rest=make_client(FakeTransport()))
+    channel = VoiceChannel(
+        state, Channel(id=Snowflake(CHANNEL), type=ChannelType.GUILD_VOICE, guild_id=Snowflake(GUILD))
+    )
+    with pytest.raises(GatewayRequiredError, match="joining a voice channel"):
+        await channel.connect(cls=QuietProtocol)
+    voice = QuietProtocol(state.voice, channel)
+    assert voice.guild_id == GUILD
+    with pytest.raises(GatewayRequiredError, match="changing the voice state"):
+        await voice.connect(self_mute=False, self_deaf=False)
+    await voice.disconnect()  # nothing registered: nothing to forget
+    assert state.voice.voice_protocol(GUILD) is None
+    with pytest.raises(TypeError, match="abstract"):
+        call_unchecked(VoiceProtocol, state.voice, channel)
 
 
 async def test_a_terminated_call_waits_for_the_gateway_to_say_where_it_went() -> None:

@@ -8,7 +8,7 @@ Discord: https://docs.discord.com/developers/resources/channel#channel-object
 """
 
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, NamedTuple, Self, override
+from typing import TYPE_CHECKING, NamedTuple, Self, overload, override
 
 from msgspec import UNSET, UnsetType
 
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from shoal.models.role import Role
     from shoal.models.thread import Thread
     from shoal.models.user import User
-    from shoal.models.voice import VoiceClient
+    from shoal.models.voice import VoiceClient, VoiceGateway, VoiceProtocol
 
 
 def _value[T](value: T | UnsetType) -> T | None:
@@ -509,21 +509,48 @@ class VoiceChannel(_GuildMessageable):
         found = (Member.from_cache(self._state, self.guild_id, user_id) for user_id in self.voice_states)
         return [member for member in found if member is not None]
 
-    async def connect(self, *, self_mute: bool = False, self_deaf: bool = False) -> "VoiceClient":
+    @overload
+    async def connect(self, *, self_mute: bool = False, self_deaf: bool = False) -> "VoiceClient": ...
+
+    @overload
+    async def connect[P: VoiceProtocol](
+        self,
+        *,
+        self_mute: bool = False,
+        self_deaf: bool = False,
+        cls: "Callable[[VoiceGateway, VoiceChannel], P]",
+    ) -> P: ...
+
+    async def connect[P: VoiceProtocol](
+        self,
+        *,
+        self_mute: bool = False,
+        self_deaf: bool = False,
+        cls: "Callable[[VoiceGateway, VoiceChannel], P] | None" = None,
+    ) -> "VoiceClient | P":
         """Join the channel (or move the bot here), and return the guild's voice client.
 
-        Needs `pip install 'shoal[voice]'` and a `Client` running the guild's shard.
+        Shoal's own `VoiceClient` needs `pip install 'shoal[voice]'`. Pass `cls=` a `VoiceProtocol`
+        subclass to carry the audio some other way, such as through Lavalink: Shoal builds it with
+        the client and this channel, registers it as the guild's voice and awaits its `connect`.
+        Either needs a `Client` running the guild's shard.
 
         Raises:
             GatewayRequiredError: There is no gateway connection for the guild.
             TimeoutError: Discord did not answer, or the voice handshake did not finish, in time.
             VoiceConnectionClosedError: The voice server refused the connection.
+            VoiceInUseError: The guild's voice is taken by a `VoiceProtocol`, or (with `cls`) by
+                anything.
 
         Discord: https://docs.discord.com/developers/topics/voice-connections#connecting-to-voice
         """
-        return await self._state.voice.connect_voice(
-            self.guild_id, self.id, self_mute=self_mute, self_deaf=self_deaf
-        )
+        if cls is None:
+            return await self._state.voice.connect_voice(
+                self.guild_id, self.id, self_mute=self_mute, self_deaf=self_deaf
+            )
+        voice = cls(self._state.voice, self)
+        await self._state.voice.connect_protocol(voice, self_mute=self_mute, self_deaf=self_deaf)
+        return voice
 
 
 class StageChannel(VoiceChannel):

@@ -41,10 +41,12 @@ async def test_a_message_context_knows_where_and_who() -> None:
     assert ctx.state is bot.state
     assert not ctx.valid
     assert ctx.voice_client is None  # not in a voice channel
+    assert ctx.voice_protocol is None
     dm = context_in(bot, in_guild=False)
     assert dm.guild is None
     assert dm.me is bot.user
     assert dm.voice_client is None
+    assert dm.voice_protocol is None
 
 
 async def test_send_and_reply_post_to_the_channel() -> None:

@@ -71,7 +71,7 @@ if TYPE_CHECKING:
     from shoal.models.member import Member
     from shoal.models.role import Role
     from shoal.models.thread import Thread
-    from shoal.models.voice import VoiceClient
+    from shoal.models.voice import VoiceClient, VoiceProtocol
 
 
 class Guild(Hashable):
@@ -280,6 +280,29 @@ class Guild(Hashable):
     def voice_client(self) -> "VoiceClient | None":
         """The bot's voice client in this guild, while it is in one of its voice channels."""
         return self._state.voice.voice_client(self.id)
+
+    @property
+    def voice_protocol(self) -> "VoiceProtocol | None":
+        """The `VoiceProtocol` carrying the bot's voice in this guild, when one was connected."""
+        return self._state.voice.voice_protocol(self.id)
+
+    async def change_voice_state(
+        self, *, channel: int | Hashable | None, self_mute: bool = False, self_deaf: bool = False
+    ) -> None:
+        """Join, move to or leave (`None`) a voice channel, without opening a voice connection.
+
+        For a `VoiceProtocol` or a tool driving voice from outside. While Shoal's own `VoiceClient`
+        is in the guild, use its `move_to` and `disconnect` instead: this would leave it out of step.
+
+        Raises:
+            GatewayRequiredError: There is no gateway connection for the guild.
+
+        Discord: https://docs.discord.com/developers/events/gateway-events#update-voice-state
+        """
+        channel_id = None if channel is None else channel if isinstance(channel, int) else int(channel.id)
+        await self._state.voice.send_voice_state(
+            self.id, channel_id, self_mute=self_mute, self_deaf=self_deaf
+        )
 
     def get_member(self, user_id: int, /) -> "Member | None":
         """The cached member with this ID."""

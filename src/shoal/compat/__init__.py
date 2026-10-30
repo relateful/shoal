@@ -132,6 +132,7 @@ from shoal.models.user import (
 )
 from shoal.models.voice import (
     VoiceClient,
+    VoiceProtocol,
 )
 from shoal.models.webhook import Webhook, WebhookMessage
 from shoal.payloads import (
@@ -678,6 +679,7 @@ __all__ = [
     "VoiceChannelEffect",
     "VoiceChannelEffectAnimationType",
     "VoiceClient",
+    "VoiceProtocol",
     "VoiceState",
     "Webhook",
     "WebhookMessage",

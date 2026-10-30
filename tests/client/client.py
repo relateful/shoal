@@ -25,12 +25,16 @@ from shoal.gateway.session import MemorySessionStore
 from shoal.gateway.shard import ShardNotConnectedError, ShardOptions
 from shoal.gateway.sharding import LocalIdentifyLimiter
 from shoal.models.activity import Game
-from shoal.models.channel import PartialMessageable, TextChannel
+from shoal.models.base import Object
+from shoal.models.channel import PartialMessageable, TextChannel, VoiceChannel
+from shoal.models.guild import Guild
 from shoal.models.state import GatewayRequiredError, MemberRequestRateLimitedError
-from shoal.models.voice import SendVoiceState
+from shoal.models.voice import SendVoiceState, VoiceGateway, VoiceInUseError, VoiceProtocol
 from shoal.payloads import (
     ActivityType,
     ApplicationDeauthorized,
+    Channel,
+    ChannelType,
     DeferredMessageResponse,
     GatewayOpcode,
     Intents,
@@ -39,10 +43,15 @@ from shoal.payloads import (
     StatusType,
     UnknownInteraction,
     UpdatePresence,
+    VoiceServerUpdate,
+    VoiceState,
     WebhookEventBody,
     WebhookEventPayload,
     WebhookEventType,
     parse_interaction,
+)
+from shoal.payloads import (
+    Guild as GuildPayload,
 )
 from shoal.rest.client import RestClient, Token
 from shoal.rest.errors import UnauthorizedError
@@ -970,7 +979,7 @@ async def test_voice_joins_through_the_guilds_shard_and_gets_its_answers(
     client, transport = await started()
     await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=True)
     voice = StubVoice.made[-1]
-    with pytest.raises(GatewayRequiredError, match="joining a voice channel"):
+    with pytest.raises(GatewayRequiredError, match="changing the voice state"):
         await voice.send_state(GUILD, 20, self_mute=False, self_deaf=False)  # before connecting
     transport.queue(200, GATEWAY_BOT)
     await client.connect()
@@ -1023,6 +1032,226 @@ async def test_a_failed_join_leaves_nothing_behind(monkeypatch: pytest.MonkeyPat
     with pytest.raises(TimeoutError):
         await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=False)
     assert client.voice_client(GUILD) is None
+    await client.close()
+
+
+class RecordingProtocol(VoiceProtocol):
+    """A voice protocol that joins through the gateway and records the updates it is handed."""
+
+    def __init__(self, client: VoiceGateway, channel: VoiceChannel) -> None:
+        super().__init__(client, channel)
+        self.states: list[VoiceState] = []
+        self.servers: list[VoiceServerUpdate] = []
+        self.failing: Exception | None = None
+        self.disconnects = 0
+
+    @override
+    async def connect(self, *, self_mute: bool, self_deaf: bool) -> None:
+        await self.change_voice_state(self.channel, self_mute=self_mute, self_deaf=self_deaf)
+        if self.failing is not None:
+            raise self.failing
+
+    @override
+    async def disconnect(self) -> None:
+        self.disconnects += 1
+        await self.change_voice_state(None)
+        self.cleanup()
+
+    @override
+    async def on_voice_state_update(self, data: VoiceState) -> None:
+        self.states.append(data)
+
+    @override
+    async def on_voice_server_update(self, data: VoiceServerUpdate) -> None:
+        self.servers.append(data)
+
+
+def voice_channel(client: Client, channel_id: int = 20) -> VoiceChannel:
+    data = Channel(id=Snowflake(channel_id), type=ChannelType.GUILD_VOICE, guild_id=Snowflake(GUILD))
+    return VoiceChannel(client.state, data)
+
+
+async def test_a_voice_protocol_joins_through_the_gateway_and_gets_the_updates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    with pytest.raises(GatewayRequiredError, match="joining a voice channel"):
+        await voice_channel(client).connect(cls=RecordingProtocol)
+    assert client.voice_protocols == []
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    manager = FakeManager.made[-1]
+    voice = await voice_channel(client).connect(cls=RecordingProtocol, self_deaf=True)
+    assert isinstance(voice, RecordingProtocol)
+    assert repr(voice) == f"RecordingProtocol(guild_id={GUILD}, channel_id=20)"
+    sent = {"guild_id": str(GUILD), "channel_id": "20", "self_mute": False, "self_deaf": True}
+    assert manager.voice_states[-1] == (GUILD, sent)
+    assert client.voice_protocol(GUILD) is voice
+    assert client.voice_protocols == [voice]
+    assert client.voice_client(GUILD) is None  # not Shoal's own voice client
+    assert client.voice_clients == []
+    # Only the bot's own voice states reach it, and only of its guild; each in its own task.
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(BOT))
+    await feed(client, "VOICE_STATE_UPDATE", voice_state_of(ALICE))
+    await feed(
+        client, "VOICE_SERVER_UPDATE", {"token": "t", "guild_id": str(GUILD), "endpoint": "voice.test"}
+    )
+    await feed(client, "VOICE_SERVER_UPDATE", {"token": "t", "guild_id": "999", "endpoint": "voice.test"})
+    await settle()
+    assert [state.session_id for state in voice.states] == ["voice-session"]
+    assert [(server.token, server.endpoint) for server in voice.servers] == [("t", "voice.test")]
+    await client.close()
+    assert voice.disconnects == 1
+    assert manager.voice_states[-1] == (
+        GUILD,
+        {"guild_id": str(GUILD), "channel_id": None, "self_mute": False, "self_deaf": False},
+    )
+    assert client.voice_protocols == []
+
+
+async def test_a_guilds_voice_is_carried_by_one_client_or_protocol(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    monkeypatch.setattr(client_module, "VoiceClient", StubVoice)
+    client, transport = await started()
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    voice = await voice_channel(client).connect(cls=RecordingProtocol)
+    with pytest.raises(VoiceInUseError, match="RecordingProtocol"):
+        await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=False)
+    with pytest.raises(VoiceInUseError):
+        await voice_channel(client, 21).connect(cls=RecordingProtocol)
+    assert client.voice_protocol(GUILD) is voice
+    await voice.disconnect()
+    assert client.voice_protocol(GUILD) is None
+    voice.cleanup()  # again: nothing left to forget
+    await client.connect_voice(GUILD, 20, self_mute=False, self_deaf=False)
+    with pytest.raises(VoiceInUseError, match="StubVoice"):
+        await voice_channel(client).connect(cls=RecordingProtocol)
+    await client.close()
+
+
+async def test_a_voice_protocol_that_fails_to_connect_is_let_go(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+
+    class Failing(RecordingProtocol):
+        def __init__(self, client: VoiceGateway, channel: VoiceChannel) -> None:
+            super().__init__(client, channel)
+            self.failing = TimeoutError("no answer")
+
+        @override
+        async def disconnect(self) -> None:
+            self.disconnects += 1
+            msg = "already gone"
+            raise RuntimeError(msg)
+
+    with caplog.at_level(logging.ERROR), pytest.raises(TimeoutError, match="no answer"):
+        await voice_channel(client).connect(cls=Failing)
+    assert "after its connect failed" in caplog.text
+    assert client.voice_protocol(GUILD) is None
+    await client.close()
+
+
+async def test_close_logs_a_protocol_that_fails_to_disconnect(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    voice = await voice_channel(client).connect(cls=RecordingProtocol)
+
+    async def broken() -> None:
+        msg = "node unreachable"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(voice, "disconnect", broken)
+    with caplog.at_level(logging.ERROR):
+        await client.close()
+    assert "disconnecting RecordingProtocol" in caplog.text
+    assert client.voice_protocols == []
+
+
+async def test_close_stops_running_hooks_and_logs_a_cancelled_disconnect(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+
+    class Slow(RecordingProtocol):
+        @override
+        async def on_voice_server_update(self, data: VoiceServerUpdate) -> None:
+            await asyncio.Event().wait()  # a node that never answers
+
+        @override
+        async def disconnect(self) -> None:
+            raise asyncio.CancelledError
+
+    voice = await voice_channel(client).connect(cls=Slow)
+    await feed(
+        client, "VOICE_SERVER_UPDATE", {"token": "t", "guild_id": str(GUILD), "endpoint": "voice.test"}
+    )
+    await settle()
+    with caplog.at_level(logging.ERROR):
+        await client.close()
+    assert f"disconnecting {voice!r} failed" in caplog.text
+    assert client.voice_protocols == []
+
+
+async def test_a_cancelled_cleanup_after_a_failed_connect_still_frees_the_guild(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+
+    class Cancelled(RecordingProtocol):
+        def __init__(self, client: VoiceGateway, channel: VoiceChannel) -> None:
+            super().__init__(client, channel)
+            self.failing = TimeoutError("no answer")
+
+        @override
+        async def disconnect(self) -> None:
+            raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        await voice_channel(client).connect(cls=Cancelled)
+    assert client.voice_protocol(GUILD) is None
+    await client.close()
+
+
+async def test_a_guild_changes_its_voice_state_without_a_voice_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(client_module, "ShardManager", FakeManager)
+    client, transport = await started()
+    guild = Guild(client.state, decoded(guild_create(), GuildPayload))
+    with pytest.raises(GatewayRequiredError, match="changing the voice state"):
+        await guild.change_voice_state(channel=20)
+    transport.queue(200, GATEWAY_BOT)
+    await client.connect()
+    manager = FakeManager.made[-1]
+    await guild.change_voice_state(channel=Object(21), self_mute=True)
+    assert manager.voice_states[-1] == (
+        GUILD,
+        {"guild_id": str(GUILD), "channel_id": "21", "self_mute": True, "self_deaf": False},
+    )
+    await guild.change_voice_state(channel=None)
+    assert manager.voice_states[-1][1] == {
+        "guild_id": str(GUILD),
+        "channel_id": None,
+        "self_mute": False,
+        "self_deaf": False,
+    }
+    assert guild.voice_protocol is None
     await client.close()
 
 
