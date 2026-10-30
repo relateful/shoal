@@ -48,6 +48,25 @@ Fields that take an image or a sound inline (an avatar, an emoji, a soundboard s
 `image_data(png_bytes)` and `sound_data(ogg_bytes)` from `shoal.payloads` build one and check the
 format.
 
+## Webhooks
+
+`Webhook` sends through a webhook's URL. Sending and editing need only the webhook's token, so a
+script with no bot token can post:
+
+```python
+from shoal import Embed
+from shoal.models import Webhook
+from shoal.rest import RestClient
+
+async with RestClient(None) as rest:
+    webhook = Webhook.from_url(webhook_url, rest=rest)
+    message = await webhook.send(embed=Embed(title="Deploying"), username="CI", wait=True)
+    await message.edit(embed=Embed(title="Deployed"))
+```
+
+Without `wait=True`, Discord does not confirm the message and `send` returns `None`. In a forum
+channel, pass `thread_name=` to start a post, or `thread=` to send in one.
+
 ## Rate limits that protect your IP
 
 - Requests are bucketed by Discord's `X-RateLimit-Bucket` and the route's top-level resource.
