@@ -144,7 +144,8 @@ class Webhook(Hashable):
     ) -> "Webhook":
         """Change its default name or avatar (`None` removes it), or move it to another `channel`.
 
-        Moving needs the bot token, so it does not use the webhook's token.
+        Moving needs the bot token, so it does not use the webhook's token. `reason` reaches the audit
+        log only through the bot token: with the webhook's token, it is not sent.
 
         Discord: https://docs.discord.com/developers/resources/webhook#modify-webhook
         """
@@ -166,6 +167,8 @@ class Webhook(Hashable):
 
     async def delete(self, *, reason: str | None = None) -> None:
         """Delete the webhook, with its token if known, otherwise with the bot token.
+
+        `reason` reaches the audit log only through the bot token: with the webhook's token, it is not sent.
 
         Discord: https://docs.discord.com/developers/resources/webhook#delete-webhook
         """
@@ -245,7 +248,11 @@ class Webhook(Hashable):
             with_components=view is not None,
             files=message.files,
         )
-        return None if data is None else WebhookMessage(self, data, thread_id=thread_id)
+        if data is None:
+            return None
+        if thread_name is not None:
+            thread_id = data.channel_id  # the new post's thread, which edits and deletes must name
+        return WebhookMessage(self, data, thread_id=thread_id)
 
     async def fetch_message(self, message_id: int, /, *, thread: Hashable | None = None) -> "WebhookMessage":
         """Get a message the webhook sent; pass its `thread` if it is in one.
