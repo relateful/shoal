@@ -39,6 +39,8 @@ if TYPE_CHECKING:
     from shoal import app_commands, commands, ui
     from shoal.client import Client, Interaction
     from shoal.models import (
+        Color,
+        Colour,
         Embed,
         Emoji,
         Game,
@@ -58,6 +60,8 @@ _LAZY: Final[dict[str, str]] = {
     "AllowedMentions": "shoal.payloads",
     "ButtonStyle": "shoal.payloads",
     "Client": "shoal.client",
+    "Color": "shoal.models",
+    "Colour": "shoal.models",
     "Embed": "shoal.models",
     "Emoji": "shoal.models",
     "File": "shoal.rest",
@@ -98,6 +102,8 @@ __all__ = [
     "AllowedMentions",
     "ButtonStyle",
     "Client",
+    "Color",
+    "Colour",
     "Embed",
     "Emoji",
     "File",

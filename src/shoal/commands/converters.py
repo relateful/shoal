@@ -61,6 +61,7 @@ from shoal.models.channel import (
     TextChannel,
     VoiceChannel,
 )
+from shoal.models.colour import Colour
 from shoal.models.emoji import Emoji
 from shoal.models.guild import Guild
 from shoal.models.member import Member
@@ -95,11 +96,6 @@ _INVITE: Final = re.compile(
 _EVENT_LINK: Final = re.compile(
     r"https?://(?:(?:ptb|canary|www)\.)?discord(?:app)?\.com/events/[0-9]{15,20}/(?P<event>[0-9]{15,20})/?"
 )
-_HEX_COLOUR: Final = re.compile(r"(?:0x|#)?(?P<hex>[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})")
-_RGB_COLOUR: Final = re.compile(
-    r"rgb\(\s*(?P<r>[0-9.]+%?)\s*,\s*(?P<g>[0-9.]+%?)\s*,\s*(?P<b>[0-9.]+%?)\s*\)"
-)
-_COLOUR_MAX: Final = 255
 _TRUE: Final = frozenset({"yes", "y", "true", "t", "1", "enable", "on"})
 _FALSE: Final = frozenset({"no", "n", "false", "f", "0", "disable", "off"})
 
@@ -378,28 +374,18 @@ def to_object(argument: str) -> Object:
     return Object(int(match.group(1)))
 
 
-def to_colour(argument: str) -> int:
-    """A colour as an RGB integer: `#RRGGBB`, `0xRRGGBB`, `RRGGBB`, `#RGB` or `rgb(r, g, b)`.
+def to_colour(argument: str) -> Colour:
+    """A colour: `#RRGGBB`, `0xRRGGBB`, `RRGGBB`, `#RGB` or `rgb(r, g, b)`.
 
     `rgb` takes 0 to 255 for each, or percentages.
 
     Raises:
         BadColourArgumentError: The argument is none of those.
     """
-    hex_match = _HEX_COLOUR.fullmatch(argument.strip())
-    if hex_match is not None:
-        digits = hex_match["hex"]
-        return int(digits if len(digits) == 6 else "".join(digit * 2 for digit in digits), 16)  # noqa: PLR2004 - RRGGBB
-    rgb = _RGB_COLOUR.fullmatch(argument.strip())
-    if rgb is None:
-        raise BadColourArgumentError(argument)
-    value = 0
-    for part in (rgb["r"], rgb["g"], rgb["b"]):
-        level = float(part[:-1]) * _COLOUR_MAX / 100 if part.endswith("%") else float(part)
-        if not 0 <= level <= _COLOUR_MAX or (not part.endswith("%") and not level.is_integer()):
-            raise BadColourArgumentError(argument)
-        value = (value << 8) | round(level)
-    return value
+    try:
+        return Colour.from_str(argument)
+    except ValueError:
+        raise BadColourArgumentError(argument) from None
 
 
 async def to_invite(ctx: "Context", argument: str) -> Invite:

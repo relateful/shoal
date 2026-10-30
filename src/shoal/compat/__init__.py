@@ -97,6 +97,7 @@ from shoal.models.channel import (
     TextChannel,
     VoiceChannel,
 )
+from shoal.models.colour import Color, Colour
 from shoal.models.embed import (
     Embed,
 )
@@ -506,6 +507,8 @@ __all__ = [
     "ClientException",
     "ClientStatus",
     "ClientUser",
+    "Color",
+    "Colour",
     "Component",
     "ComponentType",
     "ConnectionClosed",

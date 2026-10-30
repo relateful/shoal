@@ -15,6 +15,7 @@ from msgspec import UNSET, UnsetType
 from shoal.core.snowflake import Snowflake
 from shoal.models.asset import Asset
 from shoal.models.base import MISSING, Hashable, MissingType, Object, given
+from shoal.models.colour import Colour
 from shoal.models.defaults import DEFAULT_BAN_MESSAGE_SECONDS
 from shoal.models.messageable import Messageable
 from shoal.models.permissions import guild_permissions
@@ -229,12 +230,12 @@ class Member(BaseUser, Messageable):
         return roles[-1] if roles else None
 
     @property
-    def colour(self) -> int:
+    def colour(self) -> Colour:
         """The colour of their name: their highest coloured role's, or 0."""
         for role in reversed(self.roles):
             if role.colour:
                 return role.colour
-        return 0
+        return Colour.default()
 
     color = colour
 
