@@ -60,7 +60,6 @@ NOT_PROVIDED: dict[str, dict[str, str]] = {
         "PCMVolumeTransformer": VOICE_SOURCES,
         "PartialIntegration": PAYLOAD_INSTEAD,
         "PartialInviteChannel": PAYLOAD_INSTEAD,
-        "PermissionOverwrite": "`Overwrite` is Discord's allow and deny payload, not a per-flag builder",
         "PurchaseNotification": NO_COUNTERPART,
         "RawReactionActionEvent": "`MessageReactionAdd` and `MessageReactionRemove` are separate payloads",
         "RawThreadDeleteEvent": NO_COUNTERPART,

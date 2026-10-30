@@ -18,6 +18,7 @@ from shoal.models.channel import (
     channel_from_payload,
     resolve_channel,
 )
+from shoal.models.overwrite import PermissionOverwrite
 from shoal.models.thread import Thread
 from shoal.payloads import Channel, ChannelType, Permissions, VideoQualityMode
 from tests.support.json_payloads import INVITE
@@ -161,6 +162,11 @@ async def test_set_permissions_writes_or_removes_an_overwrite() -> None:
     world.transport.queue(204)
     await general.set_permissions(alice)
     assert world.last_request()[:2] == ("DELETE", f"/channels/{GENERAL}/permissions/{ALICE}")
+    world.transport.queue(204)
+    await general.set_permissions(mods, overwrite=PermissionOverwrite(send_messages=True, view_channel=False))
+    assert world.last_request()[2] == {"allow": str(1 << 11), "deny": str(1 << 10), "type": 0}
+    with pytest.raises(TypeError, match="not both"):
+        await general.set_permissions(mods, overwrite=PermissionOverwrite(), allow=Permissions.none())
 
 
 async def test_edit_delete_and_invites() -> None:

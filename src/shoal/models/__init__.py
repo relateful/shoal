@@ -34,6 +34,7 @@ from shoal.models.guild import Guild
 from shoal.models.member import Member
 from shoal.models.message import Message, PartialMessage, Reaction
 from shoal.models.messageable import Messageable, Typing
+from shoal.models.overwrite import PermissionOverwrite
 from shoal.models.permissions import channel_permissions, guild_permissions, thread_permissions
 from shoal.models.role import Role
 from shoal.models.state import (
@@ -82,6 +83,7 @@ __all__ = [
     "Object",
     "PartialMessage",
     "PartialMessageable",
+    "PermissionOverwrite",
     "Reaction",
     "Role",
     "SendVoiceState",
