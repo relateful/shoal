@@ -22,7 +22,7 @@ from shoal.models.messageable import MessageTarget
 from shoal.models.sending import EmbedLike
 from shoal.models.state import ComponentView, State
 from shoal.models.user import ClientUser, User
-from shoal.models.voice import VoiceClient
+from shoal.models.voice import VoiceClient, VoiceProtocol
 from shoal.payloads.message import AllowedMentions
 from shoal.payloads.poll import PollCreateRequest
 from shoal.rest.files import File, VoiceMessage
@@ -120,6 +120,12 @@ class Context:
         """The bot's voice client in the command's guild, while it is in one of its voice channels."""
         guild = self.guild
         return guild.voice_client if guild is not None else None
+
+    @property
+    def voice_protocol(self) -> VoiceProtocol | None:
+        """The `VoiceProtocol` carrying the bot's voice in the command's guild, when one was connected."""
+        guild = self.guild
+        return guild.voice_protocol if guild is not None else None
 
     @property
     def me(self) -> Member | ClientUser | None:

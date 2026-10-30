@@ -24,7 +24,7 @@ from shoal.rest.client import RestClient
 from shoal.rest.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from shoal.models.voice import VoiceClient, VoiceGateway
+    from shoal.models.voice import VoiceClient, VoiceGateway, VoiceProtocol
 
 _log = logging.getLogger("shoal.models")
 
@@ -135,6 +135,25 @@ class _NoVoice:
     def voice_client(self, guild_id: int, /) -> "VoiceClient | None":
         del guild_id
         return None
+
+    async def connect_protocol(self, voice: "VoiceProtocol", /, *, self_mute: bool, self_deaf: bool) -> None:
+        del voice, self_mute, self_deaf
+        what = "joining a voice channel"
+        raise GatewayRequiredError(what)
+
+    def voice_protocol(self, guild_id: int, /) -> "VoiceProtocol | None":
+        del guild_id
+        return None
+
+    async def send_voice_state(
+        self, guild_id: int, channel_id: int | None, *, self_mute: bool, self_deaf: bool
+    ) -> None:
+        del guild_id, channel_id, self_mute, self_deaf
+        what = "changing the voice state"
+        raise GatewayRequiredError(what)
+
+    def forget_voice(self, voice: "VoiceProtocol", /) -> None:
+        del voice
 
 
 @final

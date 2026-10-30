@@ -46,7 +46,14 @@ from shoal.models.state import (
 )
 from shoal.models.thread import Thread
 from shoal.models.user import BaseUser, ClientUser, User
-from shoal.models.voice import AudioPlayingError, SendVoiceState, VoiceClient, VoiceGateway
+from shoal.models.voice import (
+    AudioPlayingError,
+    SendVoiceState,
+    VoiceClient,
+    VoiceGateway,
+    VoiceInUseError,
+    VoiceProtocol,
+)
 from shoal.models.webhook import Webhook, WebhookMessage
 
 __all__ = [
@@ -100,6 +107,8 @@ __all__ = [
     "VoiceChannel",
     "VoiceClient",
     "VoiceGateway",
+    "VoiceInUseError",
+    "VoiceProtocol",
     "Watching",
     "Webhook",
     "WebhookMessage",
