@@ -5,6 +5,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `VoiceProtocol`: voice carried by something other than Shoal's own connection, such as Lavalink.
+  `channel.connect(cls=MyProtocol)` registers it as the guild's voice and hands it the bot's voice
+  state and voice server updates; `client.voice_protocol(guild_id)` and `guild.voice_protocol` find it
+  again. A guild's voice is either a `VoiceClient` or a `VoiceProtocol`: connecting one while the
+  other is there raises `VoiceInUseError`.
+- `guild.change_voice_state(channel=..., self_mute=..., self_deaf=...)` and
+  `client.send_voice_state(...)`: join, move or leave voice without opening a voice connection.
+
 ## [0.1.0a2] - 2026-10-30
 
 ### Removed

@@ -39,12 +39,12 @@ converter class (`MemberConverter`, `ColourConverter`, `Timestamp`, ...), `Attac
 
 ### What compat covers
 
-`shoal.compat` has 444 of the 503 names discord.py 2.8 exports. A test checks it against a snapshot
+`shoal.compat` has 445 of the 503 names discord.py 2.8 exports. A test checks it against a snapshot
 of those names, so a gap shows up in CI rather than in a bot.
 
 | Package | Names in compat |
 | --- | --- |
-| `discord` | 213 of 253 |
+| `discord` | 214 of 253 |
 | `discord.ext.commands` | 142 of 147 |
 | `discord.app_commands` | 49 of 60 |
 | `discord.ui` | 26 of 27 |
@@ -62,6 +62,12 @@ which takes its options as lists of arguments.
   with `PermissionOverwrite.from_overwrite(...)`.
 - `Webhook.from_url(url, rest=rest)` takes a `RestClient`, not a session: `bot.rest`, or
   `RestClient(None)` for a script that only has the webhook's URL.
+
+`VoiceProtocol` has the same hooks (`on_voice_state_update`, `on_voice_server_update`, `connect`,
+`disconnect`, `cleanup`), with three differences: the hooks get typed payloads (`VoiceState`,
+`VoiceServerUpdate`) instead of dicts, `connect` takes only `self_mute` and `self_deaf`, and
+`disconnect` takes no `force`. Lavalink libraries written against discord.py's class need those
+changes before they work with Shoal ([voice](voice.md#lavalink-and-other-voice-backends)).
 
 The rest is not there yet. The ones a bot is most likely to meet:
 
