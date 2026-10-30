@@ -31,7 +31,7 @@ from mirror_upstream_prs import (
 )
 
 NOTHING_LINKED: frozenset[str] = frozenset()
-URL = "https://github.com/discord/discord-api-docs/pull/8679"
+URL = "https://redirect.github.com/discord/discord-api-docs/pull/8679"
 RESOURCE = "developers/resources/message.mdx"
 SOCIAL = "developers/discord-social-sdk/development-guides/lobbies.mdx"
 MESSAGE_PAGE = "https://docs.discord.com/developers/resources/message"
@@ -210,9 +210,7 @@ def test_the_pin_follows_the_upstream_state(upstream: PullRequest, target: str) 
 
 def test_upstream_text_cannot_reference_or_mention_anything_here() -> None:
     upstream = pull(title="Fix #12 for @someone (see owner/repo#3)")
-    assert mirror.tracker_title(upstream) == (
-        "docs#8679: Fix discord/discord-api-docs#12 for @someone (see owner/repo#3)"
-    )
+    assert mirror.tracker_title(upstream) == "docs#8679: Fix docs#12 for @someone (see owner/repo#3)"
     body = mirror.render_body(upstream, [], mirror.triage([], NOTHING_LINKED), record(), None)
     assert "@someone" not in body
     assert "&#64;someone" in body
@@ -268,7 +266,7 @@ def test_the_body_says_what_to_do_in_each_upstream_state() -> None:
 def test_long_file_lists_are_cut_short() -> None:
     changed = files(*(f"images/{index:04}.png" for index in range(1000)))
     body = mirror.render_body(pull(), changed, mirror.triage(changed, NOTHING_LINKED), record(), None)
-    listed = body.count("](https://github.com/discord/discord-api-docs/pull/8679/files#diff-")
+    listed = body.count(f"]({URL}/files#diff-")
     assert f"- and {1000 - listed} more on the upstream pull request" in body
     assert len(body) < 65536
 

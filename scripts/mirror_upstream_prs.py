@@ -55,6 +55,7 @@ import msgspec
 from check_docs import DOCS_BASE, check, links_in_source
 
 API = "https://api.github.com"
+REDIRECT = "https://redirect.github.com"
 BRANCH_PREFIX = "upstream/discord-api-docs-"
 CHECK_DOCS_COMMAND = (
     "uv run python scripts/check_docs.py --docs-repo ../discord-api-docs --coverage docs/coverage.md"
@@ -582,9 +583,14 @@ def code(text: str) -> str:
     return f"`{text}`" if "`" not in text else upstream_text(text)
 
 
+def upstream_url(number: int) -> str:
+    """An upstream pull request's URL that GitHub does not turn into a cross-reference."""
+    return f"{REDIRECT}/{UPSTREAM}/pull/{number}"
+
+
 def qualify_references(text: str) -> str:
-    """Point `#123` at the upstream repository, so it does not link an unrelated Shoal issue."""
-    return UPSTREAM_REFERENCE.sub(rf"{UPSTREAM}#\1", text)
+    """Write `#123` as `docs#123`: it neither links a Shoal issue nor cross-references upstream."""
+    return UPSTREAM_REFERENCE.sub(r"docs#\1", text)
 
 
 def tracker_title(pull: PullRequest) -> str:
@@ -595,7 +601,7 @@ def tracker_title(pull: PullRequest) -> str:
 
 def file_anchor(pull: PullRequest, path: str) -> str:
     """The link to one file's diff on the pull request's "Files changed" tab."""
-    return f"{pull.html_url}/files#diff-{hashlib.sha256(path.encode()).hexdigest()}"
+    return f"{upstream_url(pull.number)}/files#diff-{hashlib.sha256(path.encode()).hexdigest()}"
 
 
 def touched_pages(files: Iterable[ChangedFile]) -> frozenset[str]:
@@ -679,15 +685,16 @@ def render_body(
     }[result.verdict]
     author = f"[{pull.user.login}](https://github.com/{pull.user.login})"
     pin = mirror.pin or pull.target
+    url = upstream_url(pull.number)
     lines = [
-        f"Mirrors [{UPSTREAM}#{pull.number}]({pull.html_url}): **{upstream_text(pull.title)}** by {author}.",
+        f"Mirrors [docs#{pull.number}]({url}): **{upstream_text(pull.title)}** by {author}.",
         "",
         f"- Triage: {verdict}",
         (
             f"- Pins `{LOCK_FILE}` to [`{pin[:12]}`](https://github.com/{UPSTREAM}/commit/{pin}), so CI "
             "checks Shoal against it"
         ),
-        f"- Diff: [files changed]({pull.html_url}/files), [raw diff]({pull.html_url}.diff)",
+        f"- Diff: [files changed]({url}/files), [raw diff]({url}.diff)",
         "",
     ]
     if upstream_state is UpstreamState.OPEN:
@@ -1202,7 +1209,7 @@ def push_pin(api: GitHubApi, change: Change, main: str) -> None:
     """
     if change.pin is None:
         return
-    message = f"Check Shoal against {UPSTREAM}#{change.upstream} at {change.pin[:12]}"
+    message = f"Check Shoal against {upstream_url(change.upstream)} at {change.pin[:12]}"
     current = api.branch(change.branch)
     if current is None or current.owned:
         files = {LOCK_FILE: f"{change.pin}\n"}
