@@ -29,7 +29,7 @@ from shoal.payloads.message import (
 )
 from shoal.payloads.message import Embed as EmbedPayload
 from shoal.payloads.poll import PollCreateRequest
-from shoal.payloads.webhook import EditWebhookMessageParams
+from shoal.payloads.webhook import EditWebhookMessageParams, ExecuteWebhookParams
 from shoal.rest.files import File, VoiceMessage
 
 type EmbedLike = Embed | EmbedPayload
@@ -88,6 +88,29 @@ class Outgoing:
             allowed_mentions=self.allowed_mentions,
             flags=self.flags,
             components=self.components,
+            poll=self.poll,
+        )
+
+    def webhook_params(
+        self,
+        *,
+        username: str | None = None,
+        avatar_url: str | None = None,
+        thread_name: str | None = None,
+        applied_tags: list[Snowflake] | None = None,
+    ) -> ExecuteWebhookParams:
+        """Execute Webhook's body, with the webhook's per-message name and avatar and a new post's name."""
+        return ExecuteWebhookParams(
+            content=self.content,
+            username=unset_if_none(username),
+            avatar_url=unset_if_none(avatar_url),
+            tts=self.tts,
+            embeds=self.embeds,
+            allowed_mentions=self.allowed_mentions,
+            components=self.components,
+            flags=self.flags,
+            thread_name=unset_if_none(thread_name),
+            applied_tags=unset_if_none(applied_tags or None),
             poll=self.poll,
         )
 

@@ -18,6 +18,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `PermissionOverwrite`: an overwrite built one permission at a time (`True`, `False` or `None`), with
   `pair()` and `from_pair()`. `channel.set_permissions(target, overwrite=...)` takes one, and
   `guild.create_text_channel` and the other channel creators take `overwrites={role: overwrite}`.
+- `Webhook` and `WebhookMessage`: a webhook from its URL (`Webhook.from_url(url, rest=rest)`) or ID and
+  token that sends (`send(..., wait=True)`), and edits and deletes its messages, threads included. It
+  needs only the webhook's token, so it works with `RestClient(None)`.
 - `shoal.compat` covers 439 of the 503 names discord.py 2.8 exports, up from 367: names Shoal
   already had, and aliases for the ones it names differently. A test keeps it checked against a
   snapshot of discord.py's names.
