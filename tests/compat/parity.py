@@ -26,7 +26,7 @@ SNAPSHOT = decode_json((Path(__file__).parent / "discordpy_names.json").read_byt
 NO_COUNTERPART = "no Shoal counterpart yet"
 PAYLOAD_INSTEAD = "Shoal gives the Discord payload for this; it has no model of this shape"
 VOICE_SOURCES = "voice plays through AudioSource and FFmpegSource; this source or hook is not in Shoal"
-WEBHOOK_MODEL = "webhooks are `rest.webhooks` calls and the `Webhook` payload, with no `send()` model yet"
+WEBHOOK_MODEL = "`Webhook` sends with `await`; there is no blocking variant"
 CONTEXT_FLAGS = (
     "Shoal uses the `InteractionContextType` and `ApplicationIntegrationType` enums, not flag classes"
 )
@@ -73,8 +73,6 @@ NOT_PROVIDED: dict[str, dict[str, str]] = {
         "SyncWebhookMessage": WEBHOOK_MODEL,
         "VoiceChannelSoundEffect": NO_COUNTERPART,
         "VoiceProtocol": VOICE_SOURCES,
-        "Webhook": WEBHOOK_MODEL,
-        "WebhookMessage": WEBHOOK_MODEL,
     },
     "discord.ext.commands": {
         "CogMeta": "a metaclass; Shoal's `Cog` needs none",
