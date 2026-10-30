@@ -135,6 +135,62 @@ and rejoins, `shoal_voice_packets_dropped_total` the received packets dropped, a
 `shoal_voice_frames_concealed_total` the lost ones concealed
 ([metrics](metrics.md)).
 
+## Lavalink and other voice backends
+
+A Lavalink node, or any other service that sends the audio itself, only needs the bot to join the
+channel and to pass on Discord's two answers: the voice session (`session_id`) and the voice server
+(`token`, `endpoint`). Subclass `VoiceProtocol` and pass the class to `connect`:
+
+```python
+from shoal.models import VoiceProtocol
+from shoal.payloads import VoiceServerUpdate, VoiceState
+
+
+class LavalinkPlayer(VoiceProtocol):
+    session_id: str | None = None
+    server: VoiceServerUpdate | None = None
+
+    async def connect(self, *, self_mute: bool, self_deaf: bool) -> None:
+        await self.change_voice_state(self.channel, self_mute=self_mute, self_deaf=self_deaf)
+
+    async def on_voice_state_update(self, data: VoiceState) -> None:
+        self.session_id = data.session_id
+        await self.update_node()
+
+    async def on_voice_server_update(self, data: VoiceServerUpdate) -> None:
+        self.server = data
+        await self.update_node()
+
+    async def update_node(self) -> None:
+        # The two updates come in either order; the node needs both.
+        server = self.server
+        if self.session_id is not None and server is not None and server.endpoint is not None:
+            await node.update_voice(self.guild_id, self.session_id, server.token, server.endpoint)
+
+    async def disconnect(self) -> None:
+        await self.change_voice_state(None)
+        self.cleanup()
+
+
+player = await channel.connect(cls=LavalinkPlayer)
+```
+
+`node` stands for your Lavalink client; how it takes the voice details depends on the client.
+
+`connect(cls=...)` builds the class with the client and the channel, registers it as the guild's
+voice, then awaits its `connect`; if that fails, it is disconnected and let go, and the error is
+raised. From then on, the bot's own voice state updates in the guild and the guild's voice server
+updates reach the hooks, each in its own task, so a slow node never holds up other events; an error
+in a hook is logged. Either update may arrive first. `ctx.voice_protocol`, `guild.voice_protocol` and
+`client.voice_protocol(guild_id)` find it again (`ctx.voice_client` stays `None`, as it is only
+Shoal's own), and `client.close()` disconnects it.
+
+- A guild's voice is either Shoal's `VoiceClient` or one `VoiceProtocol`. Connecting one while the
+  other is there raises `VoiceInUseError`; `disconnect` the first.
+- Call `cleanup()` once the protocol is done, or the guild stays taken.
+- `guild.change_voice_state(channel=..., self_mute=..., self_deaf=...)` sends the same voice state
+  update without any protocol, for a tool that drives voice from outside.
+
 ## In clusters
 
 The voice state update goes out on the guild's shard, through the command router when another
