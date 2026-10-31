@@ -7,8 +7,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Permissions as Discord computes them (Discord, October 31, 2026): `guild.fetch_permissions(member_or_role)`
-  and `channel.fetch_permissions(member_or_role, implicit=...)` (threads too), and
+- Permissions as Discord computes them (Discord, October 31, 2026):
+  `guild.fetch_permissions(member_or_role)` and `channel.fetch_permissions(member_or_role, implicit=...)`
+  (threads too), and
   `rest.guilds.get_member_permissions`, `get_role_permissions`, `rest.channels.get_member_permissions`
   and `get_role_permissions`. `permissions_for` still answers from the cache without a request.
 

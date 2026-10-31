@@ -48,7 +48,8 @@ a process that keeps fewer fields strips them for every reader, and widening `fi
 new fields in only as Discord sends each object again.
 
 Shoal's models compute from the cache: trimming `permission_overwrites` or a member's `roles`, for
-example, makes permission checks see none. Keep what the features you use read.
+example, makes permission checks see none. Keep what the features you use read, or ask Discord:
+`guild.fetch_permissions(member)` and `channel.fetch_permissions(member)` cost a request but need no cache.
 
 By default everything is cached. Messages are bounded to 1,000 and users to 100,000 (message authors
 from every guild pass through them); the other kinds mirror what Discord says the bot's guilds
