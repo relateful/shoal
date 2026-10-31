@@ -5,6 +5,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0a3] - 2026-10-31
+
 ### Added
 
 - `VoiceProtocol`: voice carried by something other than Shoal's own connection, such as Lavalink.
