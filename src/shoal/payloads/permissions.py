@@ -128,6 +128,15 @@ class RoleColors(Payload):
     tertiary_color: int | None
 
 
+class PermissionsResponse(Payload):
+    """The permissions Discord computed for a member or role, in a guild or a channel.
+
+    Discord: https://docs.discord.com/developers/resources/guild#get-guild-member-permissions-permissions-response
+    """
+
+    permissions: Permissions
+
+
 class Role(Payload):
     """A guild role.
 

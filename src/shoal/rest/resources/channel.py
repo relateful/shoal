@@ -31,6 +31,7 @@ from shoal.payloads.channel import (
     ThreadMember,
 )
 from shoal.payloads.forum import CreatePostParams, ForumThread
+from shoal.payloads.permissions import Permissions, PermissionsResponse
 from shoal.rest.endpoints import (
     ADD_THREAD_MEMBER,
     CREATE_GUILD_CHANNEL,
@@ -39,6 +40,8 @@ from shoal.rest.endpoints import (
     EDIT_CHANNEL_PERMISSIONS,
     FOLLOW_ANNOUNCEMENT_CHANNEL,
     GET_CHANNEL,
+    GET_CHANNEL_MEMBER_PERMISSIONS,
+    GET_CHANNEL_ROLE_PERMISSIONS,
     GET_GUILD_CHANNELS,
     GET_THREAD_MEMBER,
     GROUP_DM_ADD_RECIPIENT,
@@ -77,6 +80,34 @@ class Channels(Resource):
         Discord: https://docs.discord.com/developers/resources/channel#get-channel
         """
         return await self.request(GET_CHANNEL.compile(channel_id=channel_id), Channel)
+
+    async def get_member_permissions(
+        self, channel_id: int, user_id: int, *, implicit: bool = True
+    ) -> Permissions:
+        """Get a member's permissions in a channel or thread, overwrites included, as Discord computes them.
+
+        `implicit=False` skips implicit masking (no View Channel, or no Connect in voice, means
+        nothing); it never applies to bots. Needs View Channel, and Connect in voice and stage channels.
+
+        Discord: https://docs.discord.com/developers/resources/channel#get-channel-member-permissions
+        """
+        route = GET_CHANNEL_MEMBER_PERMISSIONS.compile(channel_id=channel_id, user_id=user_id)
+        query = None if implicit else {"implicit": False}
+        return (await self.request(route, PermissionsResponse, query=query)).permissions
+
+    async def get_role_permissions(
+        self, channel_id: int, role_id: int, *, implicit: bool = True
+    ) -> Permissions:
+        """Get a role's permissions in a channel or thread, with `@everyone` and both their overwrites.
+
+        `implicit=False` skips implicit masking. Needs View Channel, and Connect in voice and stage
+        channels.
+
+        Discord: https://docs.discord.com/developers/resources/channel#get-channel-role-permissions
+        """
+        route = GET_CHANNEL_ROLE_PERMISSIONS.compile(channel_id=channel_id, role_id=role_id)
+        query = None if implicit else {"implicit": False}
+        return (await self.request(route, PermissionsResponse, query=query)).permissions
 
     async def edit(
         self,

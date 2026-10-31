@@ -64,6 +64,38 @@ CASES = [
         response=CHANNEL,
     ),
     EndpointCase(
+        name="channel member permissions",
+        call=lambda client: client.channels.get_member_permissions(3, 5),
+        method="GET",
+        path="/channels/3/permissions/member/5",
+        response={"permissions": "1024"},
+        result="1024",
+    ),
+    EndpointCase(
+        name="channel member permissions without implicit masking",
+        call=lambda client: client.channels.get_member_permissions(3, 5, implicit=False),
+        method="GET",
+        path="/channels/3/permissions/member/5?implicit=false",
+        response={"permissions": "0"},
+        result="0",
+    ),
+    EndpointCase(
+        name="channel role permissions",
+        call=lambda client: client.channels.get_role_permissions(3, 6),
+        method="GET",
+        path="/channels/3/permissions/role/6",
+        response={"permissions": "3072"},
+        result="3072",
+    ),
+    EndpointCase(
+        name="channel role permissions without implicit masking",
+        call=lambda client: client.channels.get_role_permissions(3, 6, implicit=False),
+        method="GET",
+        path="/channels/3/permissions/role/6?implicit=false",
+        response={"permissions": "2048"},
+        result="2048",
+    ),
+    EndpointCase(
         name="modify guild channel",
         call=lambda client: client.channels.edit(
             15,

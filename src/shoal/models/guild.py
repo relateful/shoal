@@ -408,6 +408,18 @@ class Guild(Hashable):
         """The role Boosters get."""
         return next((role for role in self.roles if role.is_premium_subscriber()), None)
 
+    async def fetch_permissions(self, target: "Member | Role") -> Permissions:
+        """A member's guild permissions (or a role's, with `@everyone`), as Discord computes them.
+
+        Discord: https://docs.discord.com/developers/resources/guild#get-guild-member-permissions
+        """
+        from shoal.models.member import Member
+
+        guilds = self._state.rest.guilds
+        if isinstance(target, Member):
+            return await guilds.get_member_permissions(self.id, target.id)
+        return await guilds.get_role_permissions(self.id, target.id)
+
     async def fetch_roles(self) -> "list[Role]":
         """Get the roles from Discord.
 

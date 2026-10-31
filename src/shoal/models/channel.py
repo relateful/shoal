@@ -263,6 +263,21 @@ class GuildChannel(Hashable):
         data = await self._state.rest.channels.edit(self.id, params, reason=reason)
         return type(self)(self._state, data)
 
+    async def fetch_permissions(self, target: "Member | Role", *, implicit: bool = True) -> Permissions:
+        """What a member (or everyone with a role) can do in this channel, as Discord computes it.
+
+        `permissions_for` answers from the cache; this asks Discord. `implicit=False` skips implicit
+        masking (see `rest.channels.get_member_permissions`).
+
+        Discord: https://docs.discord.com/developers/resources/channel#get-channel-member-permissions
+        """
+        from shoal.models.member import Member
+
+        channels = self._state.rest.channels
+        if isinstance(target, Member):
+            return await channels.get_member_permissions(self.id, target.id, implicit=implicit)
+        return await channels.get_role_permissions(self.id, target.id, implicit=implicit)
+
     async def delete(self, *, reason: str | None = None) -> None:
         """Delete the channel.
 

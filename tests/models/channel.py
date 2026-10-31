@@ -142,6 +142,21 @@ async def test_permissions_for_members_and_roles_apply_the_overwrites() -> None:
     assert general.permissions_for(mods).kick_members
 
 
+async def test_fetch_permissions_asks_discord_for_a_member_or_role() -> None:
+    world = await World.started()
+    general = await get(world, GENERAL, TextChannel)
+    guild = world.guild()
+    alice, mods = guild.get_member(ALICE), guild.get_role(MODS)
+    assert alice is not None
+    assert mods is not None
+    world.transport.queue(200, {"permissions": "1024"})
+    assert await general.fetch_permissions(alice) == Permissions(1024)
+    assert world.last_request()[:2] == ("GET", f"/channels/{GENERAL}/permissions/member/{ALICE}")
+    world.transport.queue(200, {"permissions": "2048"})
+    assert await general.fetch_permissions(mods, implicit=False) == Permissions(2048)
+    assert world.last_request()[:2] == ("GET", f"/channels/{GENERAL}/permissions/role/{MODS}?implicit=false")
+
+
 async def test_set_permissions_writes_or_removes_an_overwrite() -> None:
     world = await World.started()
     general = await get(world, GENERAL, TextChannel)
