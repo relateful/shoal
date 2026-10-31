@@ -140,14 +140,14 @@ class Messages(Resource):
             files=named,
         )
 
-    async def delete(self, channel_id: int, message_id: int, *, reason: str | None = None) -> None:
+    async def delete(self, channel_id: int, message_id: int) -> None:
         """Delete a message. Needs Manage Messages for other users' messages in a guild.
+
+        Discord records no audit log reason for it; `bulk_delete` takes one.
 
         Discord: https://docs.discord.com/developers/resources/message#delete-message
         """
-        await self.request_empty(
-            DELETE_MESSAGE.compile(channel_id=channel_id, message_id=message_id), reason=reason
-        )
+        await self.request_empty(DELETE_MESSAGE.compile(channel_id=channel_id, message_id=message_id))
 
     async def bulk_delete(
         self, channel_id: int, message_ids: Sequence[int], *, reason: str | None = None

@@ -190,9 +190,11 @@ class ApplicationRoleConnection(Payload):
     Discord: https://docs.discord.com/developers/resources/user#application-role-connection-object
     """
 
-    platform_name: str | None
+    platform_name: str | UnsetType | None = UNSET
     """Up to 50 characters."""
-    metadata: dict[str, str]
+    platform_username: str | UnsetType | None = UNSET
+    """The user's name on the platform, up to 100 characters."""
+    metadata: dict[str, str] | UnsetType = UNSET
     """Values by metadata key, each up to 100 characters."""
 
 
