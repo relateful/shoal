@@ -31,7 +31,11 @@ CONNECTION: dict[str, object] = {
     "two_way_link": False,
     "visibility": 1,
 }
-ROLE_CONNECTION: dict[str, object] = {"platform_name": "Example", "metadata": {"level": "12"}}
+ROLE_CONNECTION: dict[str, object] = {
+    "platform_name": "Example",
+    "platform_username": "ada",
+    "metadata": {"level": "12"},
+}
 ROLE_CONNECTION_PATH = "/users/@me/applications/7/role-connection"
 
 CASES = [
@@ -119,9 +123,19 @@ CASES = [
         response=ROLE_CONNECTION,
     ),
     EndpointCase(
+        name="get an empty role connection",
+        call=lambda client: client.role_connections.get_me(7),
+        method="GET",
+        path=ROLE_CONNECTION_PATH,
+        response={},
+    ),
+    EndpointCase(
         name="update role connection",
         call=lambda client: client.role_connections.edit_me(
-            7, EditCurrentRoleConnectionParams(platform_name="Example", metadata={"level": "12"})
+            7,
+            EditCurrentRoleConnectionParams(
+                platform_name="Example", platform_username="ada", metadata={"level": "12"}
+            ),
         ),
         method="PUT",
         path=ROLE_CONNECTION_PATH,

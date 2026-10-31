@@ -5,6 +5,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `ApplicationRoleConnection.platform_username`: the user's name on the connected platform
+  (Discord, October 31, 2026).
+
+### Fixed
+
+- `ApplicationRoleConnection` decodes when Discord leaves out `platform_name` or `metadata`, which
+  are optional.
+
 ## [0.1.0a3] - 2026-10-31
 
 ### Added
