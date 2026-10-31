@@ -43,7 +43,7 @@ from shoal.payloads.guild import (
     WidgetStyle,
 )
 from shoal.payloads.invite import VanityURL
-from shoal.payloads.permissions import Role
+from shoal.payloads.permissions import Permissions, PermissionsResponse, Role
 from shoal.payloads.user import (
     ListGuildsParams,
 )
@@ -64,11 +64,13 @@ from shoal.rest.endpoints import (
     GET_GUILD_BANS,
     GET_GUILD_INTEGRATIONS,
     GET_GUILD_MEMBER,
+    GET_GUILD_MEMBER_PERMISSIONS,
     GET_GUILD_ONBOARDING,
     GET_GUILD_PREVIEW,
     GET_GUILD_PRUNE_COUNT,
     GET_GUILD_ROLE,
     GET_GUILD_ROLE_MEMBER_COUNTS,
+    GET_GUILD_ROLE_PERMISSIONS,
     GET_GUILD_ROLES,
     GET_GUILD_VANITY_URL,
     GET_GUILD_VOICE_REGIONS,
@@ -112,6 +114,22 @@ class Guilds(Resource):
         return await self.request(
             GET_GUILD.compile(guild_id=guild_id), Guild, query={"with_counts": with_counts}
         )
+
+    async def get_member_permissions(self, guild_id: int, user_id: int) -> Permissions:
+        """Get a member's guild permissions, from their roles and `@everyone`, as Discord computes them.
+
+        Discord: https://docs.discord.com/developers/resources/guild#get-guild-member-permissions
+        """
+        route = GET_GUILD_MEMBER_PERMISSIONS.compile(guild_id=guild_id, user_id=user_id)
+        return (await self.request(route, PermissionsResponse)).permissions
+
+    async def get_role_permissions(self, guild_id: int, role_id: int) -> Permissions:
+        """Get the guild permissions of a role together with `@everyone`.
+
+        Discord: https://docs.discord.com/developers/resources/guild#get-guild-role-permissions
+        """
+        route = GET_GUILD_ROLE_PERMISSIONS.compile(guild_id=guild_id, role_id=role_id)
+        return (await self.request(route, PermissionsResponse)).permissions
 
     async def get_preview(self, guild_id: int) -> GuildPreview:
         """Get a guild's public preview; outside the guild it must be discoverable.

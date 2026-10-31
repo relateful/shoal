@@ -50,6 +50,21 @@ async def test_a_bare_thread_payload_has_safe_defaults() -> None:
     assert bare.permissions_for(bob) == Permissions.none()
 
 
+async def test_fetch_permissions_asks_discord_about_the_thread() -> None:
+    world = await World.started()
+    found = await thread(world)
+    guild = world.guild()
+    bob, everyone = guild.get_member(BOB), guild.default_role
+    assert bob is not None
+    assert everyone is not None
+    world.transport.queue(200, {"permissions": "1024"})
+    assert await found.fetch_permissions(bob) == Permissions(1024)
+    assert world.last_request()[:2] == ("GET", f"/channels/{found.id}/permissions/member/{BOB}")
+    world.transport.queue(200, {"permissions": "0"})
+    assert await found.fetch_permissions(everyone) == Permissions.none()
+    assert world.last_request()[:2] == ("GET", f"/channels/{found.id}/permissions/role/{everyone.id}")
+
+
 async def test_permissions_come_from_the_parent_with_thread_sending() -> None:
     world = await World.started()
     found = await thread(world)

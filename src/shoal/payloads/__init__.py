@@ -565,6 +565,7 @@ from shoal.payloads.monetization import (
 )
 from shoal.payloads.permissions import (
     Permissions,
+    PermissionsResponse,
     Role,
     RoleColors,
     RoleFlags,
@@ -1159,6 +1160,7 @@ __all__ = [
     "PartialOverwrite",
     "Payload",
     "Permissions",
+    "PermissionsResponse",
     "PingInteraction",
     "Poll",
     "PollAnswer",

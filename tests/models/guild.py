@@ -7,7 +7,7 @@ from shoal.models.channel import CategoryChannel, ForumChannel, StageChannel, Te
 from shoal.models.guild import Guild
 from shoal.models.overwrite import PermissionOverwrite
 from shoal.payloads import Guild as GuildPayload
-from shoal.payloads import GuildFeature, PremiumTier, VerificationLevel
+from shoal.payloads import GuildFeature, Permissions, PremiumTier, VerificationLevel
 from tests.support.models import (
     ALICE,
     ANNOUNCEMENTS,
@@ -266,6 +266,20 @@ async def test_creating_channels_roles_and_emojis() -> None:
     world.transport.queue(200, {"id": "91", "name": "e"})
     emoji = await guild.create_custom_emoji(name="e", image=PNG, roles=[Object(MODS)])
     assert emoji.id == 91
+
+
+async def test_fetch_permissions_asks_discord_for_a_member_or_role() -> None:
+    world = await World.started()
+    guild = world.guild()
+    bob, red = guild.get_member(BOB), guild.get_role(RED)
+    assert bob is not None
+    assert red is not None
+    world.transport.queue(200, {"permissions": "8"})
+    assert await guild.fetch_permissions(bob) == Permissions(8)
+    assert world.last_request()[:2] == ("GET", f"/guilds/{GUILD}/permissions/member/{BOB}")
+    world.transport.queue(200, {"permissions": "1024"})
+    assert await guild.fetch_permissions(red) == Permissions(1024)
+    assert world.last_request()[:2] == ("GET", f"/guilds/{GUILD}/permissions/role/{RED}")
 
 
 async def test_fetching_roles_and_channels() -> None:

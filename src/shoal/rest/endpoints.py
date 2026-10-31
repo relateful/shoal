@@ -592,6 +592,12 @@ GET_CHANNEL_INVITES: Final = Route(
     docs="https://docs.discord.com/developers/resources/channel#get-channel-invites",
 )
 
+GET_CHANNEL_MEMBER_PERMISSIONS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/permissions/member/{user_id}",
+    docs="https://docs.discord.com/developers/resources/channel#get-channel-member-permissions",
+)
+
 GET_CHANNEL_MESSAGE: Final = Route(
     HTTPMethod.GET,
     "/channels/{channel_id}/messages/{message_id}",
@@ -608,6 +614,12 @@ GET_CHANNEL_PINS: Final = Route(
     HTTPMethod.GET,
     "/channels/{channel_id}/messages/pins",
     docs="https://docs.discord.com/developers/resources/message#get-channel-pins",
+)
+
+GET_CHANNEL_ROLE_PERMISSIONS: Final = Route(
+    HTTPMethod.GET,
+    "/channels/{channel_id}/permissions/role/{role_id}",
+    docs="https://docs.discord.com/developers/resources/channel#get-channel-role-permissions",
 )
 
 GET_CHANNEL_WEBHOOKS: Final = Route(
@@ -780,6 +792,12 @@ GET_GUILD_MEMBER: Final = Route(
     docs="https://docs.discord.com/developers/resources/guild#get-guild-member",
 )
 
+GET_GUILD_MEMBER_PERMISSIONS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/permissions/member/{user_id}",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-member-permissions",
+)
+
 GET_GUILD_ONBOARDING: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/onboarding",
@@ -814,6 +832,12 @@ GET_GUILD_ROLE_MEMBER_COUNTS: Final = Route(
     HTTPMethod.GET,
     "/guilds/{guild_id}/roles/member-counts",
     docs="https://docs.discord.com/developers/resources/guild#get-guild-role-member-counts",
+)
+
+GET_GUILD_ROLE_PERMISSIONS: Final = Route(
+    HTTPMethod.GET,
+    "/guilds/{guild_id}/permissions/role/{role_id}",
+    docs="https://docs.discord.com/developers/resources/guild#get-guild-role-permissions",
 )
 
 GET_GUILD_SCHEDULED_EVENT: Final = Route(
@@ -1544,9 +1568,11 @@ ALL_ROUTES: Final = (
     GET_AUTO_MODERATION_RULE,
     GET_CHANNEL,
     GET_CHANNEL_INVITES,
+    GET_CHANNEL_MEMBER_PERMISSIONS,
     GET_CHANNEL_MESSAGE,
     GET_CHANNEL_MESSAGES,
     GET_CHANNEL_PINS,
+    GET_CHANNEL_ROLE_PERMISSIONS,
     GET_CHANNEL_WEBHOOKS,
     GET_CURRENT_APPLICATION,
     GET_CURRENT_AUTHORIZATION_INFORMATION,
@@ -1575,12 +1601,14 @@ ALL_ROUTES: Final = (
     GET_GUILD_INTEGRATIONS,
     GET_GUILD_INVITES,
     GET_GUILD_MEMBER,
+    GET_GUILD_MEMBER_PERMISSIONS,
     GET_GUILD_ONBOARDING,
     GET_GUILD_PREVIEW,
     GET_GUILD_PRUNE_COUNT,
     GET_GUILD_ROLE,
     GET_GUILD_ROLES,
     GET_GUILD_ROLE_MEMBER_COUNTS,
+    GET_GUILD_ROLE_PERMISSIONS,
     GET_GUILD_SCHEDULED_EVENT,
     GET_GUILD_SCHEDULED_EVENT_USERS,
     GET_GUILD_SOUNDBOARD_SOUND,

@@ -164,6 +164,22 @@ CASES = [
         response={**GUILD, "approximate_member_count": 120, "approximate_presence_count": 40},
     ),
     EndpointCase(
+        name="member permissions",
+        call=lambda client: client.guilds.get_member_permissions(2, 5),
+        method="GET",
+        path=f"{G}/permissions/member/5",
+        response={"permissions": "1024"},
+        result="1024",
+    ),
+    EndpointCase(
+        name="role permissions",
+        call=lambda client: client.guilds.get_role_permissions(2, 6),
+        method="GET",
+        path=f"{G}/permissions/role/6",
+        response={"permissions": "2048"},
+        result="2048",
+    ),
+    EndpointCase(
         name="preview",
         call=lambda client: client.guilds.get_preview(2),
         method="GET",
