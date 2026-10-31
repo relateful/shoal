@@ -5,11 +5,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `ApplicationRoleConnection.platform_username`: the user's name on the connected platform
+  (Discord, October 31, 2026).
+
 ### Removed
 
 - `reason` on `rest.messages.delete`, `Message.delete` and `Message.delete_later`: Discord records no
   audit log reason when one message is deleted (Discord, October 31, 2026). `delete_messages`,
   `purge` and `rest.messages.bulk_delete` keep theirs, for the messages they bulk delete.
+
+### Fixed
+
+- `ApplicationRoleConnection` decodes when Discord leaves out `platform_name` or `metadata`, which
+  are optional.
 
 ## [0.1.0a3] - 2026-10-31
 
