@@ -5,6 +5,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- `reason` on `rest.messages.delete`, `Message.delete` and `Message.delete_later`: Discord records no
+  audit log reason when one message is deleted (Discord, October 31, 2026). `delete_messages`,
+  `purge` and `rest.messages.bulk_delete` keep theirs, for the messages they bulk delete.
+
 ## [0.1.0a3] - 2026-10-31
 
 ### Added
