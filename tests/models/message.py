@@ -202,7 +202,7 @@ async def test_delete_now_or_later() -> None:
     world = await World.started()
     found = Message(world.state, from_rest(message(5)), guild_id=GUILD)
     world.transport.queue(204)
-    await found.delete(reason="r")
+    await found.delete()
     assert world.last_request()[:2] == ("DELETE", f"/channels/{GENERAL}/messages/5")
     world.transport.queue(404, {"code": 10008, "message": "Unknown Message"})
     await found.delete(delay=0)

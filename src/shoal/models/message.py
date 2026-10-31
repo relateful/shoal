@@ -223,22 +223,22 @@ class PartialMessage(Hashable):
     def _current_flags(self) -> MessageFlags:
         return MessageFlags.none()
 
-    async def delete(self, *, delay: float | None = None, reason: str | None = None) -> None:
+    async def delete(self, *, delay: float | None = None) -> None:
         """Delete the message, now or after `delay` seconds (a failed delayed delete is logged).
 
         Discord: https://docs.discord.com/developers/resources/message#delete-message
         """
         if delay is not None:
-            self.delete_later(delay, reason=reason)
+            self.delete_later(delay)
             return
         channel_id = self._channel_id
-        await self._state.rest.messages.delete(channel_id, self._id, reason=reason)
+        await self._state.rest.messages.delete(channel_id, self._id)
 
-    def delete_later(self, delay: float, *, reason: str | None = None) -> None:
+    def delete_later(self, delay: float) -> None:
         """Delete the message after `delay` seconds without waiting; a message already gone is fine."""
 
         async def delete() -> None:
-            await self.delete(reason=reason)
+            await self.delete()
 
         self._state.delete_later(delay, delete, name=f"shoal-delete-{int(self._id)}")
 

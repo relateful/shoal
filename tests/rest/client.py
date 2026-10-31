@@ -69,7 +69,7 @@ async def test_query_booleans_body_and_audit_reason() -> None:
     client = make_client(transport)
     result = await client.guilds.get(2, with_counts=True)
     assert isinstance(result, Guild)
-    await client.messages.delete(3, 4, reason="spam & abuse")
+    await client.messages.bulk_delete(3, [4, 5], reason="spam & abuse")
     assert transport.requests[0].url.endswith("/guilds/2?with_counts=true")
     assert transport.requests[1].headers["X-Audit-Log-Reason"] == "spam %26 abuse"
 

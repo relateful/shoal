@@ -229,10 +229,9 @@ CASES = [
     ),
     EndpointCase(
         name="delete message",
-        call=lambda client: client.messages.delete(3, 9, reason="spam"),
+        call=lambda client: client.messages.delete(3, 9),
         method="DELETE",
         path=f"{MESSAGES}/9",
-        reason="spam",
     ),
     EndpointCase(
         name="bulk delete",

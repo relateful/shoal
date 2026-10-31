@@ -347,11 +347,13 @@ class _GuildMessageable(GuildChannel, Messageable):
     async def delete_messages(self, messages: Sequence[Hashable], *, reason: str | None = None) -> None:
         """Delete messages at once: up to 100, none older than two weeks.
 
+        A single message is deleted on its own, and Discord records no `reason` for that.
+
         Discord: https://docs.discord.com/developers/resources/message#bulk-delete-messages
         """
         ids = [message.id for message in messages]
         if len(ids) == 1:
-            await self._state.rest.messages.delete(self.id, ids[0], reason=reason)
+            await self._state.rest.messages.delete(self.id, ids[0])
         elif ids:
             await self._state.rest.messages.bulk_delete(self.id, ids, reason=reason)
 
@@ -366,7 +368,8 @@ class _GuildMessageable(GuildChannel, Messageable):
     ) -> "list[Message]":
         """Delete recent messages that pass `check`, 100 at a time, and return them.
 
-        Messages older than two weeks cannot be bulk deleted; they are deleted one by one.
+        Messages older than two weeks cannot be bulk deleted; they are deleted one by one, and
+        Discord records no `reason` for those.
 
         Discord: https://docs.discord.com/developers/resources/message#bulk-delete-messages
         """
@@ -377,7 +380,7 @@ class _GuildMessageable(GuildChannel, Messageable):
             if check is not None and not check(message):
                 continue
             if message.id < too_old:
-                await message.delete(reason=reason)
+                await message.delete()
                 deleted.append(message)
                 continue
             batch.append(message)
