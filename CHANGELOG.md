@@ -14,6 +14,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   and `get_role_permissions`. `permissions_for` still answers from the cache without a request.
 - `ApplicationRoleConnection.platform_username`: the user's name on the connected platform
   (Discord, October 31, 2026).
+- Forum and media posts can open with a Components V2 message: `ForumChannel.create_thread(view=...)`
+  with a `LayoutView` sets `is_components_v2` on the first message (Discord, November 2, 2026).
 
 ### Removed
 

@@ -31,7 +31,7 @@ class ForumThreadMessageParams(Payload):
     attachments: list[AttachmentRequest] | UnsetType = UNSET
     """Filled in from the files passed when left unset."""
     flags: MessageFlags | UnsetType = UNSET
-    """Only `suppress_embeds` and `suppress_notifications` can be set."""
+    """Only `suppress_embeds`, `suppress_notifications` and `is_components_v2` can be set."""
 
 
 class CreatePostParams(Payload):

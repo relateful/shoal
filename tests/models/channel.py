@@ -20,7 +20,7 @@ from shoal.models.channel import (
 )
 from shoal.models.overwrite import PermissionOverwrite
 from shoal.models.thread import Thread
-from shoal.payloads import Channel, ChannelType, Permissions, VideoQualityMode
+from shoal.payloads import Channel, ChannelType, Permissions, TextDisplay, VideoQualityMode
 from tests.support.json_payloads import INVITE
 from tests.support.models import (
     ALICE,
@@ -37,6 +37,7 @@ from tests.support.models import (
     STAGE,
     THREAD,
     VOICE,
+    StaticView,
     World,
     channel,
     decoded,
@@ -332,6 +333,18 @@ async def test_forum_posts_are_a_thread_and_a_message() -> None:
     assert created.thread.id == 92
     assert created.message.id == 93
     assert world.views.stored == [(ROW_VIEW, 93)]
+
+
+async def test_forum_posts_can_open_with_a_components_v2_message() -> None:
+    world = await World.started()
+    forum = await get(world, FORUM, ForumChannel)
+    post = channel(92, 11, "notes", parent=FORUM) | {"message": message(93, channel_id=92)}
+    world.transport.queue(200, post)
+    await forum.create_thread(name="notes", view=StaticView(TextDisplay(content="hi")))
+    assert world.last_body()["message"] == {
+        "components": [{"type": 10, "content": "hi"}],
+        "flags": 1 << 15,
+    }
 
 
 async def test_dms_and_group_dms() -> None:
