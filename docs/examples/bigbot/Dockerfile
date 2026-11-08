@@ -3,7 +3,7 @@
 # and install ".[prometheus,zstd]" instead.
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir --pre "shoal[prometheus,zstd]"
+RUN pip install --no-cache-dir "shoal[prometheus,zstd]"
 
 WORKDIR /app
 COPY docs/examples/bigbot/bigbot ./bigbot

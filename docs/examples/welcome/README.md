@@ -3,7 +3,7 @@
 Greets new members with an embed, gives them a role, and says goodbye when they leave.
 
 ```bash
-pip install --pre shoal       # Shoal from PyPI
+pip install shoal             # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export AUTOROLE=Member        # optional: the role new members get
 python bot.py

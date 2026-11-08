@@ -4,9 +4,6 @@ A fully typed Discord API library for Python, built for bots that grow. It keeps
 from discord.py (`commands.Bot`, `interaction.response.send_message`, `ui.View`, `tree.sync()`) and
 fixes what makes discord.py painful once a bot gets big.
 
-> **Status: pre-release.** Everything below is built and tested, but names can still change before
-> 1.0. Install the pre-release with `pip install --pre shoal`. See the [roadmap](https://github.com/relateful/shoal/blob/main/docs/roadmap.md).
-
 ## Why not discord.py?
 
 discord.py is a good library for a bot in a few servers. Shoal is for bots that keep growing, and it
@@ -99,16 +96,16 @@ discord.py leaves IPC to you. Shoal includes it:
 
 ## Install
 
-Shoal needs Python 3.12 or newer. While it is in pre-release, pip needs `--pre`:
+Shoal needs Python 3.12 or newer:
 
 ```bash
-pip install --pre shoal                   # the core
-pip install --pre "shoal[voice]"          # join voice channels, play and listen
-pip install --pre "shoal[redis]"          # share limits, sessions, cache, events and shards across processes
-pip install --pre "shoal[prometheus]"     # Prometheus metrics
-pip install --pre "shoal[interactions]"   # receive interactions over HTTP, without a gateway
-pip install --pre "shoal[zstd]"           # zstd gateway compression on Python 3.12 and 3.13
-pip install --pre "shoal[all]"            # everything above
+pip install shoal                   # the core
+pip install "shoal[voice]"          # join voice channels, play and listen
+pip install "shoal[redis]"          # share limits, sessions, cache, events and shards across processes
+pip install "shoal[prometheus]"     # Prometheus metrics
+pip install "shoal[interactions]"   # receive interactions over HTTP, without a gateway
+pip install "shoal[zstd]"           # zstd gateway compression on Python 3.12 and 3.13
+pip install "shoal[all]"            # everything above
 ```
 
 To work on Shoal itself, install it from a clone with `pip install -e ".[all]"`.
@@ -156,6 +153,7 @@ the [smallest bot](https://github.com/relateful/shoal/tree/main/docs/examples/he
 - The API reference is generated from the docstrings: `uv run --group docs mkdocs serve`.
 - [Discord API coverage](https://github.com/relateful/shoal/blob/main/docs/coverage.md) lists every endpoint Discord documents and the Shoal method
   for it, generated from Discord's docs and checked weekly.
+- The [roadmap](https://github.com/relateful/shoal/blob/main/docs/roadmap.md) says what is built and what is planned.
 
 ## Quality
 

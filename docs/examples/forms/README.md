@@ -4,7 +4,7 @@
 just text fields.
 
 ```bash
-pip install --pre shoal                       # Shoal from PyPI
+pip install shoal                             # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: /apply appears there at once
 python bot.py

@@ -5,6 +5,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-09
+
+The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`
+no longer needs `--pre`.
+
 ### Added
 
 - Permissions as Discord computes them (Discord, October 31, 2026):
