@@ -3,7 +3,7 @@
 # and install ".[redis,zstd]" instead.
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir --pre "shoal[redis,zstd]"
+RUN pip install --no-cache-dir "shoal[redis,zstd]"
 
 WORKDIR /app
 COPY docs/examples/clusters/cluster ./cluster

@@ -13,7 +13,7 @@ requires-python = ">=3.12"
 authors = [{ name = "Shoal contributors" }]
 keywords = ["discord", "discord-api", "bot", "asyncio", "gateway", "sharding"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",

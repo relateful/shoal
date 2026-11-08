@@ -3,7 +3,7 @@
 The smallest bot there is: it answers `ping` with `pong`.
 
 ```bash
-pip install --pre shoal   # Shoal from PyPI
+pip install shoal         # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 python bot.py
 ```
