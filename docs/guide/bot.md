@@ -235,7 +235,8 @@ Items declared on the class are copied for each view. A method decorated through
 `ui.Container` subclass with items of its own; an `ActionRow` subclass can declare buttons with
 `@ui.button`, and there `self` is the row. Media is a URL or a `File` sent with the message
 (`ui.File(upload)` shows it in place). The message holds at most 40 components, counting those
-inside others, and every `id` you give a component must be unique in it.
+inside others, and 4,000 characters of text across all its text displays (a modal's text displays
+share the same limit); every `id` you give a component must be unique in it.
 
 Modals take more than text: wrap any input in a `ui.Label`.
 

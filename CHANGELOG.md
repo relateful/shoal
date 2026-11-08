@@ -17,6 +17,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Forum and media posts can open with a Components V2 message: `ForumChannel.create_thread(view=...)`
   with a `LayoutView` sets `is_components_v2` on the first message (Discord, November 2, 2026).
 
+### Changed
+
+- A `LayoutView` or `Modal` whose text displays hold more than 4,000 characters together (sections
+  and containers included) raises `ValueError` before it is sent, as does one `ui.TextDisplay` over
+  that: Discord now documents the limit (Discord, November 3, 2026).
+  `shoal.payloads.TEXT_DISPLAY_MAX_LENGTH` holds it.
+
 ### Removed
 
 - `reason` on `rest.messages.delete`, `Message.delete` and `Message.delete_later`: Discord records no

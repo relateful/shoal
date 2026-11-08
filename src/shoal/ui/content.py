@@ -11,6 +11,7 @@ Media is a URL, or a `File` sent with the message (shown as `attachment://<filen
 Discord: https://docs.discord.com/developers/components/reference#text-display
 """
 
+from collections.abc import Iterable
 from typing import ClassVar, override
 
 from msgspec import UNSET
@@ -20,6 +21,7 @@ from shoal.payloads.api import ATTACHMENT_SCHEME
 from shoal.payloads.components import (
     MEDIA_DESCRIPTION_MAX_LENGTH,
     MEDIA_GALLERY_MAX_ITEMS,
+    TEXT_DISPLAY_MAX_LENGTH,
     FileComponent,
     MediaGalleryItem,
     SeparatorSpacing,
@@ -57,6 +59,11 @@ class TextDisplay(Item):
         self.content: str = content
 
     @override
+    def validate(self) -> None:
+        super().validate()
+        check_length(self, "content", self.content, TEXT_DISPLAY_MAX_LENGTH)
+
+    @override
     def to_component(self) -> TextDisplayPayload:
         """The text as Discord takes it."""
         return TextDisplayPayload(id=unset_if_none(self.id), content=self.content)
@@ -64,6 +71,20 @@ class TextDisplay(Item):
     @override
     def __repr__(self) -> str:
         return f"<TextDisplay content={self.content[:30]!r}>"
+
+
+def check_text_total(owner: object, items: Iterable[Item]) -> None:
+    """Refuse a message or modal whose text displays hold more characters than Discord allows.
+
+    Raises:
+        ValueError: The text displays among `items` hold more than `TEXT_DISPLAY_MAX_LENGTH`
+            characters together.
+    """
+    total = sum(len(item.content) for item in items if isinstance(item, TextDisplay))
+    if total > TEXT_DISPLAY_MAX_LENGTH:
+        limit = TEXT_DISPLAY_MAX_LENGTH
+        msg = f"{owner!r}: its text displays hold {total} characters; Discord allows at most {limit}"
+        raise ValueError(msg)
 
 
 class Thumbnail(Item):

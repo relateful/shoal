@@ -58,6 +58,7 @@ def test_a_gallery_takes_urls_files_and_items() -> None:
         (Thumbnail("https://e.com/a.png", description="x" * 1025), "description is 1025"),
         (File("https://e.com/a.pdf"), "attachment://"),
         (TextDisplay("x", id=-1), "id must not be negative"),
+        (TextDisplay("x" * 4001), "content is 4001"),
     ],
 )
 def test_content_discord_would_refuse_is_refused(item: Item, problem: str) -> None:
