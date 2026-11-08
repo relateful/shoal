@@ -5,10 +5,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-11-09
+## [1.0.1] - 2026-11-09
 
 The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`
-no longer needs `--pre`.
+no longer needs `--pre`. There is no 1.0.0: an earlier, unrelated project named `shoal` used that
+version on PyPI, which never accepts a version twice.
 
 ### Added
 
