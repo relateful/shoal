@@ -290,4 +290,4 @@ client = Client(intents=shoal.Intents.default(), app_emojis=Icons())
 
 Each declared name has a unicode fallback, used until the emoji is uploaded, so a message never
 shows a blank where an icon should be. The sync skips unchanged images and retries what Discord
-refused for the moment.
+refused for the moment. Of webhooks, only those the application owns can use its emojis.
