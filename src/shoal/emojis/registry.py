@@ -7,7 +7,8 @@
 
 Attribute access (`emojis.approve`, the same as `emojis.resolve("approve")`) gives the emoji, or
 its unicode fallback while it is not uploaded (a fresh application, or tests); either works in a
-message, a reaction or a component. A name with neither raises, rather than showing nothing where
+message, a reaction or a component, but through a webhook only one the application owns. A name
+with neither raises, rather than showing nothing where
 the icon should be. Names that clash with the registry's own methods use `resolve`.
 
 Declare the names a bot uses, with their fallbacks, by subclassing; the type checker then knows
