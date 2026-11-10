@@ -6,7 +6,7 @@ import pytest
 
 from shoal.core.metrics import VOICE_PACKETS_DROPPED, InMemoryMetrics
 from shoal.gateway.connection import MessageKind, WebSocketMessage
-from shoal.payloads.voice_gateway import EncryptionMode
+from shoal.payloads.voice_gateway import EncryptionMode, VoiceOpcode
 from shoal.voice.connection import VoiceConnection, VoiceConnectionClosedError
 from shoal.voice.crypto import TransportCipher
 from shoal.voice.defaults import RECEIVED_PACKETS_QUEUE_SIZE, UNNAMED_PACKETS, UNNAMED_STREAMS
@@ -139,6 +139,9 @@ async def test_a_dropped_socket_is_resumed_with_what_was_received() -> None:
         "op": 7,
         "d": {"server_id": "10", "session_id": "voice-session", "token": "voice-token", "seq_ack": 12},
     }
+    # The session keeps its protocol: Select Protocol again would close it with 4006.
+    assert first.ops().count(VoiceOpcode.SELECT_PROTOCOL) == 1
+    assert VoiceOpcode.SELECT_PROTOCOL not in connector.opened[1].ops()
     assert connection.is_connected
     await connection.close()
 
