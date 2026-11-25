@@ -5,6 +5,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `ApplicationIdentity.user_id` is always set now that Discord documents it (docs#8737); it was
+  optional while only Discord's examples showed it.
+
 ## [1.0.1] - 2026-11-09
 
 The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`
