@@ -5,6 +5,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `GatewayCapabilities.channel_obfuscation` no longer has any effect: Discord obfuscates channels
+  for every bot since November 16, 2026 and documents no capabilities now (docs#8720). It is kept so
+  existing code still runs.
+
 ### Fixed
 
 - Voice: DAVE works with davey 0.2, which `shoal[voice]` now requires. davey 0.2 no longer switches

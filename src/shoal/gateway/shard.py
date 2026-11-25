@@ -188,9 +188,8 @@ class Shard:
         compression: Transport compression, or `None` for none.
         large_threshold: Member count above which guilds arrive without offline members (50-250).
         presence: Initial presence sent with Identify.
-        capabilities: Opt-in gateway behaviours. Pass
-            `GatewayCapabilities(channel_obfuscation=True)` to receive obfuscated channels before
-            Discord enables them for every bot on November 16, 2026
+        capabilities: Opt-in gateway behaviours sent with Identify. Discord currently documents
+            none; obfuscated channels, once opted in to here, reach every bot since November 16, 2026
             (https://docs.discord.com/developers/events/gateway-events#identify-gateway-capabilities).
         metrics: Receives event counts, latency, readiness, reconnects and event delivery delay.
         event_delay_warning: Log a warning when a message or interaction arrives more than this many
