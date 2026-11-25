@@ -5,6 +5,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Voice: `VoiceConnection.set_media_sink_wants(default=..., ssrcs=...)` chooses whose audio the voice
+  server sends (opcode 15, Media Sink Wants), and `VoiceHello.v` reports the voice gateway version in
+  use (docs#8712).
+
 ## [1.0.1] - 2026-11-09
 
 The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`
