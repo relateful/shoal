@@ -13,6 +13,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `ApplicationIdentity.user_id` is always set now that Discord documents it (docs#8737); it was
+  optional while only Discord's examples showed it.
 - `GatewayCapabilities.channel_obfuscation` no longer has any effect: Discord obfuscates channels
   for every bot since November 16, 2026 and documents no capabilities now (docs#8720). It is kept so
   existing code still runs.
