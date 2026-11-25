@@ -29,10 +29,13 @@ from shoal.payloads import (
     ContentScanMetadataFlags,
     CreateMessageParams,
     Label,
+    MenuActionItem,
+    MenuActionItemStyle,
     Message,
     MessageComponent,
     MessageFlags,
     ModalComponent,
+    OverflowMenu,
     PartialEmoji,
     Section,
     SeparatorSpacing,
@@ -214,3 +217,37 @@ def test_media_items_carry_content_scan_flags() -> None:
         is_gore_content=True, is_self_harm_content=True
     )
     assert not item.content_scan_metadata.flags.is_explicit_content
+
+
+def test_an_overflow_menu_decodes_and_encodes_back_unchanged() -> None:
+    raw: JSONObject = {
+        "type": 9,
+        "components": [{"type": 10, "content": "Ticket #12"}],
+        "accessory": {
+            "type": 25,
+            "id": 3,
+            "groups": [
+                {
+                    "label": "Manage",
+                    "components": [
+                        {
+                            "type": 26,
+                            "custom_id": "close",
+                            "label": "Close",
+                            "style": 2,
+                            "description": "For good",
+                        },
+                        {"type": 26, "label": "Docs", "style": 3, "url": "https://example.com"},
+                    ],
+                },
+                {"components": [{"type": 26, "custom_id": "pin", "label": "Pin", "style": 1}]},
+            ],
+        },
+    }
+    [section] = parse_components([raw])
+    assert isinstance(section, Section)
+    assert isinstance(section.accessory, OverflowMenu)
+    close = section.accessory.groups[0].components[0]
+    assert isinstance(close, MenuActionItem)
+    assert close.style is MenuActionItemStyle.DANGER
+    assert msgspec.json.decode(encode_json(section)) == raw

@@ -77,7 +77,7 @@ class Modal(SubmittableModal):
     )
 
     __modal_title__: ClassVar[str | None] = None
-    __modal_items__: ClassVar[list[tuple[str, Item]]] = []
+    __modal_items__: ClassVar[list[tuple[str, object]]] = []
 
     @override
     def __init_subclass__(cls, *, title: str | None = None) -> None:

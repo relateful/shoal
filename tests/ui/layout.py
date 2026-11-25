@@ -43,7 +43,7 @@ def test_a_section_accessory_can_be_swapped() -> None:
 def test_a_section_holds_one_to_three_texts_and_a_button_or_thumbnail() -> None:
     with pytest.raises(ValueError, match="1 to 3 text displays"):
         Section("a", "b", "c", "d", accessory=Button()).validate()
-    with pytest.raises(TypeError, match="button or a thumbnail"):
+    with pytest.raises(TypeError, match="a thumbnail or an overflow menu"):
         call_unchecked(Section, "a", accessory=TextDisplay("x"))
     with pytest.raises(TypeError, match="text displays"):
         call_unchecked(Section("a", accessory=Button()).add_item, Separator())

@@ -5,6 +5,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Overflow menus, ahead of Discord documenting them: `ui.OverflowMenu`, `ui.OverflowMenuGroup` and
+  `ui.MenuActionItem` (with `@group.action`), in action rows and as a section's accessory, and the
+  `OverflowMenu`, `OverflowMenuGroup`, `MenuActionItem` and `MenuActionItemStyle` payloads. Their
+  shape follows what Discord's clients send today and may change once Discord documents it.
+
 ## [1.0.1] - 2026-11-09
 
 The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`

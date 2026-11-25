@@ -8,7 +8,8 @@
 
 A `View` puts buttons and selects in action rows under a message's content. A `LayoutView` is the
 whole message in Components V2: text displays, sections, containers, media galleries, files and
-separators, with action rows among them. A `Modal` asks for text, choices, files and checkboxes.
+separators, with action rows and overflow menus among them. A `Modal` asks for text, choices,
+files and checkboxes.
 
 Discord: https://docs.discord.com/developers/components/reference
 """
@@ -22,6 +23,7 @@ from shoal.ui.item import InteractiveItem, Item
 from shoal.ui.label import Label
 from shoal.ui.layout import Container, Section
 from shoal.ui.modal import Modal
+from shoal.ui.overflow import MenuActionItem, OverflowMenu, OverflowMenuGroup
 from shoal.ui.select import (
     AnySelect,
     BaseSelect,
@@ -55,7 +57,10 @@ __all__ = [
     "LayoutView",
     "MediaGallery",
     "MentionableSelect",
+    "MenuActionItem",
     "Modal",
+    "OverflowMenu",
+    "OverflowMenuGroup",
     "RadioGroup",
     "RoleSelect",
     "Section",

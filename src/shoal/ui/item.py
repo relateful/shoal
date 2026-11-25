@@ -23,6 +23,9 @@ from shoal.payloads.interactions import ResolvedData
 ITEM_FACTORY: Final = "__shoal_item__"
 """The attribute `@ui.button` and `@ui.select` leave on a method: a function making its item."""
 
+TEMPLATE: Final = "__shoal_template__"
+"""A class attribute set on things that are not items but are copied per instance like them."""
+
 type ItemFactory = Callable[[], "InteractiveItem"]
 type Decorated = Callable[..., Awaitable[None]]
 """A method decorated with `@ui.button` or `@ui.select`, called as `(owner, interaction, item)`."""
@@ -284,6 +287,29 @@ def bind_method(
     return handler
 
 
+def method_owner(method: Decorated, holders: Sequence[object], view: ItemView) -> object:
+    """The object whose class defines `method`: one of `holders` (nearest first), else the view.
+
+    Raises:
+        TypeError: None of them defines it.
+    """
+    for candidate in (*holders, view):
+        if getattr(type(candidate), method.__name__, None) is method:
+            return candidate
+    msg = f"{method.__qualname__} is not a method of the item, an item holding it, or its view"
+    raise TypeError(msg)
+
+
+def lineage(item: Item) -> list[Item]:
+    """`item` and the items holding it, nearest first."""
+    found: list[Item] = []
+    holder: Item | None = item
+    while holder is not None:
+        found.append(holder)
+        holder = holder.parent
+    return found
+
+
 def decorated_methods(cls: type) -> list[Decorated]:
     """The methods of `cls` decorated with `@ui.button` or `@ui.select`, base classes first.
 
@@ -299,15 +325,23 @@ def decorated_methods(cls: type) -> list[Decorated]:
     return list(found.values())
 
 
-def item_templates(cls: type) -> list[tuple[str, Item]]:
-    """The items declared as class attributes of `cls`, base classes first, by attribute name."""
-    found: dict[str, Item] = {}
+def item_templates(cls: type) -> list[tuple[str, object]]:
+    """The items declared as class attributes of `cls`, base classes first, by attribute name.
+
+    Overflow menu groups (marked with `TEMPLATE`) are included, so each instance names its own copy.
+    """
+    found: dict[str, object] = {}
     for base in reversed(cls.__mro__):
-        found.update((name, member) for name, member in vars(base).items() if isinstance(member, Item))
+        members: dict[str, object] = dict(vars(base))
+        found.update(
+            (name, member)
+            for name, member in members.items()
+            if isinstance(member, Item) or getattr(type(member), TEMPLATE, False)
+        )
     return list(found.items())
 
 
-def instantiate(owner: object, templates: Sequence[tuple[str, Item]]) -> list[Item]:
+def instantiate(owner: object, templates: Sequence[tuple[str, object]]) -> list[Item]:
     """Copy class-declared items for one instance, set them as its attributes, return the top-level ones.
 
     One copy is shared by every attribute naming the same item, so an action row declared on its own
@@ -318,6 +352,6 @@ def instantiate(owner: object, templates: Sequence[tuple[str, Item]]) -> list[It
     for name, template in templates:
         own = copy.deepcopy(template, memo)
         setattr(owner, name, own)
-        if template.parent is None:
+        if isinstance(own, Item) and own.parent is None:
             top.append(own)
     return top

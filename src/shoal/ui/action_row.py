@@ -1,4 +1,4 @@
-"""Action rows: up to five buttons, or one select, in a `LayoutView` or a container.
+"""Action rows: up to five buttons and overflow menus, or one select, in a `LayoutView` or a container.
 
     class Controls(ui.LayoutView):
         row = ui.ActionRow()
@@ -31,11 +31,17 @@ from shoal.ui.item import (
     ItemView,
     bind_method,
     decorated_methods,
+    lineage,
+    method_owner,
 )
+from shoal.ui.overflow import OverflowMenu
 from shoal.ui.select import BaseSelect, Select, SelectCallback, select_factory
 
 type RowItem = Button | BaseSelect
-"""What an action row holds."""
+"""What a `View` puts in its action rows."""
+
+type LayoutRowItem = Button | BaseSelect | OverflowMenu
+"""What an action row of a `LayoutView` or a container holds: overflow menus need Components V2."""
 
 type _Pending = tuple[Callable[[], InteractiveItem], Decorated]
 
@@ -52,8 +58,20 @@ def row_item(item: Item) -> RowItem:
     return item
 
 
+def layout_row_item(item: Item) -> LayoutRowItem:
+    """`item`, checked to be something an `ActionRow` holds.
+
+    Raises:
+        TypeError: It is not a button, a select or an overflow menu.
+    """
+    if not isinstance(item, Button | BaseSelect | OverflowMenu):
+        msg = f"an action row holds buttons, selects and overflow menus, not {item!r}"
+        raise TypeError(msg)
+    return item
+
+
 class ActionRow(Item):
-    """A row of up to five buttons, or a single select.
+    """A row of up to five buttons and overflow menus, or a single select.
 
     Discord: https://docs.discord.com/developers/components/reference#action-row
     """
@@ -68,7 +86,7 @@ class ActionRow(Item):
         super().__init_subclass__()
         cls.__row_items__ = decorated_methods(cls)
 
-    def __init__(self, *children: RowItem, id: int | None = None) -> None:
+    def __init__(self, *children: LayoutRowItem, id: int | None = None) -> None:
         """A row holding `children`, then the items a subclass declares.
 
         Raises:
@@ -76,7 +94,7 @@ class ActionRow(Item):
             ValueError: The children do not fit in one row.
         """
         super().__init__(id=id)
-        self._children: list[RowItem] = []
+        self._children: list[LayoutRowItem] = []
         self._pending: list[_Pending] = [
             (getattr(method, ITEM_FACTORY), method) for method in type(self).__row_items__
         ]
@@ -86,27 +104,30 @@ class ActionRow(Item):
     @property
     @override
     def children(self) -> list[Item]:
-        """The buttons or the select, in order."""
+        """The buttons and overflow menus, or the select, in order."""
         return list(self._children)
 
-    def add_item(self, item: RowItem) -> Self:
-        """Add a button or a select.
+    def add_item(self, item: LayoutRowItem) -> Self:
+        """Add a button, a select or an overflow menu.
 
         Raises:
-            TypeError: `item` is not a button or a select.
+            TypeError: `item` is not a button, a select or an overflow menu.
             ValueError: The row has no room for it.
         """
-        item = row_item(item)
+        item = layout_row_item(item)
         used = sum(child.width for child in self._children)
         if used + item.width > ACTION_ROW_MAX_BUTTONS:
-            msg = f"{self!r} has no room for {item!r}: up to {ACTION_ROW_MAX_BUTTONS} buttons, or one select"
+            msg = (
+                f"{self!r} has no room for {item!r}: "
+                f"up to {ACTION_ROW_MAX_BUTTONS} buttons and overflow menus, or one select"
+            )
             raise ValueError(msg)
         self._children.append(item)
         self.adopt(item)
         return self
 
-    def remove_item(self, item: RowItem) -> Self:
-        """Remove a button or select (nothing happens if it is not in the row)."""
+    def remove_item(self, item: LayoutRowItem) -> Self:
+        """Remove a button, select or overflow menu (nothing happens if it is not in the row)."""
         if item in self._children:
             self._children.remove(item)
             self.release(item)
@@ -126,22 +147,8 @@ class ActionRow(Item):
             pending, self._pending = self._pending, []
             for factory, method in pending:
                 item = row_item(factory())
-                item.bind(bind_method(method, self._owner_of(method, view), item))
+                item.bind(bind_method(method, method_owner(method, lineage(self), view), item))
                 self.add_item(item)
-
-    def _owner_of(self, method: Decorated, view: ItemView) -> object:
-        """The object whose class defines `method`: this row, a container holding it, or the view."""
-        candidates: list[object] = []
-        holder: Item | None = self
-        while holder is not None:
-            candidates.append(holder)
-            holder = holder.parent
-        candidates.append(view)
-        for candidate in candidates:
-            if getattr(type(candidate), method.__name__, None) is method:
-                return candidate
-        msg = f"{method.__qualname__} is not a method of the row, a container holding it, or its view"
-        raise TypeError(msg)
 
     @override
     def to_component(self) -> ActionRowPayload:

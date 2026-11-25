@@ -237,6 +237,26 @@ Items declared on the class are copied for each view. A method decorated through
 (`ui.File(upload)` shows it in place). The message holds at most 40 components, counting those
 inside others, and every `id` you give a component must be unique in it.
 
+An overflow menu is a "more" button that opens a list of actions, in groups, beside a section or in
+an action row. Discord is still testing it in its clients and has not documented it yet, so its
+shape may change; it needs a Components V2 message.
+
+```python
+from shoal.payloads import MenuActionItemStyle
+
+
+class Ticket(ui.LayoutView):
+    manage = ui.OverflowMenuGroup(label="Manage")
+    summary = ui.Section("Ticket #12", accessory=ui.OverflowMenu(manage))
+
+    @manage.action(label="Close", style=MenuActionItemStyle.DANGER)
+    async def close(self, interaction: shoal.Interaction, item: ui.MenuActionItem) -> None:
+        await interaction.response.send_message("Closed", ephemeral=True)
+```
+
+`menu.add_action(label=..., url=...)` adds a link action, which opens the URL and sends no
+interaction.
+
 Modals take more than text: wrap any input in a `ui.Label`.
 
 ```python

@@ -23,7 +23,7 @@ def test_a_row_holds_five_buttons_or_one_select() -> None:
     assert msgspec.json.decode(encode_json(row.to_component()))["id"] == 4
     with pytest.raises(ValueError, match="no room"):
         ActionRow(Button(), Select())
-    with pytest.raises(TypeError, match="buttons and selects"):
+    with pytest.raises(TypeError, match="buttons, selects and overflow menus"):
         call_unchecked(ActionRow().add_item, TextDisplay("x"))
 
 
@@ -137,5 +137,5 @@ def test_a_row_method_from_elsewhere_is_refused_when_the_row_joins_a_view() -> N
     async def lost(owner: object, interaction: Interaction, pressed: Button) -> None:
         del owner, interaction, pressed
 
-    with pytest.raises(TypeError, match="is not a method of the row"):
+    with pytest.raises(TypeError, match="is not a method of the item"):
         LayoutView().add_item(row)
