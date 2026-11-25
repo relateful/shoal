@@ -87,9 +87,31 @@ async def test_slow_subscribers_are_disconnected_not_buffered_forever() -> None:
     await asyncio.wait_for(server.close(), timeout=5)
 
 
-async def test_close_does_not_wait_for_clients_still_authenticating(server: EventServer) -> None:
+async def test_close_does_not_wait_for_clients_still_authenticating(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Close only once the server holds the connection: closed while it is still in the listen
+    # backlog, macOS does not always reset it, and the client would wait for nothing.
+    entered = asyncio.Event()
+    start_server = asyncio.start_server
+
+    async def signalling(
+        handler: Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]],
+        host: str,
+        port: int,
+        ssl: SSLContext | None,
+    ) -> asyncio.Server:
+        async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            entered.set()
+            await handler(reader, writer)
+
+        return await start_server(handle, host, port, ssl=ssl)
+
+    monkeypatch.setattr(asyncio, "start_server", signalling)
+    server = EventServer(token=TOKEN)
+    await server.start()
+    monkeypatch.undo()
     host, port = server.address
     reader, writer = await asyncio.open_connection(host, port)
+    await asyncio.wait_for(entered.wait(), timeout=5)
     await asyncio.wait_for(server.close(), timeout=5)
     # The connection that never sent its hello is cut, not left waiting for it.
     with contextlib.suppress(ConnectionResetError):
