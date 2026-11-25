@@ -11,6 +11,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   server sends (opcode 15, Media Sink Wants), and `VoiceHello.v` reports the voice gateway version in
   use (docs#8712).
 
+### Changed
+
+- `GatewayCapabilities.channel_obfuscation` no longer has any effect: Discord obfuscates channels
+  for every bot since November 16, 2026 and documents no capabilities now (docs#8720). It is kept so
+  existing code still runs.
+
 ## [1.0.1] - 2026-11-09
 
 The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`
