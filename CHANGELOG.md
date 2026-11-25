@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Voice: `VoiceConnection.set_media_sink_wants(default=..., ssrcs=...)` chooses whose audio the voice
+  server sends (opcode 15, Media Sink Wants), and `VoiceHello.v` reports the voice gateway version in
+  use (docs#8712).
+- `Embed.audio` (`EmbedAudio`) and `EmbedType.AUDIO`, for the embeds Discord now adds to direct links
+  to audio files (docs#8741).
+
 ### Changed
 
 - `ApplicationIdentity.user_id` is always set now that Discord documents it (docs#8737); it was
