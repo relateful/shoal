@@ -19,6 +19,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   for every bot since November 16, 2026 and documents no capabilities now (docs#8720). It is kept so
   existing code still runs.
 
+### Fixed
+
+- Voice: DAVE works with davey 0.2, which `shoal[voice]` now requires. davey 0.2 no longer switches
+  keys while processing a commit or welcome, so with it installed (anyone installing `shoal[voice]`
+  since its release) the call's key never changed at a transition. Shoal now prepares each transition
+  and switches the key when Discord executes it, and a commit davey ignores is no longer treated
+  as unusable.
+
 ## [1.0.1] - 2026-11-09
 
 The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`
