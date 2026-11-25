@@ -193,6 +193,10 @@ class ComponentType(DiscordIntEnum):
     RADIO_GROUP = 21
     CHECKBOX_GROUP = 22
     CHECKBOX = 23
+    OVERFLOW_MENU = 25
+    """Not yet in Discord's docs; see `OverflowMenu`."""
+    MENU_ACTION_ITEM = 26
+    """Not yet in Discord's docs; see `MenuActionItem`."""
 
 
 class ButtonStyle(DiscordIntEnum):
@@ -219,6 +223,21 @@ class TextInputStyle(DiscordIntEnum):
 
     SHORT = 1
     PARAGRAPH = 2
+
+
+class MenuActionItemStyle(DiscordIntEnum):
+    """How an overflow menu's action looks, and what it needs: `custom_id`, or `url` for `LINK`.
+
+    Not yet in Discord's docs: overflow menus are being tested in Discord's clients, and this follows
+    the shape seen there. It may change before Discord documents it.
+
+    Discord: https://docs.discord.com/developers/components/reference
+    """
+
+    DEFAULT = 1
+    DANGER = 2
+    LINK = 3
+    """Opens `url`; sends no interaction."""
 
 
 class SeparatorSpacing(DiscordIntEnum):
@@ -601,10 +620,58 @@ class Checkbox(Payload, tag=23, tag_field="type"):
     default: bool | UnsetType = UNSET
 
 
+class MenuActionItem(Payload, tag=26, tag_field="type"):
+    """One action in an overflow menu: sends an interaction with `custom_id`, or opens `url` (`LINK`).
+
+    Not yet in Discord's docs; the fields follow the shape seen in Discord's clients and may change.
+
+    Discord: https://docs.discord.com/developers/components/reference
+    """
+
+    id: int | UnsetType = UNSET
+    custom_id: str | UnsetType = UNSET
+    label: str
+    style: MenuActionItemStyle
+    description: str | UnsetType = UNSET
+    url: str | UnsetType = UNSET
+    emoji: PartialEmoji | UnsetType = UNSET
+
+
+class OverflowMenuGroup(Payload):
+    """A run of an overflow menu's actions, under an optional heading. It is not a component itself.
+
+    Not yet in Discord's docs; the fields follow the shape seen in Discord's clients and may change.
+
+    Discord: https://docs.discord.com/developers/components/reference
+    """
+
+    label: str | UnsetType = UNSET
+    components: list[MenuActionItem]
+
+
+class OverflowMenu(Payload, tag=25, tag_field="type"):
+    """A "more" button opening a menu of actions, in groups. Needs `MessageFlags.is_components_v2`.
+
+    Not yet in Discord's docs; the fields follow the shape seen in Discord's clients and may change.
+
+    Discord: https://docs.discord.com/developers/components/reference
+    """
+
+    id: int | UnsetType = UNSET
+    groups: list[OverflowMenuGroup]
+
+
 type ActionRowChild = (
-    Button | StringSelect | UserSelect | RoleSelect | MentionableSelect | ChannelSelect | TextInput
+    Button
+    | StringSelect
+    | UserSelect
+    | RoleSelect
+    | MentionableSelect
+    | ChannelSelect
+    | TextInput
+    | OverflowMenu
 )
-"""What an action row holds: up to five buttons, or one select. Text inputs only in legacy modals.
+"""What an action row holds: buttons and overflow menus, or one select. Text inputs only in legacy modals.
 
 Discord: https://docs.discord.com/developers/components/reference#action-row-action-row-child-components
 """
@@ -620,8 +687,8 @@ class ActionRow(Payload, tag=1, tag_field="type"):
     components: list[ActionRowChild]
 
 
-type SectionAccessory = Button | Thumbnail
-"""What sits beside a section's text.
+type SectionAccessory = Button | Thumbnail | OverflowMenu
+"""What sits beside a section's text (an overflow menu is not yet in Discord's docs).
 
 Discord: https://docs.discord.com/developers/components/reference#section-section-accessory-components
 """
@@ -724,6 +791,8 @@ type Component = (
     | RadioGroup
     | CheckboxGroup
     | Checkbox
+    | OverflowMenu
+    | MenuActionItem
 )
 """Any component this version of Shoal knows.
 

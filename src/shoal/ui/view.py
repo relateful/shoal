@@ -314,7 +314,7 @@ class LayoutView(BaseView[LayoutItem]):
 
     __slots__ = ()
 
-    __layout_items__: ClassVar[list[tuple[str, Item]]] = []
+    __layout_items__: ClassVar[list[tuple[str, object]]] = []
 
     @override
     def __init_subclass__(cls) -> None:

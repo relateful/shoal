@@ -26,13 +26,14 @@ from shoal.ui.action_row import ActionRow
 from shoal.ui.button import Button
 from shoal.ui.content import File, MediaGallery, Separator, TextDisplay, Thumbnail
 from shoal.ui.item import Item, check_count, instantiate, item_templates
+from shoal.ui.overflow import OverflowMenu
 
-type Accessory = Button | Thumbnail
+type Accessory = Button | Thumbnail | OverflowMenu
 """What sits beside a section's text."""
 
 
 class Section(Item):
-    """One to three text displays with a button or a thumbnail beside them.
+    """One to three text displays with a button, a thumbnail or an overflow menu beside them.
 
     Discord: https://docs.discord.com/developers/components/reference#section
     """
@@ -45,7 +46,7 @@ class Section(Item):
         """A section of `children` (text displays, or strings for them) beside `accessory`.
 
         Raises:
-            TypeError: The accessory is not a button or a thumbnail, or a child is not text.
+            TypeError: The accessory is not a button, a thumbnail or an overflow menu, or a child is not text.
         """
         super().__init__(id=id)
         self._texts: list[TextDisplay] = []
@@ -67,7 +68,7 @@ class Section(Item):
 
     @property
     def accessory(self) -> Accessory:
-        """The button or thumbnail beside the text."""
+        """The button, thumbnail or overflow menu beside the text."""
         return self._accessory
 
     @accessory.setter
@@ -129,7 +130,7 @@ class Container(Item):
 
     is_v2: ClassVar[bool] = True
 
-    __container_items__: ClassVar[list[tuple[str, Item]]] = []
+    __container_items__: ClassVar[list[tuple[str, object]]] = []
 
     @override
     def __init_subclass__(cls) -> None:
@@ -222,8 +223,8 @@ class Container(Item):
 
 
 def _accessory(item: Item) -> Accessory:
-    if not isinstance(item, Button | Thumbnail):
-        msg = f"a section's accessory is a button or a thumbnail, not {item!r}"
+    if not isinstance(item, Button | Thumbnail | OverflowMenu):
+        msg = f"a section's accessory is a button, a thumbnail or an overflow menu, not {item!r}"
         raise TypeError(msg)
     return item
 
