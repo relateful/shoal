@@ -298,6 +298,17 @@ def test_a_layout_view_holds_at_most_forty_components() -> None:
         view.to_components()
 
 
+def test_a_layout_view_holds_at_most_4000_characters_of_text() -> None:
+    # Counted across every text display, including those inside containers and sections.
+    view = LayoutView().add_item(TextDisplay("x" * 2000))
+    view.add_item(Container(Section("x" * 1999, accessory=Thumbnail("https://e.com/a.png"))))
+    view.add_item(TextDisplay("x"))
+    view.to_components()
+    view.add_item(TextDisplay("x"))
+    with pytest.raises(ValueError, match="hold 4001 characters; Discord allows at most 4000"):
+        view.to_components()
+
+
 def test_component_ids_are_unique_but_zero_means_unset() -> None:
     LayoutView().add_item(TextDisplay("a", id=0)).add_item(TextDisplay("b", id=0)).to_components()
     twice = LayoutView().add_item(TextDisplay("a", id=4)).add_item(Container(TextDisplay("b", id=4)))

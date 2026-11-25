@@ -293,6 +293,10 @@ async def test_a_submission_fills_every_kind_of_input() -> None:
 def test_a_modal_refuses_what_discord_would() -> None:
     with pytest.raises(ValueError, match="at most 5 items"):
         Survey().add_item(TextDisplay("one too many"))
+    wordy = Modal(title="x").add_item(TextDisplay("x" * 2000)).add_item(TextDisplay("x" * 2000))
+    wordy.to_modal()
+    with pytest.raises(ValueError, match="hold 4001 characters"):
+        wordy.add_item(TextDisplay("x")).to_modal()
     with pytest.raises(ValueError, match="needs a label"):
         Modal(title="x").add_item(TextInput()).to_modal()
     twice = (

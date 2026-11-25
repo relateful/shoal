@@ -15,6 +15,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- A `LayoutView` or `Modal` whose text displays hold more than 4,000 characters together (sections
+  and containers included) raises `ValueError` before it is sent, as does one `ui.TextDisplay` over
+  that: Discord now documents the limit (docs#8562).
+  `shoal.payloads.TEXT_DISPLAY_MAX_LENGTH` holds it.
 - `ApplicationIdentity.user_id` is always set now that Discord documents it (docs#8737); it was
   optional while only Discord's examples showed it.
 - `GatewayCapabilities.channel_obfuscation` no longer has any effect: Discord obfuscates channels

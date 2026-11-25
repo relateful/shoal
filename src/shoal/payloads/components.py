@@ -154,6 +154,12 @@ SELECT_PLACEHOLDER_MAX_LENGTH: Final = 150
 Discord: https://docs.discord.com/developers/components/reference#string-select-string-select-structure
 """
 
+TEXT_DISPLAY_MAX_LENGTH: Final = 4000
+"""Characters across every text display in a message or modal, so also in any one of them.
+
+Discord: https://docs.discord.com/developers/components/reference#text-display
+"""
+
 TEXT_INPUT_MAX_LENGTH: Final = 4000
 """Characters a text input can hold, and the most its `min_length` and `max_length` can be.
 

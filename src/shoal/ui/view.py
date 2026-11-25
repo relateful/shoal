@@ -52,7 +52,7 @@ from shoal.payloads.components import (
 from shoal.payloads.components import ActionRow as ActionRowPayload
 from shoal.payloads.interactions import ComponentInteraction, ResolvedData
 from shoal.ui.action_row import ActionRow, RowItem, row_item
-from shoal.ui.content import File, MediaGallery, Separator, TextDisplay
+from shoal.ui.content import File, MediaGallery, Separator, TextDisplay, check_text_total
 from shoal.ui.defaults import VIEW_TIMEOUT
 from shoal.ui.item import (
     ITEM_FACTORY,
@@ -362,7 +362,8 @@ class LayoutView(BaseView[LayoutItem]):
         """The components to send. Sending the view also starts its timeout.
 
         Raises:
-            ValueError: An item is outside Discord's limits, or the message holds too many components.
+            ValueError: An item is outside Discord's limits, or the message holds too many components
+                or too much text.
         """
         self._validate()
         if self.has_components_v2():
@@ -370,6 +371,7 @@ class LayoutView(BaseView[LayoutItem]):
             if total > MESSAGE_MAX_COMPONENTS:
                 msg = f"{self!r}: a message holds at most {MESSAGE_MAX_COMPONENTS} components, not {total}"
                 raise ValueError(msg)
+            check_text_total(self, self.walk_children())
         elif len(self._children) > LEGACY_MESSAGE_MAX_ACTION_ROWS:
             msg = f"{self!r}: a message of action rows only holds {LEGACY_MESSAGE_MAX_ACTION_ROWS} of them"
             raise ValueError(msg)

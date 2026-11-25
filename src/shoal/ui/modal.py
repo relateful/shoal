@@ -39,7 +39,7 @@ from shoal.payloads.interactions import (
     ResolvedData,
 )
 from shoal.payloads.interactions import Modal as ModalPayload
-from shoal.ui.content import TextDisplay
+from shoal.ui.content import TextDisplay, check_text_total
 from shoal.ui.item import (
     InteractiveItem,
     Item,
@@ -156,11 +156,13 @@ class Modal(SubmittableModal):
         """The modal to show. Showing it also starts its timeout.
 
         Raises:
-            ValueError: An item is outside Discord's limits, or a custom ID is used twice.
+            ValueError: An item is outside Discord's limits, its text displays hold too much text, or
+                a custom ID is used twice.
         """
         check_length(self, "title", self.title, MODAL_TITLE_MAX_LENGTH)
         for child in self._children:
             child.validate()
+        check_text_total(self, self.walk_children())
         seen: set[str] = set()
         for item in self.walk_children():
             if isinstance(item, InteractiveItem):
