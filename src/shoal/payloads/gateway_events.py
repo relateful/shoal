@@ -55,7 +55,7 @@ class GatewayPayload(Payload):
 
 
 class GatewayCapabilities(BaseFlags):
-    """Opt-in gateway behaviours sent with Identify.
+    """Opt-in gateway behaviours sent with Identify. Discord currently documents none.
 
     Discord: https://docs.discord.com/developers/events/gateway-events#identify-gateway-capabilities
     """
@@ -63,6 +63,8 @@ class GatewayCapabilities(BaseFlags):
     __slots__ = ()
 
     channel_obfuscation = flag(15)
+    """No longer has any effect: it opted in to obfuscated channels for testing, and Discord has
+    obfuscated channels for every bot since November 16, 2026. Kept so existing code still runs."""
 
 
 class IdentifyConnectionProperties(Payload):

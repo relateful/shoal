@@ -5,10 +5,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Voice: `VoiceConnection.set_media_sink_wants(default=..., ssrcs=...)` chooses whose audio the voice
+  server sends (opcode 15, Media Sink Wants), and `VoiceHello.v` reports the voice gateway version in
+  use (docs#8712).
+
 ### Changed
 
 - `ApplicationIdentity.user_id` is always set now that Discord documents it (docs#8737); it was
   optional while only Discord's examples showed it.
+- `GatewayCapabilities.channel_obfuscation` no longer has any effect: Discord obfuscates channels
+  for every bot since November 16, 2026 and documents no capabilities now (docs#8720). It is kept so
+  existing code still runs.
 
 ## [1.0.1] - 2026-11-09
 
