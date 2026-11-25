@@ -20,7 +20,7 @@ import contextlib
 import logging
 import random
 from collections import deque
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
 from typing import Final, final
 
@@ -36,11 +36,13 @@ from shoal.core.snowflake import Snowflake
 from shoal.core.tasks import cancel_and_wait
 from shoal.gateway.connection import AiohttpGatewayConnector, GatewayConnection, GatewayConnector, MessageKind
 from shoal.payloads.voice_gateway import (
+    MEDIA_SINK_WANT_MAX,
     RTP_PAYLOAD_TYPE,
     VOICE_GATEWAY_VERSION,
     ClientDisconnect,
     ClientsConnect,
     EncryptionMode,
+    MediaSinkWants,
     SelectProtocol,
     SelectProtocolData,
     SessionDescription,
@@ -476,7 +478,7 @@ class VoiceConnection:
         if heartbeat is not None and heartbeat is not asyncio.current_task():
             await cancel_and_wait(heartbeat)
 
-    async def _send(self, op: VoiceOpcode, data: msgspec.Struct) -> None:
+    async def _send(self, op: VoiceOpcode, data: msgspec.Struct | MediaSinkWants) -> None:
         websocket = self._websocket
         if websocket is not None:
             await websocket.send(encode_json({"op": int(op), "d": data}))
@@ -493,6 +495,27 @@ class VoiceConnection:
         """
         speaking = flags if flags is not None else SpeakingFlags(microphone=True)
         await self._send(VoiceOpcode.SPEAKING, Speaking(speaking=speaking, delay=0, ssrc=self._ssrc))
+
+    async def set_media_sink_wants(
+        self, *, default: int = MEDIA_SINK_WANT_MAX, ssrcs: Mapping[int, int] | None = None
+    ) -> None:
+        """Choose whose audio the voice server sends: `ssrcs` maps an SSRC to 0 (none) or 100 (all).
+
+        `default` applies to every SSRC not in `ssrcs`: `default=0, ssrcs={ssrc: 100}` receives one
+        user only. Each call replaces the last, so list every SSRC each time. A user's SSRC is in
+        `VoicePacket.ssrc` and the Speaking messages. A new connection receives everyone again.
+
+        Raises:
+            ValueError: A value is outside 0 to 100.
+
+        Discord: https://docs.discord.com/developers/topics/voice-connections#media-sink-wants
+        """
+        wanted = {"any": default, **{str(ssrc): value for ssrc, value in (ssrcs or {}).items()}}
+        for key, value in wanted.items():
+            if not 0 <= value <= MEDIA_SINK_WANT_MAX:
+                msg = f"media sink wants for {key} must be from 0 to {MEDIA_SINK_WANT_MAX}, not {value}"
+                raise ValueError(msg)
+        await self._send(VoiceOpcode.MEDIA_SINK_WANTS, wanted)
 
     def send_frame(self, opus: bytes) -> None:
         """Send one Opus packet: end-to-end encrypted while DAVE is in effect, then sealed.

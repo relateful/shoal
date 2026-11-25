@@ -22,6 +22,12 @@ IP_DISCOVERY_LENGTH: Final = 70
 Discord: https://docs.discord.com/developers/topics/voice-connections#ip-discovery
 """
 
+MEDIA_SINK_WANT_MAX: Final = 100
+"""The highest Media Sink Wants value: every packet of the stream (0 is none of it).
+
+Discord: https://docs.discord.com/developers/topics/voice-connections#media-sink-wants
+"""
+
 OPUS_CHANNELS: Final = 2
 """Channels of the Opus audio Discord expects: stereo.
 
@@ -89,6 +95,7 @@ class VoiceOpcode(DiscordIntEnum):
     RESUMED = 9
     CLIENTS_CONNECT = 11
     CLIENT_DISCONNECT = 13
+    MEDIA_SINK_WANTS = 15
     DAVE_PREPARE_TRANSITION = 21
     DAVE_EXECUTE_TRANSITION = 22
     DAVE_TRANSITION_READY = 23
@@ -217,8 +224,6 @@ class SelectProtocol(Payload):
 class VoiceReady(Payload):
     """Opcode 2: the bot's SSRC, the voice server's UDP address, and the encryption modes it offers.
 
-    Its `heartbeat_interval` is erroneous and not read: the interval comes from `VoiceHello`.
-
     Discord: https://docs.discord.com/developers/topics/voice-connections#establishing-a-voice-websocket-connection-example-voice-ready-payload
     """
 
@@ -288,12 +293,23 @@ class VoiceResume(Payload):
 
 
 class VoiceHello(Payload):
-    """Opcode 8: how often to heartbeat, in milliseconds.
+    """Opcode 8: how often to heartbeat, in milliseconds, and the voice gateway version in use.
 
     Discord: https://docs.discord.com/developers/topics/voice-connections#heartbeating-example-hello-payload
     """
 
     heartbeat_interval: float
+    v: int | UnsetType = UNSET
+    """The voice gateway version of the connection: the one asked for, or the latest if newer."""
+
+
+type MediaSinkWants = dict[str, int]
+"""Opcode 15: how much of each SSRC's media to receive, from 0 to 100, keyed by SSRC as a string.
+
+The `any` key applies to every SSRC not listed. Each one sent replaces the last.
+
+Discord: https://docs.discord.com/developers/topics/voice-connections#media-sink-wants
+"""
 
 
 class ClientsConnect(Payload):
