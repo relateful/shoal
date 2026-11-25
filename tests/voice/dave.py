@@ -100,7 +100,7 @@ async def test_an_unusable_commit_or_welcome_asks_to_be_re_added_once(
     await state.start(1)
     sent.binary.clear()
     with caplog.at_level(logging.WARNING, logger="shoal.voice"):
-        await state.handle_binary(VoiceOpcode.DAVE_MLS_ANNOUNCE_COMMIT_TRANSITION, b"\x00\x03not a commit")
+        await state.handle_binary(VoiceOpcode.DAVE_MLS_WELCOME, b"\x00\x03not a welcome")
         await state.handle_binary(VoiceOpcode.DAVE_MLS_WELCOME, b"\x00\x04not a welcome")
     assert sent.json == [(VoiceOpcode.DAVE_MLS_INVALID_COMMIT_WELCOME, {"transition_id": 3})]
     assert [opcode for opcode, _ in sent.binary] == [VoiceOpcode.DAVE_MLS_KEY_PACKAGE]
@@ -109,6 +109,20 @@ async def test_an_unusable_commit_or_welcome_asks_to_be_re_added_once(
     await state.handle(VoiceOpcode.DAVE_PREPARE_TRANSITION, raw({"protocol_version": 1, "transition_id": 0}))
     await state.handle_binary(VoiceOpcode.DAVE_MLS_WELCOME, b"\x00\x05not a welcome")
     assert sent.json[-1] == (VoiceOpcode.DAVE_MLS_INVALID_COMMIT_WELCOME, {"transition_id": 5})
+
+
+async def test_a_commit_ignored_before_the_group_exists_is_not_an_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    state, sent = dave()
+    await state.start(1)
+    sent.binary.clear()
+    with caplog.at_level(logging.WARNING, logger="shoal.voice"):
+        # davey ignores a commit while no group is established: no recovery, no acknowledgement.
+        await state.handle_binary(VoiceOpcode.DAVE_MLS_ANNOUNCE_COMMIT_TRANSITION, b"\x00\x03not a commit")
+    assert sent.json == []
+    assert sent.binary == []
+    assert caplog.text == ""
 
 
 async def test_proposals_that_cannot_be_used_are_logged_and_skipped(caplog: pytest.LogCaptureFixture) -> None:
