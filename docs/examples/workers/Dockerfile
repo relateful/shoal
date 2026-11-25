@@ -4,7 +4,7 @@
 # One image for the three roles; docker-compose.yml picks the role with its command.
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir --pre "shoal[zstd]"
+RUN pip install --no-cache-dir "shoal[zstd]"
 
 WORKDIR /app
 COPY docs/examples/workers/app ./app

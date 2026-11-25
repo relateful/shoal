@@ -13,7 +13,7 @@ requires-python = ">=3.12"
 authors = [{ name = "Shoal contributors" }]
 keywords = ["discord", "discord-api", "bot", "asyncio", "gateway", "sharding"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -40,7 +40,7 @@ interactions = [
 redis = ["redis>=5.2"]
 voice = [
     "cryptography>=50.0.2",
-    "davey>=0.1.7",
+    "davey>=0.2.0",
 ]
 all = ["shoal[interactions,prometheus,redis,voice,zstd]"]
 
@@ -52,7 +52,7 @@ Issues = "https://github.com/relateful/shoal/issues"
 [dependency-groups]
 dev = [
     "cryptography>=50.0.2",
-    "davey>=0.1.7",
+    "davey>=0.2.0",
     "fakeredis[lua]>=2.26",
     "hypothesis>=6.170",
     "import-linter>=2.15",

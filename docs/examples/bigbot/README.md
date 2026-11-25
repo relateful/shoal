@@ -37,7 +37,7 @@ all: Prometheus reaches it on the Compose network.
 Without Docker, from this folder:
 
 ```bash
-pip install --pre "shoal[prometheus,zstd]"   # Shoal from PyPI
+pip install "shoal[prometheus,zstd]"         # Shoal from PyPI
 set -a; . ./.env; set +a
 python -m bigbot                             # metrics on http://127.0.0.1:9100/metrics
 ```

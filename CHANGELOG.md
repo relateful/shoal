@@ -7,6 +7,40 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Voice: `VoiceConnection.set_media_sink_wants(default=..., ssrcs=...)` chooses whose audio the voice
+  server sends (opcode 15, Media Sink Wants), and `VoiceHello.v` reports the voice gateway version in
+  use (docs#8712).
+- `Embed.audio` (`EmbedAudio`) and `EmbedType.AUDIO`, for the embeds Discord now adds to direct links
+  to audio files (docs#8741).
+
+### Changed
+
+- A `LayoutView` or `Modal` whose text displays hold more than 4,000 characters together (sections
+  and containers included) raises `ValueError` before it is sent, as does one `ui.TextDisplay` over
+  that: Discord now documents the limit (docs#8562).
+  `shoal.payloads.TEXT_DISPLAY_MAX_LENGTH` holds it.
+- `ApplicationIdentity.user_id` is always set now that Discord documents it (docs#8737); it was
+  optional while only Discord's examples showed it.
+- `GatewayCapabilities.channel_obfuscation` no longer has any effect: Discord obfuscates channels
+  for every bot since November 16, 2026 and documents no capabilities now (docs#8720). It is kept so
+  existing code still runs.
+
+### Fixed
+
+- Voice: DAVE works with davey 0.2, which `shoal[voice]` now requires. davey 0.2 no longer switches
+  keys while processing a commit or welcome, so with it installed (anyone installing `shoal[voice]`
+  since its release) the call's key never changed at a transition. Shoal now prepares each transition
+  and switches the key when Discord executes it, and a commit davey ignores is no longer treated
+  as unusable.
+
+## [1.0.1] - 2026-11-09
+
+The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`
+no longer needs `--pre`. There is no 1.0.0: an earlier, unrelated project named `shoal` used that
+version on PyPI, which never accepts a version twice.
+
+### Added
+
 - Permissions as Discord computes them (Discord, October 31, 2026):
   `guild.fetch_permissions(member_or_role)` and `channel.fetch_permissions(member_or_role, implicit=...)`
   (threads too), and
@@ -16,13 +50,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
   (Discord, October 31, 2026).
 - Forum and media posts can open with a Components V2 message: `ForumChannel.create_thread(view=...)`
   with a `LayoutView` sets `is_components_v2` on the first message (Discord, November 2, 2026).
-
-### Changed
-
-- A `LayoutView` or `Modal` whose text displays hold more than 4,000 characters together (sections
-  and containers included) raises `ValueError` before it is sent, as does one `ui.TextDisplay` over
-  that: Discord now documents the limit (Discord, November 3, 2026).
-  `shoal.payloads.TEXT_DISPLAY_MAX_LENGTH` holds it.
 
 ### Removed
 

@@ -5,7 +5,7 @@ apply to both; `ctx.send` answers the interaction for a slash use and sends a me
 use.
 
 ```bash
-pip install --pre shoal                       # Shoal from PyPI
+pip install shoal                             # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 export DISCORD_GUILD_ID=your-test-server-id   # optional: slash commands appear there at once
 python bot.py

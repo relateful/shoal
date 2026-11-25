@@ -34,7 +34,7 @@ The gateway logs the workers disconnecting and reconnecting, and nothing else: n
 `GUILD_CREATE` flood. Without Docker, run the three roles from this folder, in this order:
 
 ```bash
-pip install --pre "shoal[zstd]"   # Shoal from PyPI
+pip install "shoal[zstd]"         # Shoal from PyPI
 set -a; . ./.env; set +a
 python -m app.proxy
 python -m app.gateway             # in another terminal

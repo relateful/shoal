@@ -331,4 +331,5 @@ is stored. To release `X.Y.Z`:
    GitHub release with that section as its notes (`scripts/release_notes.py`).
 
 PyPI never accepts the same version twice, even after a deletion: a broken release is fixed with a
-new version. Pre-releases (`X.Y.ZaN`, `bN`, `rcN`) are marked as such on GitHub.
+new version. An earlier, unrelated project named `shoal` used 0.1.0 to 0.6.0, 1.0.0rc0 and 1.0.0
+there, so those versions can never be released. Pre-releases (`X.Y.ZaN`, `bN`, `rcN`) are marked as such on GitHub.

@@ -4,7 +4,7 @@ Records what happens in a server in a `#logs` channel: edited and deleted messag
 and leaving, nickname and role changes.
 
 ```bash
-pip install --pre shoal   # Shoal from PyPI
+pip install shoal         # Shoal from PyPI
 export DISCORD_TOKEN=your-bot-token
 python bot.py
 ```
