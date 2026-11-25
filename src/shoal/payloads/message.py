@@ -125,6 +125,8 @@ class EmbedType(DiscordStrEnum):
     """
 
     ARTICLE = "article"
+    AUDIO = "audio"
+    """A direct link to an audio file, shown with an inline player."""
     COMPONENTS = "components"
     GIFV = "gifv"
     IMAGE = "image"
@@ -207,6 +209,18 @@ class EmbedVideo(Payload):
     flags: EmbedMediaFlags | UnsetType = UNSET
 
 
+class EmbedAudio(Payload):
+    """An embed's audio: Discord adds it for a direct link to an audio file.
+
+    Discord: https://docs.discord.com/developers/resources/message#embed-object-embed-audio-structure
+    """
+
+    url: str | UnsetType = UNSET
+    proxy_url: str | UnsetType = UNSET
+    content_type: str | UnsetType = UNSET
+    description: str | UnsetType = UNSET
+
+
 class EmbedProvider(Payload):
     """The site an embed came from.
 
@@ -256,6 +270,7 @@ class Embed(Payload):
     image: EmbedImage | UnsetType = UNSET
     thumbnail: EmbedImage | UnsetType = UNSET
     video: EmbedVideo | UnsetType = UNSET
+    audio: EmbedAudio | UnsetType = UNSET
     provider: EmbedProvider | UnsetType = UNSET
     author: EmbedAuthor | UnsetType = UNSET
     fields: list[EmbedField] | UnsetType = UNSET

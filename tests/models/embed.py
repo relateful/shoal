@@ -81,6 +81,18 @@ def test_parts_can_be_removed() -> None:
     assert embed.thumbnail is None
 
 
+def test_an_audio_link_embed_round_trips() -> None:
+    data = {
+        "type": "audio",
+        "url": "https://example.com/a.mp3",
+        "audio": {"url": "https://example.com/a.mp3"},
+    }
+    embed = Embed.from_dict(data)
+    assert embed.audio is not None
+    assert embed.audio.url == "https://example.com/a.mp3"
+    assert embed.to_dict() == data
+
+
 def test_received_embeds_round_trip() -> None:
     data = {"title": "t", "type": "rich", "provider": {"name": "YouTube"}, "video": {"url": "v"}}
     embed = Embed.from_dict(data)

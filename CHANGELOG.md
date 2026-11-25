@@ -5,6 +5,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `Embed.audio` (`EmbedAudio`) and `EmbedType.AUDIO`, for the embeds Discord now adds to direct links
+  to audio files (docs#8741).
+
 ## [1.0.1] - 2026-11-09
 
 The first stable release: public names follow Semantic Versioning from here, and `pip install shoal`

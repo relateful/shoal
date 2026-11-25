@@ -17,7 +17,15 @@ from shoal.core.codec import JSONObject, decode_json, encode_json
 from shoal.models.base import unset_if_none
 from shoal.models.colour import Colour
 from shoal.payloads.message import Embed as EmbedPayload
-from shoal.payloads.message import EmbedAuthor, EmbedField, EmbedFooter, EmbedImage, EmbedProvider, EmbedVideo
+from shoal.payloads.message import (
+    EmbedAudio,
+    EmbedAuthor,
+    EmbedField,
+    EmbedFooter,
+    EmbedImage,
+    EmbedProvider,
+    EmbedVideo,
+)
 
 
 def _value[T](value: T | UnsetType) -> T | None:
@@ -147,6 +155,11 @@ class Embed:
     def video(self) -> EmbedVideo | None:
         """The video, on embeds Discord generated from a link."""
         return _value(self._data.video)
+
+    @property
+    def audio(self) -> EmbedAudio | None:
+        """The audio, on embeds Discord generated from a link to an audio file."""
+        return _value(self._data.audio)
 
     @property
     def provider(self) -> EmbedProvider | None:
