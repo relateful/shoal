@@ -187,6 +187,8 @@ class Dave:
 
     async def _prepare_transition(self, transition_id: int, protocol_version: int) -> None:
         self._pending = (transition_id, protocol_version)
+        if protocol_version > 0 and self._session is not None:
+            self._session.prepare_transition(transition_id, protocol_version)
         if transition_id == 0:
             self._execute_transition(0)
             return
@@ -203,6 +205,9 @@ class Dave:
         if pending is None or pending[0] != transition_id:
             return
         previous, self._version = self._version, pending[1]
+        if self._session is not None:
+            # davey switches the key only here (transition 0 switched when it was prepared).
+            self._session.execute_transition(transition_id)
         if previous != self._version and self._version == 0:
             self._downgraded = True
         elif transition_id > 0 and self._downgraded:
@@ -233,8 +238,10 @@ class Dave:
         try:
             if opcode is VoiceOpcode.DAVE_MLS_WELCOME:
                 self._session.process_welcome(payload[2:])
+                usable = True
             else:
-                self._session.process_commit(payload[2:])
+                # False: ignored, with no group established or no proposals queued; not an error.
+                usable = self._session.process_commit(payload[2:])
         except ValueError:
             _log.warning(
                 "DAVE %s for transition %d could not be processed; asking to be re-added",
@@ -243,6 +250,10 @@ class Dave:
             )
             await self._recover(transition_id)
             return
+        if not usable:
+            _log.debug("DAVE commit for transition %d ignored", transition_id)
+            return
+        self._session.prepare_transition(transition_id, self._version)
         if transition_id == 0:
             self._reinitializing = False
             return
