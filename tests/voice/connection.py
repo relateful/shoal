@@ -71,6 +71,17 @@ async def test_the_handshake_follows_discords_order() -> None:
     assert await connection.closed is None
 
 
+async def test_media_sink_wants_name_every_ssrc_and_the_rest() -> None:
+    connection, connector, _ = await connected()
+    await connection.set_media_sink_wants(default=0, ssrcs={110: 100})
+    assert connector.opened[0].sent[-1] == {"op": 15, "d": {"any": 0, "110": 100}}
+    await connection.set_media_sink_wants()
+    assert connector.opened[0].sent[-1] == {"op": 15, "d": {"any": 100}}
+    with pytest.raises(ValueError, match="from 0 to 100"):
+        await connection.set_media_sink_wants(ssrcs={110: 101})
+    await connection.close()
+
+
 async def test_frames_go_out_sealed_numbered_and_timed() -> None:
     connection, connector, transports = await connected()
     await connection.speak()

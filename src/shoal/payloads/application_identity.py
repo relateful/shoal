@@ -18,8 +18,8 @@ class ApplicationIdentity(Payload):
     Discord: https://docs.discord.com/developers/resources/application-identity-profile#application-identity-object
     """
 
-    user_id: Snowflake | UnsetType = UNSET
-    """In the identity listings; Discord's table leaves it out, its examples include it."""
+    user_id: Snowflake
+    """The Discord user's ID."""
     provider_type: str
     provider_id: str | UnsetType = UNSET
     """Left out when empty."""

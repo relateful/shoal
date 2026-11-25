@@ -657,6 +657,7 @@ from shoal.payloads.voice import (
 )
 from shoal.payloads.voice_gateway import (
     IP_DISCOVERY_LENGTH,
+    MEDIA_SINK_WANT_MAX,
     OPUS_CHANNELS,
     OPUS_SAMPLE_RATE,
     RTP_HEADER_SIZE,
@@ -673,6 +674,7 @@ from shoal.payloads.voice_gateway import (
     DavePrepareTransition,
     DaveTransitionReady,
     EncryptionMode,
+    MediaSinkWants,
     SelectProtocol,
     SelectProtocolData,
     SessionDescription,
@@ -764,6 +766,7 @@ __all__ = [
     "MAJOR_PARAMETERS",
     "MEDIA_DESCRIPTION_MAX_LENGTH",
     "MEDIA_GALLERY_MAX_ITEMS",
+    "MEDIA_SINK_WANT_MAX",
     "MEMBER_QUERY_MAX_RESULTS",
     "MESSAGE_CONTENT_MAX_LENGTH",
     "MESSAGE_MAX_COMPONENTS",
@@ -1114,6 +1117,7 @@ __all__ = [
     "Media",
     "MediaGallery",
     "MediaGalleryItem",
+    "MediaSinkWants",
     "MembershipState",
     "MentionableSelect",
     "Message",

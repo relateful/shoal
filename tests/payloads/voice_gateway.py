@@ -8,6 +8,7 @@ from shoal.payloads.voice_gateway import (
     Speaking,
     SpeakingFlags,
     VoiceCloseCode,
+    VoiceHello,
     VoiceIdentify,
     VoiceOpcode,
     VoicePayload,
@@ -53,3 +54,9 @@ def test_identify_hides_its_token() -> None:
     )
     assert "secret" not in repr(identify)
     assert msgspec.json.decode(encode_json(identify))["token"] == "secret"
+
+
+def test_hello_reports_the_voice_gateway_version() -> None:
+    hello = decode_json(b'{"heartbeat_interval":41250,"v":8}', VoiceHello)
+    assert (hello.heartbeat_interval, hello.v) == (41250, 8)
+    assert decode_json(b'{"op":15,"d":{"any":100,"2":0}}', VoicePayload).op is VoiceOpcode.MEDIA_SINK_WANTS
